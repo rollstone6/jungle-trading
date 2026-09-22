@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jungle 天才交易员持仓工作台</title>
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+    <div class="container">
+        <header class="topbar">
+            <h1>Jungle 天才交易员持仓工作台</h1>
+            <p class="subtitle">数据驱动 · 理性决策</p>
+        </header>
+
+        <!-- 账户概览 -->
+        <section class="account-summary">
+            <div class="account-item">
+                <span class="label">本金</span>
+                <span class="value">{{ "{:,.2f}".format(summary.principal) }}</span>
+            </div>
+            <div class="account-item">
+                <span class="label">总资产</span>
+                <span class="value">{{ "{:,.2f}".format(summary.total_asset) }}</span>
+            </div>
+            <div class="account-item">
+                <span class="label">总市值</span>
+                <span class="value">{{ "{:,.2f}".format(summary.total_market_value) }}</span>
+            </div>
+            <div class="account-item {% if summary.total_pnl < 0 %}loss{% elif summary.total_pnl > 0 %}gain{% endif %}">
+                <span class="label">总盈亏</span>
+                <span class="value">
+                    {% if summary.total_pnl >= 0 %}+{% endif %}{{ "{:,.2f}".format(summary.total_pnl) }}
+                    <small>({% if summary.total_pnl_pct >= 0 %}+{% endif %}{{ "%.2f"|format(summary.total_pnl_pct) }}%)</small>
+                </span>
+            </div>
+        </section>
+
+        <!-- 当前持仓 -->
+        <section class="positions-section">
+            <h2>当前持仓</h2>
+            <div class="position-list">
+                {% for pos in positions %}
+                <article class="position-card {% if pos.risk_level == '高' %}danger{% endif %}">
+                    <div class="position-main">
+                        <div>
+                            <strong>{{ pos.name }}</strong>
+                            <small>{{ pos.code }} · {{ pos.sector }}</small>
+                        </div>
+                        <p class="badge">{{ pos.badge }}</p>
+                    </div>
+                    
+                    <div class="position-main compact-price">
+                        <div class="position-price">
+                            <span>最新价</span>
+                            <strong>{{ "%.3f"|format(pos.latest_price) }}</strong>
+                        </div>
+                        <div class="position-price">
+                            <span>涨跌幅</span>
+                            <span class="{% if pos.change_pct < 0 %}loss{% elif pos.change_pct > 0 %}gain{% endif %}">
+                                {% if pos.change_pct >= 0 %}+{% endif %}{{ "%.2f"|format(pos.change_pct) }}%
+                            </span>
+                        </div>
+                    </div>
+                    
+                    <div class="metric-row">
+                        <span>数量 {{ "{:,}".format(pos.quantity) }}</span>
+                        <span>成本 {{ "%.3f"|format(pos.cost_price) }}</span>
+                        <span>仓位 {{ "%.1f"|format(pos.weight) }}%</span>
+                        <span class="{% if pos.pnl < 0 %}loss{% elif pos.pnl > 0 %}gain{% endif %}">
+                            盈亏 {% if pos.pnl >= 0 %}+{% endif %}{{ "{:,.2f}".format(pos.pnl) }} / {% if pos.pnl_pct >= 0 %}+{% endif %}{{ "%.2f"|format(pos.pnl_pct) }}%
+                        </span>
+                    </div>
+                    
+                    <h3 class="subhead tech-title">技术面</h3>
+                    <div class="tech-pills">
+                        <span><b>现价</b>{{ "%.3f"|format(pos.latest_price) }}</span>
+                        {% if pos.ma5 > 0 %}<span><b>5日线</b>{{ "%.3f"|format(pos.ma5) }}</span>{% endif %}
+                        {% if pos.ma20 > 0 %}<span><b>20日线</b>{{ "%.3f"|format(pos.ma20) }}</span>{% endif %}
+                        {% if pos.ma60 > 0 %}<span><b>60日线</b>{{ "%.3f"|format(pos.ma60) }}</span>{% endif %}
+                        {% if pos.volume_ratio > 0 %}<span><b>量比/20日均量</b>{{ "%.2f"|format(pos.volume_ratio) }}</span>{% endif %}
+                    </div>
+                    
+                    {% if pos.kline %}
+                    <div class="kline-card">
+                        <div class="kline-head">
+                            <strong>日K</strong>
+                        </div>
+                        <div class="mini-kline" data-kline='{{ pos.kline|tojson }}'></div>
+                    </div>
+                    {% endif %}
+                    
+                    {% if pos.news %}
+                    <h3 class="subhead news-title">消息面</h3>
+                    <ul class="news-list">
+                        {% for item in pos.news %}
+                        <li>
+                            {{ item.date }}：
+                            <a href="{{ item.url }}" target="_blank">{{ item.title }}</a>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    {% endif %}
+                    
+                    {% if pos.risk_notes %}
+                    <h3 class="subhead">风控判断</h3>
+                    <ul class="risk-list">
+                        {% for note in pos.risk_notes %}
+                        <li>{{ note }}</li>
+                        {% endfor %}
+                    </ul>
+                    {% endif %}
+                </article>
+                {% endfor %}
+            </div>
+        </section>
+
+        <!-- AI策略报告 -->
+        {% if current_date %}
+        <section class="report-section">
+            <h2>AI策略报告</h2>
+            <div class="report-meta">
+                <span>日期：{{ current_date }}</span>
+                <span>更新：{{ report_time }}</span>
+            </div>
+            <div class="report-content">
+                <!-- 报告内容会通过 JS 动态加载 -->
+            </div>
+        </section>
+        {% endif %}
+
+        <!-- 情绪天气 -->
+        <section class="mood-weather" data-pnl-percent="{{ summary.total_pnl_pct }}">
+            <div class="weather-sky">
+                <span class="weather-sun"></span>
+                <span class="weather-cloud cloud-a"></span>
+                <span class="weather-cloud cloud-b"></span>
+                <div class="weather-rain"></div>
+            </div>
+            <div class="weather-content">
+                <small>Jungle 情绪天气</small>
+                <h2 data-mood-title>计算中</h2>
+                <p data-mood-copy>正在读取账户气压。</p>
+                <div class="pressure-row">
+                    <span>账户气压</span>
+                    <strong data-pressure-text>-- / 100</strong>
+                </div>
+                <div class="pressure-track">
+                    <span data-pressure-bar></span>
+                </div>
+                <p class="persona" data-persona>今日交易人格：读取中</p>
+            </div>
+        </section>
+
+        <!-- 更新持仓按钮（维护模式） -->
+        {% if is_update_mode %}
+        <section class="update-section">
+            <button data-open-position-modal class="update-btn">更新持仓</button>
+        </section>
+        {% endif %}
+        
+        <!-- 回测入口 -->
+        <section class="backtest-entry">
+            <a href="/backtest?pwd={{ pwd }}" class="backtest-link">
+                🧪 量化回测实验室 →
+            </a>
+        </section>
+    </div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>

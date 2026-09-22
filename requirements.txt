@@ -1,0 +1,9 @@
+fastapi==0.115.0
+uvicorn[standard]==0.30.0
+jinja2==3.1.4
+httpx==0.27.0
+apscheduler==3.10.4
+python-dateutil==2.9.0
+backtrader2==1.9.76.123
+zipline-reloaded==3.1.1
+vnpy==4.0.0
