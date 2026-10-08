@@ -15,12 +15,12 @@ import pandas as pd
 from datetime import datetime, timedelta
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-from config import (
+from app.quant.config import (
     StrategyConfig,
     STOCK_LIST_LEAD_LAG,
     STOCK_LIST,
 )
-from data import (
+from app.quant.data import (
     load_real_data,
     load_copper_futures,
     load_fund_flow,
@@ -28,7 +28,7 @@ from data import (
     load_all_stocks_filtered,
     parallel_fetch_dispatch,
 )
-from strategies import (
+from app.quant.strategies import (
     BreakoutPullbackEngine,
     LeadLagEngine,
     PairTradingEngine,
@@ -36,15 +36,15 @@ from strategies import (
     MeanReversionEngine,
     AccumulationEngine,
 )
-from backtesting import run_backtest
-from utils import run_box_detection, TrendFilter, ChipDistributionAnalyzer
+from app.quant.backtesting import run_backtest
+from app.quant.utils import run_box_detection, TrendFilter, ChipDistributionAnalyzer
 
 
 # 全量处理时的并发线程数（可根据网络情况调整）
 MAX_WORKERS = 50
 
 # 结果输出文件
-RESULT_FILE = os.path.join(os.path.dirname(__file__), "result.txt")
+RESULT_FILE = os.path.join(os.path.dirname(os.path.dirname(__file__)), "result.txt")
 
 
 def calc_start_date(lookback_days):

@@ -17,9 +17,9 @@
 import pandas as pd
 import talib
 
-from config import StrategyConfig
-from core.signal import Signal, SignalFrame
-from core.strategy_base import StrategyBase
+from app.quant.config import StrategyConfig
+from app.quant.core.signal import Signal, SignalFrame
+from app.quant.core.strategy_base import StrategyBase
 
 
 class MeanReversionEngine(StrategyBase):

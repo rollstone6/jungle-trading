@@ -10,7 +10,7 @@ import time
 import numpy as np
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-from config import StrategyConfig
+from app.quant.config import StrategyConfig
 
 
 class ChipDistributionAnalyzer:
@@ -398,7 +398,7 @@ class ChipDistributionAnalyzer:
         返回:
             list: 扫描结果列表，按评分降序排列
         """
-        from data.fetcher import load_real_data
+        from app.quant.data.fetcher import load_real_data
 
         results = []
         total = len(stock_list)
@@ -515,7 +515,7 @@ class ChipDistributionAnalyzer:
 
 
 if __name__ == "__main__":
-    from config import STOCK_LIST
+    from app.quant.config import STOCK_LIST
 
     analyzer = ChipDistributionAnalyzer()
     analyzer.scan_stocks(STOCK_LIST)

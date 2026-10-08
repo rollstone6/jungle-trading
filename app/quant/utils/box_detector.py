@@ -8,7 +8,7 @@
 """
 
 import numpy as np
-from config import StrategyConfig, STOCK_LIST
+from app.quant.config import StrategyConfig, STOCK_LIST
 
 
 class BoxDetector:
@@ -229,7 +229,7 @@ class BoxDetector:
         返回:
             list: 处于箱体的股票信息列表
         """
-        from data.fetcher import load_real_data
+        from app.quant.data.fetcher import load_real_data
         
         box_stocks = []
         

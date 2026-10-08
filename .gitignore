@@ -34,6 +34,11 @@ Thumbs.db
 # Logs
 *.log
 
+# 量化模块运行产物（原 fi_quant/.gitignore 合并于此）
+cache/
+backtest_results/
+result.txt
+
 # Backups
 *.backup
 *.bak

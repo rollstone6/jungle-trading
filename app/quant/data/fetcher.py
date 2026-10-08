@@ -9,7 +9,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import pandas as pd
 
-from data.cache import (
+from app.quant.data.cache import (
     get_mem_cache,
     get_mem_cache_safe,
     load_disk_cache,
@@ -17,7 +17,7 @@ from data.cache import (
     set_mem_cache,
     set_mem_cache_safe,
 )
-from data.providers import (
+from app.quant.data.providers import (
     fetch_copper_futures,
     fetch_eastmoney,
     fetch_fund_flow,

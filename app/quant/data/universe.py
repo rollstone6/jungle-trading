@@ -5,8 +5,8 @@
 
 from __future__ import annotations
 
-from data.cache import get_mem_cache, set_mem_cache
-from data.providers import fetch_all_stocks, fetch_with_retry
+from app.quant.data.cache import get_mem_cache, set_mem_cache
+from app.quant.data.providers import fetch_all_stocks, fetch_with_retry
 
 
 def load_all_stocks(verbose: bool = True) -> list[dict]:

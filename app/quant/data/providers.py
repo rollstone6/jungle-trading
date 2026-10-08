@@ -21,11 +21,11 @@ os.environ["no_proxy"] = "*"
 os.environ["HTTP_PROXY"] = ""
 os.environ["HTTPS_PROXY"] = ""
 
-# 先加载 .env（fi_quant/.env），再读 TUSHARE_TOKEN；
+# 先加载仓库根目录的 .env，再读 TUSHARE_TOKEN；
 # .env 中显式设置的代理环境变量也会覆盖上面的清空操作。
 try:
     from dotenv import load_dotenv
-    load_dotenv(Path(__file__).resolve().parent.parent / ".env")
+    load_dotenv(Path(__file__).resolve().parents[3] / ".env")
 except ImportError:
     pass  # python-dotenv 未安装时退回纯环境变量方式
 

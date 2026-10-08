@@ -11,10 +11,10 @@ from typing import TYPE_CHECKING
 
 import pandas as pd
 
-from core.signal import SignalFrame
+from app.quant.core.signal import SignalFrame
 
 if TYPE_CHECKING:
-    from config import StrategyConfig
+    from app.quant.config import StrategyConfig
 
 
 class StrategyBase(ABC):

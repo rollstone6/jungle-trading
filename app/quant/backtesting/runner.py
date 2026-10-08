@@ -9,19 +9,19 @@ from pathlib import Path
 
 import pandas as pd
 
-# 支持直接 `python backtesting/runner.py` 运行：
-# 脚本方式执行时 sys.path[0] 是 backtesting/ 本身，包内相对导入会失败，这里把 fi_quant
-# 根目录补进搜索路径（-m 方式不受影响）。
+# 支持直接 `python app/quant/backtesting/runner.py` 运行：
+# 脚本方式执行时 sys.path[0] 是 runner 所在目录，仓库根的包导入会失败，
+# 这里把仓库根目录补进搜索路径（-m 方式不受影响）。
 if __package__ in (None, ""):
-    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+    sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
-from backtesting.engine import BacktestConfig, UnifiedBacktester
-from config import STOCK_LIST, StrategyConfig
-from core.strategy_base import StrategyBase
-from data.fetcher import load_real_data
-from strategies.breakout import BreakoutPullbackEngine
-from strategies.mean_reversion import MeanReversionEngine
-from strategies.accumulation import AccumulationEngine
+from app.quant.backtesting.engine import BacktestConfig, UnifiedBacktester
+from app.quant.config import STOCK_LIST, StrategyConfig
+from app.quant.core.strategy_base import StrategyBase
+from app.quant.data.fetcher import load_real_data
+from app.quant.strategies.breakout import BreakoutPullbackEngine
+from app.quant.strategies.mean_reversion import MeanReversionEngine
+from app.quant.strategies.accumulation import AccumulationEngine
 
 #: 策略注册表
 STRATEGY_REGISTRY: dict[str, type[StrategyBase]] = {

@@ -17,7 +17,7 @@
 import pandas as pd
 import talib
 
-from config import StrategyConfig
+from app.quant.config import StrategyConfig
 
 
 class LeadLagEngine:

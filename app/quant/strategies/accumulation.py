@@ -18,10 +18,10 @@ import pandas as pd
 import numpy as np
 import talib
 
-from config import StrategyConfig
-from core.signal import Signal, SignalFrame
-from core.strategy_base import StrategyBase
-from utils.chip_distribution import ChipDistributionAnalyzer
+from app.quant.config import StrategyConfig
+from app.quant.core.signal import Signal, SignalFrame
+from app.quant.core.strategy_base import StrategyBase
+from app.quant.utils.chip_distribution import ChipDistributionAnalyzer
 
 
 class AccumulationEngine(StrategyBase):

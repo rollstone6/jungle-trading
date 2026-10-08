@@ -21,7 +21,7 @@ _DATA_CACHE: dict[str, Any] = {}
 _CACHE_LOCK = threading.Lock()
 
 # 磁盘缓存配置
-CACHE_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "cache")
+CACHE_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))), "cache")
 ENABLE_DISK_CACHE = True
 
 

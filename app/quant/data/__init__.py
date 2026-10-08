@@ -3,7 +3,7 @@
 提供行情数据获取、缓存管理、股票池管理等功能。
 """
 
-from data.cache import (
+from app.quant.data.cache import (
     clear_cache,
     clear_disk_cache,
     get_mem_cache,
@@ -11,7 +11,7 @@ from data.cache import (
     save_disk_cache,
     set_mem_cache,
 )
-from data.fetcher import (
+from app.quant.data.fetcher import (
     load_copper_futures,
     load_fund_flow,
     load_margin_trading,
@@ -19,7 +19,7 @@ from data.fetcher import (
     parallel_fetch_dispatch,
     parallel_fetch_simple,
 )
-from data.universe import (
+from app.quant.data.universe import (
     load_all_stocks,
     load_all_stocks_filtered,
 )

@@ -10,7 +10,7 @@ import time
 import talib
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-from config import StrategyConfig
+from app.quant.config import StrategyConfig
 
 
 class TrendFilter:
@@ -270,7 +270,7 @@ class TrendFilter:
                 - result: 筛选结果 dict
                 - df: 日线数据（可用于后续策略，避免重复获取）
         """
-        from data.fetcher import load_real_data
+        from app.quant.data.fetcher import load_real_data
 
         symbol = stock['symbol']
 
@@ -502,7 +502,7 @@ class TrendFilter:
 
 
 if __name__ == "__main__":
-    from config import STOCK_LIST
+    from app.quant.config import STOCK_LIST
 
     tf = TrendFilter()
     tf.filter_pool(STOCK_LIST)
