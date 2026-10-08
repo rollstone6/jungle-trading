@@ -240,9 +240,18 @@
                 <label>选择股票</label>
                 <select id="stock-select">
                     <option value="">请选择...</option>
-                    {% for pos in positions %}
-                    <option value="{{ pos.code }}">{{ pos.name }} ({{ pos.code }})</option>
-                    {% endfor %}
+                    <optgroup label="📈 当前持仓">
+                        {% for pos in positions %}
+                        <option value="{{ pos.code }}">{{ pos.name }} ({{ pos.code }})</option>
+                        {% endfor %}
+                    </optgroup>
+                    {% if quant_pool %}
+                    <optgroup label="🧪 量化股票池（与 app/quant 策略共用）">
+                        {% for s in quant_pool %}
+                        <option value="{{ s.symbol }}">{{ s.name }} ({{ s.symbol }})</option>
+                        {% endfor %}
+                    </optgroup>
+                    {% endif %}
                 </select>
             </div>
             

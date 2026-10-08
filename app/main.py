@@ -20,6 +20,8 @@ from app.services.portfolio import (
     calc_risk, get_summary
 )
 from app.services.reports import get_available_dates, get_report
+# 量化策略统一股票池（与 app/quant 各策略共用同一份）
+from app.quant.config import STOCK_LIST
 
 # backtrader / zipline / vnpy 三个回测引擎均为重量级可选依赖，
 # 改为在路由内懒加载，缺装时返回 503 而不是拖垮整个应用启动。
@@ -257,10 +259,25 @@ async def get_strategies(date: str, request: Request, pwd: str = check_password)
 async def backtest_page(request: Request, pwd: str = check_password):
     """回测页面"""
     positions = get_all_positions()
+    held_codes = {p["code"] for p in positions}
+    # 量化股票池：与 app/quant 策略共用 STOCK_LIST，剔除已持仓的避免重复
+    seen = set()
+    quant_pool = []
+    for s in STOCK_LIST:
+        symbol = s["symbol"]
+        if symbol in held_codes or symbol in seen:
+            continue
+        seen.add(symbol)
+        quant_pool.append(s)
     return templates.TemplateResponse(
         request,
         "backtest.html",
-        {"request": request, "positions": positions, "pwd": pwd}
+        {
+            "request": request,
+            "positions": positions,
+            "quant_pool": quant_pool,
+            "pwd": pwd,
+        }
     )
 
 
@@ -292,18 +309,18 @@ async def run_backtest_api(request: Request, pwd: str = check_password):
     if not code:
         raise HTTPException(status_code=400, detail="缺少股票代码")
     
-    # 获取K线数据
+    # 获取K线数据：优先用持仓表缓存；缓存没有（如量化股票池的股票）则实时拉取
     conn = get_db()
     row = conn.execute("SELECT kline_data FROM positions WHERE code=?", (code,)).fetchone()
     conn.close()
-    
-    if not row or not row["kline_data"]:
-        raise HTTPException(status_code=404, detail="未找到该股票的K线数据")
-    
-    klines = json.loads(row["kline_data"])
-    
+
+    klines = json.loads(row["kline_data"]) if row and row["kline_data"] else []
     if len(klines) < 30:
-        raise HTTPException(status_code=400, detail="K线数据不足，至少需要30天")
+        from app.services.market import fetch_kline_tencent
+        klines = await fetch_kline_tencent(code, days=250, full_date=True)
+
+    if len(klines) < 30:
+        raise HTTPException(status_code=404, detail="K线数据不足，至少需要30天")
     
     # 运行回测（引擎模块懒加载，缺装时返回 503；zipline 无策略参数）
     if engine in ("backtrader", "zipline", "vnpy"):

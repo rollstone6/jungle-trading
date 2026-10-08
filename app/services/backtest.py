@@ -107,19 +107,28 @@ class MACDStrategy(bt.Strategy):
 
 
 def kline_to_dataframe(klines: List[Dict]) -> pd.DataFrame:
-    """将 kline 数据转换为 backtrader 需要的 DataFrame"""
+    """将 kline 数据转换为 backtrader 需要的 DataFrame
+
+    兼容两种日期格式：
+    - MM-DD（持仓缓存格式，补当前年份）
+    - YYYY-MM-DD（实时拉取的长周期数据，跨年安全）
+    """
     if not klines:
         return pd.DataFrame()
-    
+
     df = pd.DataFrame(klines)
-    # 添加当前年份到日期字符串
     current_year = datetime.now().year
-    df['date'] = pd.to_datetime(
-        df['date'].apply(lambda x: f"{current_year}-{x}"),
-        format='%Y-%m-%d'
-    )
-    df.set_index('date', inplace=True)
-    df = df[['open', 'high', 'low', 'close', 'volume']]
+
+    def _parse_date(x):
+        x = str(x)
+        if len(x) >= 10:
+            return pd.to_datetime(x)
+        return pd.to_datetime(f"{current_year}-{x}", format="%Y-%m-%d")
+
+    df["date"] = df["date"].apply(_parse_date)
+    df = df.sort_values("date")
+    df.set_index("date", inplace=True)
+    df = df[["open", "high", "low", "close", "volume"]]
     df = df.astype(float)
     return df
 

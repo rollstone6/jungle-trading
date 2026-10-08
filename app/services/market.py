@@ -85,8 +85,12 @@ async def fetch_kline_baidu(code: str, days: int = 120) -> list[dict]:
     return await fetch_kline_tencent(code, days)
 
 
-async def fetch_kline_tencent(code: str, days: int = 120) -> list[dict]:
-    """腾讯日K线 - 备用"""
+async def fetch_kline_tencent(code: str, days: int = 120, full_date: bool = False) -> list[dict]:
+    """腾讯日K线 - 备用
+
+    full_date=True 时保留完整 YYYY-MM-DD 日期（跨年的长周期数据回测用），
+    默认仍归一化为 MM-DD（持仓缓存格式）。
+    """
     prefix = "sh" if code.startswith("6") else "sz"
     url = f"https://web.ifzq.gtimg.cn/appstock/app/fqkline/get?param={prefix}{code},day,,,{days},qfq"
 
@@ -101,8 +105,8 @@ async def fetch_kline_tencent(code: str, days: int = 120) -> list[dict]:
             klines = []
             for item in raw:
                 date_str = item[0]
-                # Normalize date to MM-DD
-                if len(date_str) >= 10:
+                # Normalize date to MM-DD unless full_date requested
+                if not full_date and len(date_str) >= 10:
                     date_str = date_str[5:]
                 klines.append({
                     "date": date_str,
