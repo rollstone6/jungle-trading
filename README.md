@@ -1,174 +1,162 @@
-# Jungle 天才交易员持仓工作台
+# Jungle Trading —— 个人量化交易工作台
 
-复刻自 http://121.43.208.121:40326 的股票持仓追踪和AI策略分析系统。
+一个all in one的A股量化交易仓库，包含两个相互配合的子系统：
+
+| 子系统 | 目录 | 形态 | 用途 |
+|---|---|---|---|
+| **持仓工作台** | `app/` | FastAPI Web 应用（端口 8090） | 持仓追踪、实时行情、K线分析、AI 策略报告、回测 API |
+| **量化研究模块** | `fi_quant/` | Python 库 + 交互式 CLI | 多策略信号扫描、统一日线回测引擎、筹码/箱体分析 |
+
+---
 
 ## 功能特性
 
-- 📊 **账户概览** - 本金、总资产、总市值、总盈亏
-- 📈 **持仓管理** - 多只股票持仓，实时行情更新
-- 🔍 **技术分析** - K线图、均线系统（5/10/20/60日）、量比
-- 📰 **消息面** - 东方财富公告自动抓取
-- ⚠️ **风控系统** - 自动计算仓位风险、盈亏预警
-- 🌤️ **情绪天气** - 基于盈亏的账户情绪指标
-- 🤖 **AI策略报告** - 支持Markdown格式的AI分析报告
+### 持仓工作台（app/）
 
-## 技术栈
+- 📊 **账户概览** —— 本金、总资产、总市值、总盈亏、情绪天气指标
+- 📈 **持仓管理** —— 多只股票持仓，腾讯财经实时行情每 15 分钟自动刷新
+- 🔍 **技术分析** —— 自绘 SVG K线图、MA5/10/20/60 均线系统、量比
+- 📰 **消息面** —— 东方财富公告自动抓取
+- ⚠️ **风控系统** —— 自动计算仓位风险、盈亏预警、单票风险等级
+- 🤖 **AI 策略报告** —— 读取 `reports/` 下的 Markdown 报告并在页面展示
+- 🔬 **三套回测引擎** —— Backtrader（`app/services/backtest.py`）、Zipline（`zipline_backtest.py`）、vnpy（`vnpy_service.py`），经 `/backtest` 页面和 API 调用
 
-- **后端**: FastAPI + SQLite
-- **数据源**: 腾讯财经（实时行情）、百度股市通（K线）、东方财富（公告）
-- **前端**: Jinja2模板 + 原生JavaScript + 自定义SVG K线图
-- **部署**: Uvicorn ASGI服务器
+### 量化研究模块（fi_quant/）
+
+- 扫描模式：股票池模式（默认 13 只）/ 全量 A 股模式（菜单按 `S` 切换）
+- 6 个内置策略：
+
+| 策略 | 引擎类 | 思路 |
+|---|---|---|
+| 突破回踩 | `BreakoutPullbackEngine` | 箱体突破后回踩确认，放量启动 |
+| 产业链动量滞后 | `LeadLagEngine` | 上游（铜/覆铜板）异动后找下游补涨 |
+| 铜价配对交易 | `PairTradingEngine` | 沪铜期货与铜相关股票的 lead-lag |
+| 聪明资金追踪 | `SmartMoneyEngine` | 主力资金流/北向/龙虎榜行为 |
+| 均值回归+周期共振 | `MeanReversionEngine` | 超跌反弹叠加行业周期位置过滤 |
+| 主力吸筹 | `AccumulationEngine` | 筹码分布识别底部吸筹形态 |
+
+- 统一回测：收盘出信号 → 次日开盘成交，含手续费、印花税、滑点、止损/移动止损/止盈/跳空止损/最长持仓期
+- 数据源级联：磁盘缓存 → Tushare → 东方财富 → 新浪财经 → 腾讯财经（自动降级重试）
+
+---
 
 ## 快速启动
 
 ```bash
 cd jungle-trading
 
-# 安装依赖（Web 工作台 + 量化模块已合并为一份清单）
+# 安装全部依赖（Web + 量化一份清单）
 pip install -r requirements.txt
 
-# 启动 Web 工作台
+# 1) 启动 Web 工作台
 python scripts/run.py
+# 访问 http://localhost:8090/?pwd=0mGecaPX3duCfVXhEb
 
-# 量化信号扫描 / 回测（交互式菜单）
-cd fi_quant && python main.py
+# 2) 量化信号扫描 / 回测（另一个终端）
+cd fi_quant && python main.py        # 交互式菜单：1-8 扫描，9 回测，10 筹码分析
 ```
 
-访问地址：`http://localhost:8090/?pwd=0mGecaPX3duCfVXhEb`
+单独跑回测：
+
+```bash
+cd fi_quant
+python -m backtesting.runner --strategy breakout --start-date 20240101
+python -m backtesting.runner --strategy mean_reversion --symbols 601366,300823
+```
+
+> 注意：回测模块请用 `python -m backtesting.runner` 或主菜单调用；
+> 直接 `python backtesting/runner.py` 会因 Python 路径机制找不到 `backtesting` 包。
+
+### Tushare Token（可选）
+
+不配也能跑（自动走东方财富等免费源）。要启用 Tushare：
+
+```bash
+export TUSHARE_TOKEN=你的token        # Windows: setx TUSHARE_TOKEN 你的token
+```
+
+（`fi_quant/.env.example` 为模板；当前版本从环境变量读取 token。）
+
+---
 
 ## 项目结构
 
 ```
 jungle-trading/
-├── app/                       # Web 工作台（FastAPI）
-│   ├── main.py                # FastAPI主应用
-│   ├── models/
-│   │   └── database.py        # SQLite数据库模型
+├── app/                       # ===== Web 工作台 =====
+│   ├── main.py                # FastAPI 主应用：页面路由 + 回测 API + 定时刷新
+│   ├── models/database.py     # SQLite：account / positions / reports 三张表
 │   └── services/
-│       ├── market.py          # 行情数据服务（腾讯/百度/东方财富）
-│       ├── portfolio.py       # 持仓和风控计算
-│       └── reports.py         # AI报告服务
-├── fi_quant/                  # 量化信号扫描与日线回测模块
-│   ├── main.py                # 交互式扫描菜单（信号/回测/筹码分析）
-│   ├── backtesting/           # 统一回测引擎与入口（engine/runner）
-│   ├── core/                  # 信号框架与策略基类
-│   ├── data/                  # 多源行情获取（Tushare/东财/新浪/腾讯 + 缓存）
-│   ├── strategies/            # 6个策略（突破回踩/均值回归/主力吸筹等）
-│   └── utils/                 # 箱体识别/筹码分布/趋势过滤
+│       ├── market.py          # 行情：腾讯实时 / 百度K线 / 东财公告
+│       ├── portfolio.py       # 持仓计算与风控
+│       ├── reports.py         # Markdown 报告读取
+│       ├── backtest.py        # Backtrader 回测
+│       ├── zipline_backtest.py# Zipline 回测
+│       └── vnpy_service.py    # vnpy 实盘/回测
+├── fi_quant/                  # ===== 量化研究模块 =====
+│   ├── main.py                # 交互式扫描菜单（882 行，全部策略入口）
+│   ├── config.py              # StrategyConfig：策略参数与 13 只默认股票池
+│   ├── core/                  # Signal / SignalFrame / StrategyBase 抽象基类
+│   ├── data/                  # fetcher（级联取数）/ providers / cache / universe
+│   ├── strategies/            # 6 个策略引擎
+│   ├── backtesting/           # engine（统一回测引擎）+ runner（CLI 入口）
+│   └── utils/                 # 箱体识别 / 筹码分布 / 趋势过滤
 ├── scripts/
-│   ├── run.py                 # 启动 Web 工作台
-│   └── refresh.py             # 手动刷新行情脚本
+│   ├── run.py                 # 启动 uvicorn（端口 8090，--reload）
+│   └── refresh.py             # 手动刷新全部持仓行情（crontab 用）
 ├── tests/
-│   └── test_backtest.py       # 回测功能测试
+│   └── test_backtest.py       # 回测服务冒烟测试
 ├── archive/
-│   └── fi_quant_backtest_legacy.py  # 已归档的旧版回测引擎（无引用，仅留档）
-├── static/                    # 前端静态资源
-├── templates/                 # Jinja2模板
-├── reports/                   # AI报告目录（Markdown文件）
-├── data/                      # SQLite数据库
-└── requirements.txt           # Python依赖（Web + 量化合并清单）
+│   └── fi_quant_backtest_legacy.py  # 旧版引擎留档（无引用，勿改）
+├── static/  templates/        # 前端资源（Jinja2 + 原生 JS + SVG K线）
+├── reports/                   # AI 策略报告（YYYYMMDD_ai_report.md）
+├── data/                      # SQLite 数据库文件
+└── requirements.txt           # 合并后的统一依赖清单
 ```
 
-## API接口
+## 数据流
 
-### 页面访问
-- `GET /?pwd=xxx` - 主页面
-- `GET /?pwd=xxx&update=1` - 维护模式（显示更新持仓按钮）
-
-### 数据接口
-- `POST /api/positions/manual` - 手动更新持仓
-- `GET /api/reports/strategies?date=YYYY-MM-DD` - 获取AI策略报告
-
-## 数据源
-
-1. **腾讯财经** - 实时股票报价
-   - 接口: `https://qt.gtimg.cn/q=sh603629,sz002281`
-   - 更新频率: 交易时间内实时
-
-2. **百度股市通** - 日K线数据
-   - 接口: 百度财经API
-   - 更新频率: 每日收盘后
-
-3. **东方财富** - 公司公告
-   - 接口: 东方财富公告API
-   - 更新频率: 每日抓取最新公告
-
-## AI报告格式
-
-在 `reports/` 目录放置Markdown文件，命名格式：`YYYYMMDD_ai_report.md`
-
-示例：
-```markdown
-# 2026-07-06 持仓策略报告
-
-## 一、账户状态
-- 总资产：261,460.99
-- 总盈亏：-38,539.01 (-12.85%)
-
-## 二、利通电子策略
-结论：继续禁止补仓，观察除权后表现。
-
-- 关键价位：125.06 / 126.46
-- 风险：单票仓位过大
-
-## 三、操作计划
-1. 开盘观察
-2. 10:00前判断强弱
-3. 14:30后决定是否减仓
 ```
+行情源            Web 工作台                       量化模块
+──────           ──────────                       ────────
+腾讯实时 ─┐      ┌─ market.py ──► positions 表    ┌─ data/providers.py（Tushare/东财/新浪/腾讯）
+百度K线 ──┼────► │                 └─► index 页面  │      └─► 磁盘缓存 + 内存缓存
+东财公告 ─┘      ├─ portfolio.py ─► 风控/盈亏       ├─ strategies/*.py ─► SignalFrame
+                 ├─ reports.py ──► reports 表      ├─ backtesting/engine.py ─► 成交/资金曲线
+Tushare ──┐      └─ backtest*.py ◄─ /backtest API  └─ backtesting/runner.py ─► backtest_results/
+akshare ──┴────► fi_quant/data/fetcher.py（级联降级，缓存命中则跳过网络）
+```
+
+---
+
+## API 一览
+
+| 方法 | 路径 | 说明 |
+|---|---|---|
+| GET | `/?pwd=xxx` | 主页面 |
+| GET | `/?pwd=xxx&update=1` | 维护模式（更新持仓） |
+| POST | `/api/positions/manual` | 手动更新持仓 |
+| GET | `/api/reports/strategies?date=YYYY-MM-DD` | 获取 AI 策略报告 |
+| GET | `/backtest` | 回测页面 |
+| GET | `/api/backtest/strategies` | 列出可用回测策略 |
+| POST | `/api/backtest/run` | 运行回测 |
 
 ## 定时任务（可选）
 
-使用cron定时刷新行情：
-
 ```bash
-# 交易日 9:30-15:00 每15分钟刷新（路径换成你的仓库实际位置）
+# 交易日 9:30-15:00 每15分钟刷新行情（路径换成你的仓库实际位置）
 */15 9-14 * * 1-5 cd /path/to/jungle-trading && python scripts/refresh.py
 */15 15 * * 1-5 cd /path/to/jungle-trading && python scripts/refresh.py
 ```
 
 ## 维护说明
 
-### 更新持仓（维护模式）
-1. 访问 `http://localhost:8090/?pwd=0mGecaPX3duCfVXhEb&update=1`
-2. 点击"更新持仓"按钮
-3. 输入股票代码、数量、成本价
-4. 提交后自动刷新行情
+- **更新持仓**：访问维护模式 → 点「更新持仓」→ 输入代码/数量/成本价
+- **添加 AI 报告**：在 `reports/` 下创建 `YYYYMMDD_ai_report.md`，页面自动识别
+- **初始化持仓**：首次启动若持仓表为空，会自动写入 4 只示例持仓（利通电子、工商银行、光迅科技、券商ETF）
 
-### 添加AI报告
-1. 在 `reports/` 目录创建 `YYYYMMDD_ai_report.md`
-2. 写入Markdown格式的分析报告
-3. 页面会自动识别并显示
+## 已知事项
 
-### 数据库备份
-```bash
-cp data/jungle.db data/jungle.db.backup
-```
-
-## 与原版对比
-
-| 功能 | 原版 | 复刻版 |
-|------|------|--------|
-| 技术栈 | FastAPI + MySQL | FastAPI + SQLite |
-| 部署 | Docker + Nginx | 单机Uvicorn |
-| 行情源 | 腾讯/百度/东方财富 | 腾讯/百度/东方财富 ✓ |
-| K线图 | 自定义SVG | 自定义SVG ✓ |
-| AI报告 | GPT-5.5生成 | 手动Markdown |
-| OCR识别 | 截图识别持仓 | 手动输入 ✓ |
-| 定时任务 | APScheduler | 可选Cron |
-
-## 开发日志
-
-**2026-07-07**
-- ✅ 项目结构搭建
-- ✅ 数据库模型设计
-- ✅ 行情API集成（腾讯/百度/东方财富）
-- ✅ 持仓计算和风控逻辑
-- ✅ 前端模板渲染
-- ✅ K线图交互功能
-- ✅ 情绪天气组件
-- ✅ API接口（手动更新持仓、AI报告）
-
-## 许可
-
-复刻项目仅供学习参考。
+- `app.main` 依赖 backtrader / zipline-reloaded / vnpy，未安装时 Web 回测功能不可用，其余页面不受影响
+- `backtesting` 目录名与 PyPI 上的 `backtesting` 包同名，避免 `pip install backtesting` 到同一环境
+- 数据库为单文件 SQLite（`data/`），适合个人单机使用，勿多进程并发写
