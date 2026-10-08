@@ -147,6 +147,184 @@ class BollingerBandsStrategy(bt.Strategy):
         self.order = None
 
 
+class BollingerMACDStrategy(bt.Strategy):
+    """MACD趋势过滤 + 布林高卖低买（综合策略）
+
+    只在 MACD 多头状态（DIF > DEA）中做布林均值回归：
+    - 买入：收盘触/破下轨（超卖低吸）
+    - 卖出：收盘触上轨（高抛）或 MACD 死叉（趋势走坏止损）
+    """
+    params = (
+        ('period', 20),
+        ('devfactor', 2.0),
+        ('fast_period', 12),
+        ('slow_period', 26),
+        ('signal_period', 9),
+    )
+
+    def __init__(self):
+        self.dataclose = self.datas[0].close
+        self.order = None
+
+        self.bbands = bt.indicators.BollingerBands(
+            self.datas[0], period=self.params.period, devfactor=self.params.devfactor
+        )
+        self.macd = bt.indicators.MACD(
+            self.datas[0],
+            period_me1=self.params.fast_period,
+            period_me2=self.params.slow_period,
+            period_signal=self.params.signal_period,
+        )
+
+    def next(self):
+        if self.order:
+            return
+
+        trend_up = self.macd.macd[0] > self.macd.signal[0]
+        if not self.position:
+            if trend_up and self.dataclose[0] <= self.bbands.lines.bot[0]:
+                self.order = self.buy()
+        else:
+            if (self.dataclose[0] >= self.bbands.lines.top[0]
+                    or self.macd.macd[0] < self.macd.signal[0]):
+                self.order = self.sell()
+
+    def notify_order(self, order):
+        if order.status in [order.Submitted, order.Accepted]:
+            return
+        self.order = None
+
+
+class MAMACDStrategy(bt.Strategy):
+    """均线多头 + MACD金叉共振（综合策略）
+
+    - 买入：收盘价站上 20 日线 且 MACD 金叉（趋势与动能共振）
+    - 卖出：跌破 20 日线 或 MACD 死叉
+    """
+    params = (
+        ('ma_period', 20),
+        ('fast_period', 12),
+        ('slow_period', 26),
+        ('signal_period', 9),
+    )
+
+    def __init__(self):
+        self.dataclose = self.datas[0].close
+        self.order = None
+
+        self.sma = bt.indicators.SimpleMovingAverage(self.datas[0], period=self.params.ma_period)
+        macd = bt.indicators.MACD(
+            self.datas[0],
+            period_me1=self.params.fast_period,
+            period_me2=self.params.slow_period,
+            period_signal=self.params.signal_period,
+        )
+        self.crossover = bt.indicators.CrossOver(macd.macd, macd.signal)
+
+    def next(self):
+        if self.order:
+            return
+
+        if not self.position:
+            if self.dataclose[0] > self.sma[0] and self.crossover[0] > 0:
+                self.order = self.buy()
+        else:
+            if self.dataclose[0] < self.sma[0] or self.crossover[0] < 0:
+                self.order = self.sell()
+
+    def notify_order(self, order):
+        if order.status in [order.Submitted, order.Accepted]:
+            return
+        self.order = None
+
+
+class RSIBollingerStrategy(bt.Strategy):
+    """RSI超卖 + 布林下轨双重确认（综合策略）
+
+    - 买入：RSI < 30 且收盘触/破布林下轨（双重超卖）
+    - 卖出：回到中轨 或 RSI > 70
+    """
+    params = (
+        ('period', 20),
+        ('devfactor', 2.0),
+        ('rsi_period', 14),
+        ('rsi_oversold', 30),
+        ('rsi_overbought', 70),
+    )
+
+    def __init__(self):
+        self.dataclose = self.datas[0].close
+        self.order = None
+
+        self.bbands = bt.indicators.BollingerBands(
+            self.datas[0], period=self.params.period, devfactor=self.params.devfactor
+        )
+        self.rsi = bt.indicators.RSI(self.datas[0], period=self.params.rsi_period)
+
+    def next(self):
+        if self.order:
+            return
+
+        if not self.position:
+            if (self.rsi[0] < self.params.rsi_oversold
+                    and self.dataclose[0] <= self.bbands.lines.bot[0]):
+                self.order = self.buy()
+        else:
+            if (self.dataclose[0] >= self.bbands.lines.mid[0]
+                    or self.rsi[0] > self.params.rsi_overbought):
+                self.order = self.sell()
+
+    def notify_order(self, order):
+        if order.status in [order.Submitted, order.Accepted]:
+            return
+        self.order = None
+
+
+class MACDVolumeStrategy(bt.Strategy):
+    """MACD金叉 + 放量确认（综合策略）
+
+    - 买入：MACD 金叉 且成交量 > 20日均量 x 1.5（过滤无量弱金叉）
+    - 卖出：MACD 死叉
+    """
+    params = (
+        ('fast_period', 12),
+        ('slow_period', 26),
+        ('signal_period', 9),
+        ('vol_period', 20),
+        ('vol_mult', 1.5),
+    )
+
+    def __init__(self):
+        self.dataclose = self.datas[0].close
+        self.order = None
+
+        macd = bt.indicators.MACD(
+            self.datas[0],
+            period_me1=self.params.fast_period,
+            period_me2=self.params.slow_period,
+            period_signal=self.params.signal_period,
+        )
+        self.crossover = bt.indicators.CrossOver(macd.macd, macd.signal)
+        self.vol_ma = bt.indicators.SimpleMovingAverage(self.datas[0].volume, period=self.params.vol_period)
+
+    def next(self):
+        if self.order:
+            return
+
+        if not self.position:
+            if (self.crossover[0] > 0
+                    and self.datas[0].volume[0] > self.vol_ma[0] * self.params.vol_mult):
+                self.order = self.buy()
+        else:
+            if self.crossover[0] < 0:
+                self.order = self.sell()
+
+    def notify_order(self, order):
+        if order.status in [order.Submitted, order.Accepted]:
+            return
+        self.order = None
+
+
 def kline_to_dataframe(klines: List[Dict]) -> pd.DataFrame:
     """将 kline 数据转换为 backtrader 需要的 DataFrame
 
@@ -222,6 +400,14 @@ def run_backtest(
         cerebro.addstrategy(MACDStrategy, **kwargs)
     elif strategy_name == 'boll':
         cerebro.addstrategy(BollingerBandsStrategy, **kwargs)
+    elif strategy_name == 'boll_macd':
+        cerebro.addstrategy(BollingerMACDStrategy, **kwargs)
+    elif strategy_name == 'ma_macd':
+        cerebro.addstrategy(MAMACDStrategy, **kwargs)
+    elif strategy_name == 'rsi_boll':
+        cerebro.addstrategy(RSIBollingerStrategy, **kwargs)
+    elif strategy_name == 'macd_vol':
+        cerebro.addstrategy(MACDVolumeStrategy, **kwargs)
     else:
         return {
             'success': False,
@@ -315,6 +501,53 @@ def get_available_strategies() -> List[Dict]:
             'params': {
                 'period': 20,
                 'devfactor': 2.0,
+            }
+        },
+        {
+            'name': 'boll_macd',
+            'display_name': '布林+MACD（趋势中的高卖低买）',
+            'description': 'MACD金叉状态中触下轨低吸，触上轨高抛或死叉止损',
+            'params': {
+                'period': 20,
+                'devfactor': 2.0,
+                'fast_period': 12,
+                'slow_period': 26,
+                'signal_period': 9,
+            }
+        },
+        {
+            'name': 'ma_macd',
+            'display_name': '均线+MACD共振',
+            'description': '站上20日线且MACD金叉买入，破线或死叉卖出',
+            'params': {
+                'ma_period': 20,
+                'fast_period': 12,
+                'slow_period': 26,
+                'signal_period': 9,
+            }
+        },
+        {
+            'name': 'rsi_boll',
+            'display_name': 'RSI+布林双重超卖',
+            'description': 'RSI<30且触下轨买入，回中轨或RSI>70卖出',
+            'params': {
+                'period': 20,
+                'devfactor': 2.0,
+                'rsi_period': 14,
+                'rsi_oversold': 30,
+                'rsi_overbought': 70,
+            }
+        },
+        {
+            'name': 'macd_vol',
+            'display_name': 'MACD+放量确认',
+            'description': 'MACD金叉且量超20日均量1.5倍买入，死叉卖出',
+            'params': {
+                'fast_period': 12,
+                'slow_period': 26,
+                'signal_period': 9,
+                'vol_period': 20,
+                'vol_mult': 1.5,
             }
         },
     ]

@@ -305,6 +305,7 @@ async def run_backtest_api(request: Request, pwd: str = check_password):
     strategy = data.get("strategy", "ma")
     initial_cash = data.get("initial_cash", 100000)
     engine = data.get("engine", "backtrader")
+    commission = data.get("commission", 0.001)  # 单边手续费率，默认千一
     
     if not code:
         raise HTTPException(status_code=400, detail="缺少股票代码")
@@ -338,7 +339,7 @@ async def run_backtest_api(request: Request, pwd: str = check_password):
         if engine == "zipline":
             result = run_fn(klines, initial_cash)
         else:
-            result = run_fn(klines, strategy, initial_cash)
+            result = run_fn(klines, strategy, initial_cash, commission=commission)
     else:
         raise HTTPException(status_code=400, detail="不支持的回测引擎")
     
