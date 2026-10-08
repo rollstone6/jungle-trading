@@ -281,7 +281,8 @@
         
         <!-- 回测结果 -->
         <div class="results-section" id="results-section">
-            <h2 style="margin-bottom: 20px;">回测结果</h2>
+            <h2 style="margin-bottom: 12px;">回测结果</h2>
+            <p id="period-info" style="color: #64748b; font-size: 14px; margin: 0 0 20px;"></p>
             <div class="results-grid" id="results-grid">
                 <!-- 动态加载 -->
             </div>
@@ -372,6 +373,16 @@
         
         // 显示结果
         function displayResults(result) {
+            // 回测周期（个别引擎未返回时隐藏）
+            const periodEl = document.getElementById('period-info');
+            if (result.start_date && result.end_date) {
+                periodEl.textContent =
+                    `回测区间：${result.start_date} ~ ${result.end_date} · ${result.total_days} 个交易日`;
+                periodEl.style.display = 'block';
+            } else {
+                periodEl.style.display = 'none';
+            }
+
             const metrics = [
                 { label: '初始资金', value: `¥${result.initial_cash.toLocaleString()}` },
                 { label: '最终价值', value: `¥${result.final_value.toLocaleString()}` },

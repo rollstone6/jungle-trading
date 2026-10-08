@@ -156,6 +156,13 @@ def run_vnpy_backtest(
         # vnpy 的回测需要 BarData 列表
         
         # 返回简化结果
+        # 数据区间（MM-DD 格式补当前年份）
+        _year = datetime.now().year
+        _dates = [
+            d if len(d) >= 10 else f"{_year}-{d}"
+            for d in (str(k.get('date', '')) for k in klines)
+            if d
+        ]
         result = {
             'success': True,
             'strategy': f'vnpy_{strategy_name}',
@@ -166,6 +173,9 @@ def run_vnpy_backtest(
             'max_drawdown': -5.5,
             'total_trades': 8,
             'win_rate': 62.5,
+            'start_date': min(_dates) if _dates else '',
+            'end_date': max(_dates) if _dates else '',
+            'total_days': len(klines),
             'note': 'vnpy 回测需要配置真实数据源和策略类'
         }
         

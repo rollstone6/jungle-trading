@@ -271,6 +271,10 @@ def run_backtest(
         'total_trades': total_trades,
         'win_rate': round(win_rate, 2),
         'annual_return': round(returns.get('rnorm100', 0), 2),
+        # 回测数据区间
+        'start_date': df.index[0].strftime('%Y-%m-%d'),
+        'end_date': df.index[-1].strftime('%Y-%m-%d'),
+        'total_days': len(df),
     }
     
     return result

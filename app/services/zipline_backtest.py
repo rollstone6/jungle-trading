@@ -115,6 +115,9 @@ def run_zipline_backtest(
             'max_drawdown': -8.5,
             'total_trades': 10,
             'win_rate': 60.0,
+            'start_date': start_date or '',
+            'end_date': end_date or '',
+            'total_days': len(klines),
             'note': 'Zipline 需要配置真实数据源才能运行完整回测'
         }
         
