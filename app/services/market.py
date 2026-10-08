@@ -74,7 +74,10 @@ async def fetch_kline_baidu(code: str, days: int = 120) -> list[dict]:
                     "close": float(item.get("close", 0)),
                     "volume": float(item.get("volume", 0)),
                 })
-            return klines
+            # 百度可能返回 200/403 + 空数据体（不抛异常），
+            # 空结果必须落到备用源，不能直接 return
+            if klines:
+                return klines
         except Exception:
             pass
 

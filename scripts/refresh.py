@@ -9,7 +9,7 @@ from pathlib import Path
 # 允许从仓库任意位置运行：python scripts/refresh.py
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from app.models.database import get_db
+from app.models.database import get_db, init_db
 from app.services.market import fetch_realtime_tencent, fetch_kline_baidu, fetch_news_eastmoney, calc_ma, calc_volume_ratio
 
 async def refresh_all():
@@ -77,6 +77,7 @@ async def refresh_all():
     print(f"[{datetime.now().strftime('%H:%M:%S')}] 刷新完成")
 
 def main():
+    init_db()  # 首次运行时自动建库建表
     asyncio.run(refresh_all())
 
 if __name__ == "__main__":

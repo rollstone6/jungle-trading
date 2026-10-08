@@ -56,26 +56,21 @@ python scripts/run.py
 cd fi_quant && python main.py        # 交互式菜单：1-8 扫描，9 回测，10 筹码分析
 ```
 
-单独跑回测：
+单独跑回测（两种方式都可以）：
 
 ```bash
 cd fi_quant
 python -m backtesting.runner --strategy breakout --start-date 20240101
-python -m backtesting.runner --strategy mean_reversion --symbols 601366,300823
+python backtesting/runner.py --strategy mean_reversion --symbols 601366,300823
 ```
-
-> 注意：回测模块请用 `python -m backtesting.runner` 或主菜单调用；
-> 直接 `python backtesting/runner.py` 会因 Python 路径机制找不到 `backtesting` 包。
 
 ### Tushare Token（可选）
 
-不配也能跑（自动走东方财富等免费源）。要启用 Tushare：
+不配也能跑（自动走东方财富等免费源）。要启用 Tushare，复制模板填入 token 即可，程序启动时会自动加载 `fi_quant/.env`：
 
 ```bash
-export TUSHARE_TOKEN=你的token        # Windows: setx TUSHARE_TOKEN 你的token
+cp fi_quant/.env.example fi_quant/.env   # 然后把 your_token_here 换成真实 token
 ```
-
-（`fi_quant/.env.example` 为模板；当前版本从环境变量读取 token。）
 
 ---
 
@@ -157,6 +152,7 @@ akshare ──┴────► fi_quant/data/fetcher.py（级联降级，缓�
 
 ## 已知事项
 
-- `app.main` 依赖 backtrader / zipline-reloaded / vnpy，未安装时 Web 回测功能不可用，其余页面不受影响
+- 三个回测引擎为可选依赖、路由内懒加载：未安装时对应引擎的 API 返回 503 并提示安装命令，不影响其余页面（zipline-reloaded / vnpy 尚不支持 Python 3.14，backtrader2 已可用）
+- 百度股市通 K 线接口已开启风控（403），K 线自动降级到腾讯财经前复权数据，行为透明无需配置
 - `backtesting` 目录名与 PyPI 上的 `backtesting` 包同名，避免 `pip install backtesting` 到同一环境
-- 数据库为单文件 SQLite（`data/`），适合个人单机使用，勿多进程并发写
+- 数据库为单文件 SQLite（`data/`），适合个人单机使用，勿多进程并发写；`scripts/refresh.py` 首次运行会自动建库建表

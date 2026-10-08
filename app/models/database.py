@@ -6,6 +6,8 @@ DB_PATH = Path(__file__).parent.parent.parent / "data" / "jungle.db"
 
 
 def get_db():
+    # 直接调用 get_db（如 scripts/refresh.py）时也要保证目录存在
+    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(str(DB_PATH))
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA journal_mode=WAL")

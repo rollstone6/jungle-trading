@@ -3,10 +3,17 @@
 from __future__ import annotations
 
 import argparse
+import sys
 from datetime import timedelta
 from pathlib import Path
 
 import pandas as pd
+
+# 支持直接 `python backtesting/runner.py` 运行：
+# 脚本方式执行时 sys.path[0] 是 backtesting/ 本身，包内相对导入会失败，这里把 fi_quant
+# 根目录补进搜索路径（-m 方式不受影响）。
+if __package__ in (None, ""):
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from backtesting.engine import BacktestConfig, UnifiedBacktester
 from config import STOCK_LIST, StrategyConfig

@@ -8,6 +8,7 @@ from __future__ import annotations
 import json
 import os
 import time
+from pathlib import Path
 
 import akshare as ak
 import pandas as pd
@@ -19,6 +20,14 @@ os.environ["NO_PROXY"] = "*"
 os.environ["no_proxy"] = "*"
 os.environ["HTTP_PROXY"] = ""
 os.environ["HTTPS_PROXY"] = ""
+
+# 先加载 .env（fi_quant/.env），再读 TUSHARE_TOKEN；
+# .env 中显式设置的代理环境变量也会覆盖上面的清空操作。
+try:
+    from dotenv import load_dotenv
+    load_dotenv(Path(__file__).resolve().parent.parent / ".env")
+except ImportError:
+    pass  # python-dotenv 未安装时退回纯环境变量方式
 
 # Tushare 初始化
 TUSHARE_TOKEN = os.environ.get("TUSHARE_TOKEN", "")

@@ -20,9 +20,29 @@ from app.services.portfolio import (
     calc_risk, get_summary
 )
 from app.services.reports import get_available_dates, get_report
-from app.services.backtest import run_backtest, get_available_strategies
-from app.services.zipline_backtest import run_zipline_backtest
-from app.services.vnpy_service import run_vnpy_backtest, get_vnpy_strategies
+
+# backtrader / zipline / vnpy 三个回测引擎均为重量级可选依赖，
+# 改为在路由内懒加载，缺装时返回 503 而不是拖垮整个应用启动。
+
+
+def _load_backtest_engine(engine: str):
+    """按引擎名懒加载回测模块，未安装时抛 503。"""
+    try:
+        if engine == "backtrader":
+            from app.services.backtest import run_backtest, get_available_strategies
+            return run_backtest, get_available_strategies
+        if engine == "zipline":
+            from app.services.zipline_backtest import run_zipline_backtest
+            return run_zipline_backtest, None
+        if engine == "vnpy":
+            from app.services.vnpy_service import run_vnpy_backtest, get_vnpy_strategies
+            return run_vnpy_backtest, get_vnpy_strategies
+    except ImportError as exc:
+        raise HTTPException(
+            status_code=503,
+            detail=f"回测引擎 {engine} 未安装，请先执行: pip install -r requirements.txt ({exc.name})"
+        )
+    raise HTTPException(status_code=400, detail="不支持的回测引擎")
 
 # Config
 SITE_PASSWORD = os.environ.get("SITE_PASSWORD", "0mGecaPX3duCfVXhEb")
@@ -249,7 +269,13 @@ async def backtest_page(request: Request, pwd: str = check_password):
 @app.get("/api/backtest/strategies")
 async def list_strategies(request: Request, pwd: str = check_password):
     """获取可用的回测策略"""
-    strategies = get_available_strategies() + get_vnpy_strategies()
+    _, get_strategies = _load_backtest_engine("backtrader")
+    strategies = get_strategies()
+    try:
+        _, get_vnpy = _load_backtest_engine("vnpy")
+        strategies += get_vnpy()
+    except HTTPException:
+        pass  # vnpy 未安装时仅返回 backtrader 策略
     return strategies
 
 
@@ -279,13 +305,13 @@ async def run_backtest_api(request: Request, pwd: str = check_password):
     if len(klines) < 30:
         raise HTTPException(status_code=400, detail="K线数据不足，至少需要30天")
     
-    # 运行回测
-    if engine == "backtrader":
-        result = run_backtest(klines, strategy, initial_cash)
-    elif engine == "zipline":
-        result = run_zipline_backtest(klines, initial_cash)
-    elif engine == "vnpy":
-        result = run_vnpy_backtest(klines, strategy, initial_cash)
+    # 运行回测（引擎模块懒加载，缺装时返回 503；zipline 无策略参数）
+    if engine in ("backtrader", "zipline", "vnpy"):
+        run_fn, _ = _load_backtest_engine(engine)
+        if engine == "zipline":
+            result = run_fn(klines, initial_cash)
+        else:
+            result = run_fn(klines, strategy, initial_cash)
     else:
         raise HTTPException(status_code=400, detail="不支持的回测引擎")
     
