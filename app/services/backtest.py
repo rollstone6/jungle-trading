@@ -106,6 +106,47 @@ class MACDStrategy(bt.Strategy):
         self.order = None
 
 
+class BollingerBandsStrategy(bt.Strategy):
+    """布林带均值回归策略
+
+    逻辑：价格触及/跌破下轨视为超卖，买入博反弹；
+    价格回到中轨即卖出止盈（不赌突破上轨）。
+    """
+    params = (
+        ('period', 20),
+        ('devfactor', 2.0),
+        ('printlog', False),
+    )
+
+    def __init__(self):
+        self.dataclose = self.datas[0].close
+        self.order = None
+
+        self.bbands = bt.indicators.BollingerBands(
+            self.datas[0],
+            period=self.params.period,
+            devfactor=self.params.devfactor,
+        )
+
+    def next(self):
+        if self.order:
+            return
+
+        if not self.position:
+            # 收盘跌破下轨 -> 超卖买入
+            if self.dataclose[0] <= self.bbands.lines.bot[0]:
+                self.order = self.buy()
+        else:
+            # 收盘回到中轨上方 -> 止盈卖出
+            if self.dataclose[0] >= self.bbands.lines.mid[0]:
+                self.order = self.sell()
+
+    def notify_order(self, order):
+        if order.status in [order.Submitted, order.Accepted]:
+            return
+        self.order = None
+
+
 def kline_to_dataframe(klines: List[Dict]) -> pd.DataFrame:
     """将 kline 数据转换为 backtrader 需要的 DataFrame
 
@@ -179,6 +220,8 @@ def run_backtest(
         cerebro.addstrategy(MAStrategy, **kwargs)
     elif strategy_name == 'macd':
         cerebro.addstrategy(MACDStrategy, **kwargs)
+    elif strategy_name == 'boll':
+        cerebro.addstrategy(BollingerBandsStrategy, **kwargs)
     else:
         return {
             'success': False,
@@ -253,6 +296,15 @@ def get_available_strategies() -> List[Dict]:
                 'fast_period': 12,
                 'slow_period': 26,
                 'signal_period': 9,
+            }
+        },
+        {
+            'name': 'boll',
+            'display_name': '布林带均值回归',
+            'description': '收盘跌破下轨（超卖）买入，回到中轨止盈卖出',
+            'params': {
+                'period': 20,
+                'devfactor': 2.0,
             }
         },
     ]
