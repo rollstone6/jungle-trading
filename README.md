@@ -22,13 +22,16 @@
 ## 快速启动
 
 ```bash
-cd /root/workspace/jungle-trading
+cd jungle-trading
 
-# 安装依赖
+# 安装依赖（Web 工作台 + 量化模块已合并为一份清单）
 pip install -r requirements.txt
 
-# 启动服务
-python run.py
+# 启动 Web 工作台
+python scripts/run.py
+
+# 量化信号扫描 / 回测（交互式菜单）
+cd fi_quant && python main.py
 ```
 
 访问地址：`http://localhost:8090/?pwd=0mGecaPX3duCfVXhEb`
@@ -37,25 +40,33 @@ python run.py
 
 ```
 jungle-trading/
-├── app/
-│   ├── main.py              # FastAPI主应用
+├── app/                       # Web 工作台（FastAPI）
+│   ├── main.py                # FastAPI主应用
 │   ├── models/
-│   │   └── database.py      # SQLite数据库模型
+│   │   └── database.py        # SQLite数据库模型
 │   └── services/
-│       ├── market.py        # 行情数据服务（腾讯/百度/东方财富）
-│       ├── portfolio.py     # 持仓和风控计算
-│       └── reports.py       # AI报告服务
-├── static/
-│   ├── styles.css           # 样式表（原版）
-│   ├── app.js               # 前端交互（原版）
-│   └── logo/                # Logo图片
-├── templates/
-│   └── index.html           # Jinja2模板
-├── reports/                 # AI报告目录（Markdown文件）
-├── data/                    # SQLite数据库
-├── requirements.txt         # Python依赖
-├── run.py                   # 启动脚本
-└── refresh.py               # 手动刷新行情脚本
+│       ├── market.py          # 行情数据服务（腾讯/百度/东方财富）
+│       ├── portfolio.py       # 持仓和风控计算
+│       └── reports.py         # AI报告服务
+├── fi_quant/                  # 量化信号扫描与日线回测模块
+│   ├── main.py                # 交互式扫描菜单（信号/回测/筹码分析）
+│   ├── backtesting/           # 统一回测引擎与入口（engine/runner）
+│   ├── core/                  # 信号框架与策略基类
+│   ├── data/                  # 多源行情获取（Tushare/东财/新浪/腾讯 + 缓存）
+│   ├── strategies/            # 6个策略（突破回踩/均值回归/主力吸筹等）
+│   └── utils/                 # 箱体识别/筹码分布/趋势过滤
+├── scripts/
+│   ├── run.py                 # 启动 Web 工作台
+│   └── refresh.py             # 手动刷新行情脚本
+├── tests/
+│   └── test_backtest.py       # 回测功能测试
+├── archive/
+│   └── fi_quant_backtest_legacy.py  # 已归档的旧版回测引擎（无引用，仅留档）
+├── static/                    # 前端静态资源
+├── templates/                 # Jinja2模板
+├── reports/                   # AI报告目录（Markdown文件）
+├── data/                      # SQLite数据库
+└── requirements.txt           # Python依赖（Web + 量化合并清单）
 ```
 
 ## API接口
@@ -111,9 +122,9 @@ jungle-trading/
 使用cron定时刷新行情：
 
 ```bash
-# 交易日 9:30-15:00 每15分钟刷新
-*/15 9-14 * * 1-5 cd /root/workspace/jungle-trading && python refresh.py
-*/15 15 * * 1-5 cd /root/workspace/jungle-trading && python refresh.py
+# 交易日 9:30-15:00 每15分钟刷新（路径换成你的仓库实际位置）
+*/15 9-14 * * 1-5 cd /path/to/jungle-trading && python scripts/refresh.py
+*/15 15 * * 1-5 cd /path/to/jungle-trading && python scripts/refresh.py
 ```
 
 ## 维护说明

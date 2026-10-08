@@ -2,7 +2,10 @@
 """测试回测功能"""
 import asyncio
 import sys
-sys.path.insert(0, '/root/workspace/jungle-trading')
+from pathlib import Path
+
+# 自动定位仓库根目录，不再依赖服务器硬编码路径
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from app.services.market import fetch_kline_baidu
 from app.services.backtest import run_backtest, get_available_strategies

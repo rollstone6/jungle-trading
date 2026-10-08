@@ -1,3 +1,4 @@
+# ========== Web 工作台 (app/) ==========
 fastapi==0.115.0
 uvicorn[standard]==0.30.0
 jinja2==3.1.4
@@ -7,3 +8,11 @@ python-dateutil==2.9.0
 backtrader2==1.9.76.123
 zipline-reloaded==3.1.1
 vnpy==4.0.0
+
+# ========== 量化模块 (fi_quant/) ==========
+pandas>=1.5.0
+numpy>=1.21.0
+TA-Lib>=0.4.24
+akshare>=1.10.0
+tushare>=1.4.0
+python-dotenv>=1.0.0

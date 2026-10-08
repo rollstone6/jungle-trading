@@ -2,7 +2,13 @@
 """定时任务 - 刷新行情数据"""
 import asyncio
 import json
+import sys
 from datetime import datetime
+from pathlib import Path
+
+# 允许从仓库任意位置运行：python scripts/refresh.py
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
 from app.models.database import get_db
 from app.services.market import fetch_realtime_tencent, fetch_kline_baidu, fetch_news_eastmoney, calc_ma, calc_volume_ratio
 
