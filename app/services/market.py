@@ -52,6 +52,47 @@ async def fetch_realtime_tencent(codes: list[str]) -> dict:
     return results
 
 
+async def fetch_kline_sina_minute(code: str, scale: int = 60, datalen: int = 1023) -> list[dict]:
+    """新浪分钟K线（支持 60/30/15 分钟，单次最多约 1023 根）
+
+    腾讯 mkline 接口在本机无法解析（web3.ifzq.gtimg.cn DNS 失败），
+    分钟数据改走新浪源。数据源单次上限 1023 根，各周期大约覆盖：
+    - 60分钟 ≈ 13 个月
+    - 30分钟 ≈ 6.5 个月
+    - 15分钟 ≈ 3 个月
+
+    返回的 date 为完整 'YYYY-MM-DD HH:MM:SS' 字符串。
+    """
+    if scale not in (60, 30, 15):
+        return []
+    prefix = "sh" if code.startswith("6") else "sz"
+    url = (
+        "https://quotes.sina.cn/cn/api/jsonp_v2.php/var%20_=/CN_MarketDataService.getKLineData"
+        f"?symbol={prefix}{code}&scale={scale}&ma=no&datalen={datalen}"
+    )
+
+    async with httpx.AsyncClient(timeout=15) as client:
+        try:
+            resp = await client.get(url)
+            m = re.search(r"\((\[.*\])\)", resp.text, re.S)
+            if not m:
+                return []
+            items = json.loads(m.group(1))
+            return [
+                {
+                    "date": item.get("day", ""),
+                    "open": float(item.get("open", 0)),
+                    "high": float(item.get("high", 0)),
+                    "low": float(item.get("low", 0)),
+                    "close": float(item.get("close", 0)),
+                    "volume": float(item.get("volume", 0)),
+                }
+                for item in items
+            ]
+        except Exception:
+            return []
+
+
 async def fetch_kline_baidu(code: str, days: int = 120) -> list[dict]:
     """百度股市通日K线"""
     prefix = "sh" if code.startswith("6") else "sz"

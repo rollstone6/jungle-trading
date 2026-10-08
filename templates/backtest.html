@@ -256,6 +256,16 @@
             </div>
             
             <div class="form-group">
+                <label>K线周期</label>
+                <select id="period-select">
+                    <option value="1d">日线（约 1.5 年历史）</option>
+                    <option value="60m">60 分钟（约 1 年）</option>
+                    <option value="30m">30 分钟（约半年）</option>
+                    <option value="15m">15 分钟（约 3 个月）</option>
+                </select>
+            </div>
+
+            <div class="form-group">
                 <label>选择策略</label>
                 <div class="strategy-cards" id="strategy-cards">
                     <!-- 动态加载 -->
@@ -326,6 +336,7 @@
         // 运行回测
         async function runBacktest() {
             const code = document.getElementById('stock-select').value;
+            const period = document.getElementById('period-select').value;
             const initialCash = parseInt(document.getElementById('initial-cash').value);
             
             if (!code) {
@@ -352,7 +363,8 @@
                         code: code,
                         strategy: selectedStrategy,
                         initial_cash: initialCash,
-                        engine: selectedEngine
+                        engine: selectedEngine,
+                        period: period
                     })
                 });
                 
@@ -374,10 +386,12 @@
         // 显示结果
         function displayResults(result) {
             // 回测周期（个别引擎未返回时隐藏）
+            const periodLabels = { '1d': '日线', '60m': '60分钟', '30m': '30分钟', '15m': '15分钟' };
             const periodEl = document.getElementById('period-info');
             if (result.start_date && result.end_date) {
+                const label = periodLabels[document.getElementById('period-select').value] || '';
                 periodEl.textContent =
-                    `回测区间：${result.start_date} ~ ${result.end_date} · ${result.total_days} 个交易日`;
+                    `${label} · 回测区间：${result.start_date} ~ ${result.end_date} · ${result.total_days} 根K线`;
                 periodEl.style.display = 'block';
             } else {
                 periodEl.style.display = 'none';

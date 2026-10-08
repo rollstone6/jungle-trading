@@ -309,18 +309,28 @@ async def run_backtest_api(request: Request, pwd: str = check_password):
     if not code:
         raise HTTPException(status_code=400, detail="缺少股票代码")
     
-    # 获取K线数据：优先用持仓表缓存；缓存没有（如量化股票池的股票）则实时拉取
+    # 获取K线数据：按周期选择数据源
+    # 日线拉约1.5年历史（550根）；分钟线走新浪源（60/30/15分钟）
+    period = data.get("period", "1d")
+
     conn = get_db()
     row = conn.execute("SELECT kline_data FROM positions WHERE code=?", (code,)).fetchone()
     conn.close()
 
-    klines = json.loads(row["kline_data"]) if row and row["kline_data"] else []
-    if len(klines) < 30:
+    if period == "1d":
         from app.services.market import fetch_kline_tencent
-        klines = await fetch_kline_tencent(code, days=250, full_date=True)
+        klines = await fetch_kline_tencent(code, days=550, full_date=True)
+        if len(klines) < 30 and row and row["kline_data"]:
+            # 实时拉取失败时回退到持仓缓存
+            klines = json.loads(row["kline_data"])
+    elif period in ("60m", "30m", "15m"):
+        from app.services.market import fetch_kline_sina_minute
+        klines = await fetch_kline_sina_minute(code, scale=int(period[:-1]))
+    else:
+        raise HTTPException(status_code=400, detail="不支持的周期，可选: 1d / 60m / 30m / 15m")
 
     if len(klines) < 30:
-        raise HTTPException(status_code=404, detail="K线数据不足，至少需要30天")
+        raise HTTPException(status_code=404, detail="K线数据不足，至少需要30根")
     
     # 运行回测（引擎模块懒加载，缺装时返回 503；zipline 无策略参数）
     if engine in ("backtrader", "zipline", "vnpy"):

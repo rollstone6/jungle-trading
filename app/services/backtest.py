@@ -260,6 +260,12 @@ def run_backtest(
     won_trades = trades.get('won', {}).get('total', 0)
     win_rate = (won_trades / total_trades * 100) if total_trades > 0 else 0
     
+    def _fmt_date(ts):
+        # 分钟数据带时间，日线只显示日期
+        if ts.hour or ts.minute:
+            return ts.strftime("%Y-%m-%d %H:%M")
+        return ts.strftime("%Y-%m-%d")
+
     result = {
         'success': True,
         'strategy': strategy_name,
@@ -271,9 +277,9 @@ def run_backtest(
         'total_trades': total_trades,
         'win_rate': round(win_rate, 2),
         'annual_return': round(returns.get('rnorm100', 0), 2),
-        # 回测数据区间
-        'start_date': df.index[0].strftime('%Y-%m-%d'),
-        'end_date': df.index[-1].strftime('%Y-%m-%d'),
+        # 回测数据区间（分钟数据含时间）
+        'start_date': _fmt_date(df.index[0]),
+        'end_date': _fmt_date(df.index[-1]),
         'total_days': len(df),
     }
     
