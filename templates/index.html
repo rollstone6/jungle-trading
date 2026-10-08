@@ -5,6 +5,208 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Jungle 天才交易员持仓工作台</title>
     <link rel="stylesheet" href="/static/styles.css">
+    <!-- ===== 量化回测实验室 UI 风格覆盖层 ===== -->
+    <style>
+        /* 容器 */
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        /* Hero 渐变顶栏 */
+        .topbar {
+            position: static;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+            padding: 40px 24px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            border-radius: 16px;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+            backdrop-filter: none;
+        }
+        .topbar h1 {
+            color: #fff;
+            margin: 0;
+            font-size: 28px;
+        }
+        .topbar .subtitle {
+            color: rgba(255, 255, 255, 0.9);
+            margin: 0;
+        }
+
+        /* 账户概览指标卡 */
+        .account-summary {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin: 24px 0;
+        }
+        .account-item {
+            background: #fff;
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 18px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            transition: all 0.2s;
+        }
+        .account-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.25);
+            border-color: #667eea;
+        }
+        .account-item .label {
+            display: block;
+            color: #64748b;
+            font-size: 13px;
+            margin-bottom: 8px;
+        }
+        .account-item .value {
+            display: block;
+            font-size: 24px;
+            font-weight: 800;
+        }
+
+        /* 涨跌配色（与回测实验室一致） */
+        .gain { color: #10b981; }
+        .loss { color: #ef4444; }
+
+        /* 区块标题 */
+        .positions-section h2,
+        .report-section h2 {
+            font-size: 20px;
+            color: #1e293b;
+            margin: 0 0 16px;
+            padding-left: 12px;
+            border-left: 4px solid #667eea;
+        }
+
+        /* 持仓卡片 */
+        .position-card {
+            background: #fff;
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            transition: all 0.2s;
+        }
+        .position-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 16px rgba(102, 126, 234, 0.2);
+        }
+        .position-card.danger,
+        .position-card.高 {
+            border-color: rgba(239, 68, 68, 0.4);
+            background: #fff;
+            box-shadow: inset 4px 0 0 #ef4444, 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+        .position-card.中 {
+            border-color: rgba(245, 158, 11, 0.4);
+            background: #fff;
+            box-shadow: inset 4px 0 0 #f59e0b, 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        /* 徽章 chip */
+        .badge {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: #fff;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 700;
+        }
+
+        /* 指标行 */
+        .metric-row span {
+            background: #f1f0ff;
+            color: #334155;
+            border-radius: 8px;
+        }
+
+        /* 小节标题 */
+        .subhead {
+            color: #667eea;
+            font-size: 14px;
+            margin: 16px 0 8px;
+        }
+
+        /* 技术面 pills */
+        .tech-pills span,
+        .tech-pills span:nth-child(2n),
+        .tech-pills span:nth-child(3n),
+        .tech-pills span:nth-child(4n) {
+            background: #f8f7ff;
+            border: 1px solid #e9e6ff;
+            color: #334155;
+            font-weight: 500;
+            font-size: 12px;
+            padding: 6px 10px;
+            border-radius: 8px;
+        }
+        .tech-pills b {
+            color: #667eea;
+        }
+
+        /* K线卡 */
+        .kline-card {
+            background: #f8f7ff;
+            border: 1px solid #e9e6ff;
+            border-radius: 12px;
+            padding: 16px;
+            margin-top: 12px;
+        }
+
+        /* 消息链接 */
+        .news-list a {
+            color: #667eea;
+        }
+
+        /* 区块卡片包裹 */
+        .report-section,
+        .mood-weather,
+        .update-section,
+        .backtest-entry {
+            background: #fff;
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            margin-top: 20px;
+        }
+        .report-meta {
+            display: flex;
+            gap: 16px;
+            color: #64748b;
+            font-size: 13px;
+            margin-bottom: 12px;
+        }
+
+        /* 主按钮（渐变） */
+        .update-btn,
+        .backtest-link {
+            display: block;
+            width: 100%;
+            text-align: center;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            padding: 14px 20px;
+            font-size: 16px;
+            font-weight: 700;
+            cursor: pointer;
+            text-decoration: none;
+            transition: all 0.2s;
+        }
+        .update-btn:hover,
+        .backtest-link:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(102, 126, 234, 0.4);
+        }
+    </style>
 </head>
 <body>
     <div class="container">
@@ -121,9 +323,9 @@
             <h2>AI策略报告</h2>
             <div class="report-meta">
                 <span>日期：{{ current_date }}</span>
-                <span>更新：{{ report_time }}</span>
+                <span data-ai-report-time>更新：{{ report_time }}</span>
             </div>
-            <div class="report-content">
+            <div class="report-content" data-ai-report-content>
                 <!-- 报告内容会通过 JS 动态加载 -->
             </div>
         </section>
