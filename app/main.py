@@ -283,37 +283,8 @@ async def backtest_page(request: Request, pwd: str = check_password):
 
 # === 回测 API ===
 
-@app.get("/api/backtest/strategies")
-async def list_strategies(request: Request, pwd: str = check_password):
-    """获取可用的回测策略"""
-    _, get_strategies = _load_backtest_engine("backtrader")
-    strategies = get_strategies()
-    try:
-        _, get_vnpy = _load_backtest_engine("vnpy")
-        strategies += get_vnpy()
-    except HTTPException:
-        pass  # vnpy 未安装时仅返回 backtrader 策略
-    return strategies
-
-
-@app.post("/api/backtest/run")
-async def run_backtest_api(request: Request, pwd: str = check_password):
-    """运行回测"""
-    data = await request.json()
-    
-    code = data.get("code")
-    strategy = data.get("strategy", "ma")
-    initial_cash = data.get("initial_cash", 100000)
-    engine = data.get("engine", "backtrader")
-    commission = data.get("commission", 0.001)  # 单边手续费率，默认千一
-    
-    if not code:
-        raise HTTPException(status_code=400, detail="缺少股票代码")
-    
-    # 获取K线数据：按周期选择数据源
-    # 日线拉约1.5年历史（550根）；分钟线走新浪源（60/30/15分钟）
-    period = data.get("period", "1d")
-
+async def _fetch_backtest_klines(code: str, period: str) -> list:
+    """按周期获取回测用K线：日线约1.5年（550根）；分钟线走新浪源（60/30/15）"""
     conn = get_db()
     row = conn.execute("SELECT kline_data FROM positions WHERE code=?", (code,)).fetchone()
     conn.close()
@@ -332,7 +303,54 @@ async def run_backtest_api(request: Request, pwd: str = check_password):
 
     if len(klines) < 30:
         raise HTTPException(status_code=404, detail="K线数据不足，至少需要30根")
-    
+    return klines
+
+
+@app.get("/api/backtest/strategies")
+async def list_strategies(request: Request, pwd: str = check_password):
+    """获取可用的回测策略"""
+    _, get_strategies = _load_backtest_engine("backtrader")
+    strategies = get_strategies()
+    try:
+        _, get_vnpy = _load_backtest_engine("vnpy")
+        strategies += get_vnpy()
+    except HTTPException:
+        pass  # vnpy 未安装时仅返回 backtrader 策略
+    return strategies
+
+
+@app.post("/api/backtest/classify")
+async def classify_api(request: Request, pwd: str = check_password):
+    """走势量化分类：判断选中股票是 区间型/趋势型/挤压待变/中性，并推荐策略"""
+    data = await request.json()
+    code = data.get("code")
+    period = data.get("period", "1d")
+    if not code:
+        raise HTTPException(status_code=400, detail="缺少股票代码")
+
+    klines = await _fetch_backtest_klines(code, period)
+    from app.services.regime import classify_regime, REGIME_ADVICE
+    info = classify_regime(klines)
+    return {**info, **REGIME_ADVICE[info["regime"]]}
+
+
+@app.post("/api/backtest/run")
+async def run_backtest_api(request: Request, pwd: str = check_password):
+    """运行回测"""
+    data = await request.json()
+
+    code = data.get("code")
+    strategy = data.get("strategy", "ma")
+    initial_cash = data.get("initial_cash", 100000)
+    engine = data.get("engine", "backtrader")
+    commission = data.get("commission", 0.001)  # 单边手续费率，默认千一
+    period = data.get("period", "1d")
+
+    if not code:
+        raise HTTPException(status_code=400, detail="缺少股票代码")
+
+    klines = await _fetch_backtest_klines(code, period)
+
     # 运行回测（引擎模块懒加载，缺装时返回 503；zipline 无策略参数）
     if engine in ("backtrader", "zipline", "vnpy"):
         run_fn, _ = _load_backtest_engine(engine)
@@ -342,7 +360,7 @@ async def run_backtest_api(request: Request, pwd: str = check_password):
             result = run_fn(klines, strategy, initial_cash, commission=commission)
     else:
         raise HTTPException(status_code=400, detail="不支持的回测引擎")
-    
+
     return result
 
 

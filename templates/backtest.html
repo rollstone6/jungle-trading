@@ -110,6 +110,54 @@
             margin-top: 10px;
         }
         
+        .regime-card {
+            background: #f8f7ff;
+            border: 1px solid #e9e6ff;
+            border-radius: 12px;
+            padding: 16px;
+            font-size: 13px;
+            color: #334155;
+        }
+        .regime-badge {
+            display: inline-block;
+            padding: 4px 14px;
+            border-radius: 20px;
+            color: #fff;
+            font-weight: 700;
+            font-size: 14px;
+        }
+        .regime-badge.ranging { background: #10b981; }
+        .regime-badge.trending { background: #667eea; }
+        .regime-badge.squeeze { background: #f59e0b; }
+        .regime-badge.neutral { background: #94a3b8; }
+        .regime-metrics {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin: 10px 0;
+        }
+        .regime-metrics span {
+            background: #fff;
+            border: 1px solid #e9e6ff;
+            border-radius: 8px;
+            padding: 5px 10px;
+            font-size: 12px;
+        }
+        .regime-metrics b { color: #667eea; }
+        .regime-note { color: #64748b; margin: 6px 0 10px; line-height: 1.6; }
+        .regime-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+        .regime-chip {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: #fff;
+            border: none;
+            border-radius: 16px;
+            padding: 6px 14px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .regime-chip:hover { transform: translateY(-2px); box-shadow: 0 4px 10px rgba(102,126,234,0.4); }
+
         .run-button {
             width: 100%;
             padding: 16px;
@@ -263,6 +311,11 @@
                     <option value="30m">30 分钟（约半年）</option>
                     <option value="15m">15 分钟（约 3 个月）</option>
                 </select>
+            </div>
+
+            <div class="form-group" id="regime-group" style="display: none;">
+                <label>走势分类（量化自动判断）</label>
+                <div id="regime-card" class="regime-card"></div>
             </div>
 
             <div class="form-group">
@@ -436,9 +489,78 @@
                 errorDiv.style.display = 'none';
             }, 5000);
         }
+
+        // ===== 走势量化分类 =====
+        const STRAT_NAME_MAP = {
+            'ma': '均线交叉', 'macd': 'MACD策略', 'boll': '布林带均值回归',
+            'boll_macd': '布林+MACD', 'ma_macd': '均线+MACD共振',
+            'rsi_boll': 'RSI+布林', 'macd_vol': 'MACD+放量',
+            'kdj': 'KDJ金叉死叉', 'kdj_macd': 'KDJ+MACD共振',
+        };
+
+        async function classifyRegime() {
+            const code = document.getElementById('stock-select').value;
+            const period = document.getElementById('period-select').value;
+            const group = document.getElementById('regime-group');
+            const card = document.getElementById('regime-card');
+            if (!code) { group.style.display = 'none'; return; }
+
+            group.style.display = 'block';
+            card.innerHTML = '<small style="color:#999">正在分析...</small>';
+            try {
+                const resp = await fetch(`/api/backtest/classify?pwd=${pwd}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ code, period })
+                });
+                const info = await resp.json();
+                if (!resp.ok) throw new Error(info.detail || '分析失败');
+                renderRegime(info);
+            } catch (e) {
+                card.innerHTML = `<small style="color:#c33">分类失败：${e.message}</small>`;
+            }
+        }
+
+        function renderRegime(info) {
+            const card = document.getElementById('regime-card');
+            if (info.regime === 'unknown') {
+                card.innerHTML = `<small style="color:#999">${info.note || info.reason}</small>`;
+                return;
+            }
+            const chips = info.strategies.map(name => {
+                const label = STRAT_NAME_MAP[name] || name;
+                return `<button type="button" class="regime-chip" data-strategy="${name}">${label}</button>`;
+            }).join('');
+            card.innerHTML = `
+                <span class="regime-badge ${info.regime}">${info.label}</span>
+                <div class="regime-metrics">
+                    <span>轨外运行比例 <b>${(info.outside_ratio * 100).toFixed(0)}%</b></span>
+                    <span>带宽百分位 <b>${(info.bandwidth_pct * 100).toFixed(0)}%</b></span>
+                    <span>布林带带宽 <b>${(info.bandwidth * 100).toFixed(1)}%</b></span>
+                    <span>均线多头排列 <b>${info.bullish_align ? '是' : '否'}</b></span>
+                    <span>偏离MA20 <b>${info.ma_dev_pct >= 0 ? '+' : ''}${info.ma_dev_pct}%</b></span>
+                </div>
+                <p class="regime-note">${info.note}</p>
+                <div class="regime-chips">${chips}</div>
+            `;
+            // 点击推荐策略 chip -> 选中对应策略卡
+            card.querySelectorAll('.regime-chip').forEach(chip => {
+                chip.addEventListener('click', () => {
+                    const target = document.querySelector(`.strategy-card[data-name="${chip.dataset.strategy}"]`);
+                    if (target) {
+                        target.click();
+                        target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    } else {
+                        showError('策略列表还没加载完，稍后再点');
+                    }
+                });
+            });
+        }
         
         // 初始化
         document.getElementById('run-backtest').addEventListener('click', runBacktest);
+        document.getElementById('stock-select').addEventListener('change', classifyRegime);
+        document.getElementById('period-select').addEventListener('change', classifyRegime);
         loadStrategies();
     </script>
 </body>
