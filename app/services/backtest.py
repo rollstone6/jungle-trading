@@ -325,6 +325,111 @@ class MACDVolumeStrategy(bt.Strategy):
         self.order = None
 
 
+class KDJStrategy(bt.Strategy):
+    """KDJ 低位金叉/高位死叉（基础版）
+
+    - 买入：K 线上穿 D 线（金叉）且 K 值处于低位（< 30，超卖区）
+    - 卖出：K 线下穿 D 线（死叉）且 K 值处于高位（> 70，超买区）
+    """
+    params = (
+        ('period', 9),
+        ('k_period', 3),
+        ('d_period', 3),
+        ('low_thresh', 30),
+        ('high_thresh', 70),
+    )
+
+    def __init__(self):
+        self.dataclose = self.datas[0].close
+        self.order = None
+
+        stoch = bt.indicators.StochasticSlow(
+            self.datas[0],
+            period=self.params.period,
+            period_dfast=self.params.k_period,
+            period_dslow=self.params.d_period,
+        )
+        self.percK = stoch.percK
+        self.percD = stoch.percD
+        self.kcross = bt.indicators.CrossOver(self.percK, self.percD)
+
+    def next(self):
+        if self.order:
+            return
+
+        if not self.position:
+            if self.kcross[0] > 0 and self.percK[0] < self.params.low_thresh:
+                self.order = self.buy()
+        else:
+            if self.kcross[0] < 0 and self.percK[0] > self.params.high_thresh:
+                self.order = self.sell()
+
+    def notify_order(self, order):
+        if order.status in [order.Submitted, order.Accepted]:
+            return
+        self.order = None
+
+
+class KDJMACDStrategy(bt.Strategy):
+    """KDJ低位金叉 + MACD趋势确认（综合策略）
+
+    - 买入：KDJ 低位金叉（K < 30 上穿 D）且 MACD 处于多头（DIF > DEA），
+            超卖反弹叠加趋势向上，过滤下跌途中的接飞刀
+    - 卖出：KDJ 高位死叉（K > 70 下穿 D）或 MACD 死叉（趋势走坏）
+    """
+    params = (
+        ('period', 9),
+        ('k_period', 3),
+        ('d_period', 3),
+        ('low_thresh', 30),
+        ('high_thresh', 70),
+        ('fast_period', 12),
+        ('slow_period', 26),
+        ('signal_period', 9),
+    )
+
+    def __init__(self):
+        self.dataclose = self.datas[0].close
+        self.order = None
+
+        stoch = bt.indicators.StochasticSlow(
+            self.datas[0],
+            period=self.params.period,
+            period_dfast=self.params.k_period,
+            period_dslow=self.params.d_period,
+        )
+        self.percK = stoch.percK
+        self.percD = stoch.percD
+        self.kcross = bt.indicators.CrossOver(self.percK, self.percD)
+
+        macd = bt.indicators.MACD(
+            self.datas[0],
+            period_me1=self.params.fast_period,
+            period_me2=self.params.slow_period,
+            period_signal=self.params.signal_period,
+        )
+        self.macd_dif = macd.macd
+        self.macd_dea = macd.signal
+
+    def next(self):
+        if self.order:
+            return
+
+        if not self.position:
+            if (self.kcross[0] > 0 and self.percK[0] < self.params.low_thresh
+                    and self.macd_dif[0] > self.macd_dea[0]):
+                self.order = self.buy()
+        else:
+            if (self.kcross[0] < 0 and self.percK[0] > self.params.high_thresh) \
+                    or self.macd_dif[0] < self.macd_dea[0]:
+                self.order = self.sell()
+
+    def notify_order(self, order):
+        if order.status in [order.Submitted, order.Accepted]:
+            return
+        self.order = None
+
+
 def kline_to_dataframe(klines: List[Dict]) -> pd.DataFrame:
     """将 kline 数据转换为 backtrader 需要的 DataFrame
 
@@ -408,6 +513,10 @@ def run_backtest(
         cerebro.addstrategy(RSIBollingerStrategy, **kwargs)
     elif strategy_name == 'macd_vol':
         cerebro.addstrategy(MACDVolumeStrategy, **kwargs)
+    elif strategy_name == 'kdj':
+        cerebro.addstrategy(KDJStrategy, **kwargs)
+    elif strategy_name == 'kdj_macd':
+        cerebro.addstrategy(KDJMACDStrategy, **kwargs)
     else:
         return {
             'success': False,
@@ -548,6 +657,33 @@ def get_available_strategies() -> List[Dict]:
                 'signal_period': 9,
                 'vol_period': 20,
                 'vol_mult': 1.5,
+            }
+        },
+        {
+            'name': 'kdj',
+            'display_name': 'KDJ金叉死叉',
+            'description': 'K<30低位金叉买入，K>70高位死叉卖出',
+            'params': {
+                'period': 9,
+                'k_period': 3,
+                'd_period': 3,
+                'low_thresh': 30,
+                'high_thresh': 70,
+            }
+        },
+        {
+            'name': 'kdj_macd',
+            'display_name': 'KDJ+MACD共振',
+            'description': 'KDJ低位金叉且MACD多头买入，高位死叉或MACD死叉卖出',
+            'params': {
+                'period': 9,
+                'k_period': 3,
+                'd_period': 3,
+                'low_thresh': 30,
+                'high_thresh': 70,
+                'fast_period': 12,
+                'slow_period': 26,
+                'signal_period': 9,
             }
         },
     ]

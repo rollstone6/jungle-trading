@@ -1,22 +1,52 @@
 # -*- coding: utf-8 -*-
-"""量化股票池多策略60分钟对比扫描：每只股票拉一次K线，跑全部策略"""
+"""量化股票池多策略对比扫描
+
+用法：
+    python scripts/sweep_compare.py 60m     # 60分钟（新浪源，约1年）
+    python scripts/sweep_compare.py 1d      # 日线（腾讯源，约1.5年）
+    python scripts/sweep_compare.py 30m / 15m
+
+每只股票拉一次K线，跑全部策略，输出 HTML + CSV 到仓库上级工作目录。
+"""
 import asyncio
 import csv
 import sys
 from pathlib import Path
 
-REPO = Path(r"D:\store_for_prgram\py_program\jungle-trading")
+REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO))
 
 from app.quant.config import STOCK_LIST  # noqa: E402
-from app.services.market import fetch_kline_sina_minute  # noqa: E402
+from app.services.market import (  # noqa: E402
+    fetch_kline_sina_minute, fetch_kline_tencent,
+)
 from app.services.backtest import run_backtest  # noqa: E402
 
-STRATEGIES = ["boll", "boll_macd", "ma_macd", "rsi_boll", "macd_vol"]
+STRATEGIES = ["boll", "boll_macd", "ma_macd", "rsi_boll", "macd_vol", "kdj", "kdj_macd"]
+STRAT_LABELS = {
+    "boll": "布林带均值回归（基线）",
+    "boll_macd": "布林+MACD 趋势中高卖低买",
+    "ma_macd": "均线+MACD 共振",
+    "rsi_boll": "RSI+布林双重超卖",
+    "macd_vol": "MACD+放量确认",
+    "kdj": "KDJ 低位金叉/高位死叉",
+    "kdj_macd": "KDJ低位金叉 + MACD趋势确认",
+}
 COMMISSION = 0.0001  # 万一，接近真实券商成本
 
 
+def fetch(scale: str, code: str):
+    if scale == "1d":
+        return fetch_kline_tencent(code, days=550, full_date=True)
+    return fetch_kline_sina_minute(code, scale=int(scale[:-1]))
+
+
 def main():
+    scale = sys.argv[1] if len(sys.argv) > 1 else "60m"
+    if scale not in ("1d", "60m", "30m", "15m"):
+        print(f"不支持周期: {scale}")
+        sys.exit(1)
+
     seen, pool = set(), []
     for s in STOCK_LIST:
         if s["symbol"] not in seen:
@@ -27,14 +57,13 @@ def main():
         out = {}
         for s in pool:
             try:
-                out[s["symbol"]] = await fetch_kline_sina_minute(s["symbol"], scale=60)
+                out[s["symbol"]] = await fetch(scale, s["symbol"])
             except Exception:
                 out[s["symbol"]] = []
         return out
 
     klines_map = asyncio.run(fetch_all())
 
-    # per[strategy] = list of result rows
     per = {name: [] for name in STRATEGIES}
     failures = []
     for s in pool:
@@ -55,8 +84,8 @@ def main():
             else:
                 print(f"  ! {name} {s['name']}: {r.get('error')}")
 
-    # CSV：每只股票 x 每个策略
-    csv_path = Path(r"D:\store_for_prgram\strategy_compare_60m.csv")
+    out_dir = REPO.parent.parent  # D:\store_for_prgram
+    csv_path = out_dir / f"strategy_compare_{scale}.csv"
     with csv_path.open("w", newline="", encoding="utf-8-sig") as f:
         w = csv.writer(f)
         w.writerow(["策略", "代码", "名称", "总收益率%", "胜率%", "交易次数",
@@ -68,14 +97,6 @@ def main():
                             r["win_rate"], r["total_trades"], r["max_drawdown"],
                             r["sharpe"], r["final_value"]])
 
-    # HTML：每策略一个表格
-    STRAT_LABELS = {
-        "boll": "布林带均值回归（基线）",
-        "boll_macd": "布林+MACD 趋势中高卖低买",
-        "ma_macd": "均线+MACD 共振",
-        "rsi_boll": "RSI+布林双重超卖",
-        "macd_vol": "MACD+放量确认",
-    }
     tables = ""
     for name in STRATEGIES:
         rows = sorted(per[name], key=lambda x: x["total_return"], reverse=True)
@@ -92,8 +113,9 @@ def main():
                    f"<th>胜率</th><th>交易次数</th><th>最大回撤</th><th>夏普</th><th>期末资产</th></tr>"
                    f"{trs}</table>")
 
+    period_note = "日线（约1.5年）" if scale == "1d" else f"{scale[:-1]} 分钟（新浪源上限约1023根）"
     html = f"""<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8">
-<title>多策略60分钟对比扫描</title><style>
+<title>多策略{scale}对比扫描</title><style>
 body{{font-family:-apple-system,'Segoe UI',sans-serif;background:#eef3f8;margin:0;padding:20px}}
 .wrap{{max-width:1100px;margin:0 auto}}
 .hero{{background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;padding:28px;border-radius:16px;text-align:center;margin-bottom:24px}}
@@ -107,13 +129,13 @@ tr:hover{{background:#f8f7ff}}
 h2{{font-size:16px;color:#1e293b;border-left:4px solid #667eea;padding-left:10px;margin:28px 0 12px}}
 h2 small{{color:#888;font-weight:400;font-size:12px}}
 </style></head><body><div class="wrap">
-<div class="hero"><h1>🧪 五策略 60 分钟全池对比</h1>
-<p>股票池 {len(pool)} 只（成功 {len(pool)-len(failures)}）｜ 手续费万一（0.0001）｜ 初始资金 ¥100,000</p></div>
+<div class="hero"><h1>🧪 七策略 {scale} 全池对比</h1>
+<p>股票池 {len(pool)} 只（成功 {len(pool)-len(failures)}）｜ {period_note} ｜ 手续费万一 ｜ 初始资金 ¥100,000</p></div>
 {tables}</div></body></html>"""
-    Path(r"D:\store_for_prgram\strategy_compare_60m.html").write_text(html, encoding="utf-8")
+    html_path = out_dir / f"strategy_compare_{scale}.html"
+    html_path.write_text(html, encoding="utf-8")
 
-    # 控制台汇总：每策略的平均收益/胜率/交易数
-    print("策略对比汇总（60分钟，万一手续费）")
+    print(f"=== {scale} 七策略对比（万一手续费）===")
     for name in STRATEGIES:
         rows = per[name]
         if not rows:
