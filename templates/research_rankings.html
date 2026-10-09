@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>模拟组合排行榜 - Jungle 研究中心</title>
+    <link rel="stylesheet" href="/static/styles.css">
+    <style>
+        .page { max-width: 1100px; margin: 0 auto; padding: 20px; }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #fff; padding: 26px; border-radius: 12px; margin-bottom: 12px; text-align: center;
+        }
+        .header h1 { font-size: 1.7em; margin-bottom: 6px; }
+        .nav-row { display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
+        .nav-btn {
+            display: inline-block; padding: 10px 20px; background: #fff; color: #667eea;
+            border: 2px solid #667eea; border-radius: 8px; text-decoration: none; font-weight: 600;
+        }
+        .nav-btn:hover { background: #667eea; color: #fff; }
+        .scan-bar {
+            background: #fff; border: 2px solid #e2e8f0; border-radius: 12px; padding: 12px 16px;
+            display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;
+            margin-bottom: 16px; font-size: 13px; color: #64748b;
+        }
+        .scan-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #fff;
+            border: none; border-radius: 8px; padding: 8px 18px; font-size: 13px; font-weight: 600; cursor: pointer;
+        }
+        .tabs { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
+        .tab {
+            padding: 8px 18px; border-radius: 20px; border: 2px solid #667eea; background: #fff;
+            color: #667eea; font-size: 13px; font-weight: 600; cursor: pointer;
+        }
+        .tab.active { background: #667eea; color: #fff; }
+        table.data-table {
+            width: 100%; border-collapse: collapse; background: #fff;
+            border: 2px solid #e2e8f0; border-radius: 12px; overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .data-table th { background: #667eea; color: #fff; padding: 10px 10px; font-size: 12px; text-align: left; }
+        .data-table td { padding: 8px 10px; font-size: 12px; border-bottom: 1px solid #f1f5f9; }
+        .data-table tr:hover { background: #f8f7ff; }
+        .up { color: #ef4444; font-weight: 600; } .down { color: #10b981; font-weight: 600; }
+        .bj { background: #f59e0b; color: #fff; font-size: 10px; padding: 1px 6px; border-radius: 8px; margin-left: 4px; }
+        .hot-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; margin-bottom: 20px; }
+        .hot-item {
+            background: #fff; border: 2px solid #e2e8f0; border-radius: 10px; padding: 10px;
+            text-align: center; box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+        }
+        .hot-item .n { font-weight: 700; font-size: 14px; }
+        .hot-item .c { font-size: 12px; color: #f59e0b; font-weight: 700; }
+        h3.sec { color: #334155; font-size: 15px; margin: 18px 0 10px; }
+        .loading { text-align: center; padding: 40px; color: #666; }
+        .two-col { display: grid; grid-template-columns: 1fr; gap: 20px; }
+    </style>
+</head>
+<body>
+    <div class="page">
+        <div class="nav-row">
+            <a href="/research?pwd={{ pwd }}" class="nav-btn">← 研究中心</a>
+            <a href="/?pwd={{ pwd }}" class="nav-btn">返回持仓</a>
+        </div>
+        <div class="header">
+            <h1>🏆 东方财富模拟组合排行榜</h1>
+            <p>日 / 5日 / 20日 / 250日 / 总收益 五维 TOP30 · 跨维度热门股票统计</p>
+        </div>
+        <div class="scan-bar">
+            <span id="meta">加载中...</span>
+            <button class="scan-btn" id="refresh">立即刷新</button>
+        </div>
+
+        <h3 class="sec">🔥 跨维度热门股票（模拟高手最近在买什么）</h3>
+        <div class="hot-grid" id="hot"><div class="loading">加载中...</div></div>
+
+        <h3 class="sec">📋 分维度排行（点击切换）</h3>
+        <div class="tabs" id="tabs"></div>
+        <table class="data-table">
+            <thead>
+                <tr><th>#</th><th>组合名称</th><th>日收益</th><th>5日</th><th>20日</th><th>250日</th><th>总收益</th><th>最近操作</th><th>胜率</th></tr>
+            </thead>
+            <tbody id="tbody"><tr><td colspan="9" class="loading">加载中...</td></tr></tbody>
+        </table>
+    </div>
+    <script>
+        const pwd = "{{ pwd }}";
+        let DIMS = [], active = 0;
+        const fmt = v => { const x = parseFloat(v); return isNaN(x) ? (v || '-') : (x >= 0 ? '+' : '') + x.toFixed(2) + '%'; };
+        const cls = v => parseFloat(v) >= 0 ? 'up' : 'down';
+        async function load(refresh = false) {
+            const btn = document.getElementById('refresh');
+            btn.disabled = true;
+            try {
+                const r = await fetch(`/api/research/rankings?pwd=${pwd}` + (refresh ? '&refresh=1' : ''));
+                const d = await r.json();
+                if (!r.ok) throw new Error(d.detail || '加载失败');
+                DIMS = d.dims || [];
+                document.getElementById('meta').textContent = `更新于 ${d.fetchedAt} · 每维度 TOP ${d.top}`;
+                document.getElementById('hot').innerHTML = (d.hot_stocks || []).map(h =>
+                    `<div class="hot-item"><div class="n">${h.name}${h.bj ? '<span class="bj">北交所</span>' : ''}</div><div class="c">${h.count} 次上榜</div></div>`
+                ).join('') || '<div class="loading">暂无数据</div>';
+                renderTabs(); renderTable();
+            } catch (e) {
+                document.getElementById('meta').textContent = '加载失败：' + e.message;
+            } finally { btn.disabled = false; }
+        }
+        function renderTabs() {
+            document.getElementById('tabs').innerHTML = DIMS.map((d, i) =>
+                `<button class="tab ${i === active ? 'active' : ''}" data-i="${i}">${d.label}</button>`).join('');
+            document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () => {
+                active = parseInt(t.dataset.i); renderTabs(); renderTable();
+            }));
+        }
+        function renderTable() {
+            const d = DIMS[active];
+            if (!d) return;
+            document.getElementById('tbody').innerHTML = (d.items || []).map(it => `
+                <tr>
+                    <td>${it.rank ?? ''}</td>
+                    <td style="font-weight:600">${it.name || '-'}</td>
+                    <td class="${cls(it.ret_day)}">${fmt(it.ret_day)}</td>
+                    <td class="${cls(it.ret_5d)}">${fmt(it.ret_5d)}</td>
+                    <td class="${cls(it.ret_20d)}">${fmt(it.ret_20d)}</td>
+                    <td class="${cls(it.ret_250d)}">${fmt(it.ret_250d)}</td>
+                    <td class="${cls(it.ret_total)}">${fmt(it.ret_total)}</td>
+                    <td>${it.op || ''} ${it.stock || ''}</td>
+                    <td>${it.win_rate != null ? it.win_rate + '%' : '-'}</td>
+                </tr>`).join('') || '<tr><td colspan="9" class="loading">' + (d.error || '暂无数据') + '</td></tr>';
+        }
+        document.getElementById('refresh').addEventListener('click', () => load(true));
+        load();
+    </script>
+</body>
+</html>

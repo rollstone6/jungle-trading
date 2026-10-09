@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>资金流向背离监测 - Jungle 研究中心</title>
+    <link rel="stylesheet" href="/static/styles.css">
+    <style>
+        .page { max-width: 1100px; margin: 0 auto; padding: 20px; }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #fff; padding: 26px; border-radius: 12px; margin-bottom: 12px; text-align: center;
+        }
+        .header h1 { font-size: 1.7em; margin-bottom: 6px; }
+        .nav-row { display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
+        .nav-btn {
+            display: inline-block; padding: 10px 20px; background: #fff; color: #667eea;
+            border: 2px solid #667eea; border-radius: 8px; text-decoration: none; font-weight: 600;
+        }
+        .nav-btn:hover { background: #667eea; color: #fff; }
+        .kpi-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 20px; }
+        .kpi {
+            background: #fff; border: 2px solid #e2e8f0; border-radius: 12px; padding: 16px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1); text-align: center;
+        }
+        .kpi .v { font-size: 26px; font-weight: 800; color: #667eea; }
+        .kpi .l { font-size: 12px; color: #64748b; margin-top: 4px; }
+        .signal-box {
+            background: #fff; border: 2px solid rgba(239,68,68,0.35); border-left: 5px solid #ef4444;
+            border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); padding: 16px 20px; margin-bottom: 20px;
+        }
+        .signal-box h3 { margin: 0 0 6px; color: #ef4444; font-size: 15px; }
+        .signal-box p { margin: 0 0 10px; font-size: 12px; color: #64748b; }
+        table.data-table {
+            width: 100%; border-collapse: collapse; background: #fff;
+            border: 2px solid #e2e8f0; border-radius: 12px; overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-bottom: 20px;
+        }
+        .data-table th { background: #667eea; color: #fff; padding: 10px 10px; font-size: 12px; text-align: left; }
+        .data-table td { padding: 8px 10px; font-size: 12px; border-bottom: 1px solid #f1f5f9; }
+        .data-table tr:hover { background: #f8f7ff; }
+        .up { color: #ef4444; font-weight: 600; } .down { color: #10b981; font-weight: 600; }
+        .scan-bar {
+            background: #fff; border: 2px solid #e2e8f0; border-radius: 12px; padding: 12px 16px;
+            display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;
+            margin-bottom: 16px; font-size: 13px; color: #64748b;
+        }
+        .scan-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #fff;
+            border: none; border-radius: 8px; padding: 8px 18px; font-size: 13px; font-weight: 600; cursor: pointer;
+        }
+        h3.sec { color: #334155; font-size: 15px; margin: 18px 0 10px; }
+        .loading { text-align: center; padding: 40px; color: #666; }
+    </style>
+</head>
+<body>
+    <div class="page">
+        <div class="nav-row">
+            <a href="/research?pwd={{ pwd }}" class="nav-btn">← 研究中心</a>
+            <a href="/?pwd={{ pwd }}" class="nav-btn">返回持仓</a>
+        </div>
+        <div class="header">
+            <h1>🌊 资金流向背离监测</h1>
+            <p>股价下跌 + 主力净流入 = 逆势吸筹信号（contrarian）</p>
+        </div>
+        <div class="scan-bar">
+            <span id="meta">加载中...</span>
+            <button class="scan-btn" id="refresh">立即刷新</button>
+        </div>
+        <div class="kpi-row">
+            <div class="kpi"><div class="v" id="k-universe">-</div><div class="l">扫描股票数</div></div>
+            <div class="kpi"><div class="v" id="k-signals" style="color:#ef4444">-</div><div class="l">背离信号数</div></div>
+        </div>
+        <div class="signal-box">
+            <h3>⚡ 背离信号（跌 &gt;1% 且主力净流入占比 &gt;1.5% 且成交额 &gt;5000万，已剔除 ST/北交所/新股）</h3>
+            <p>按主力净流入金额排序 · 信号强度：超大单+大单同时净流入最佳 · 交易时段（9:30-15:00）数据最可靠</p>
+            <table class="data-table">
+                <thead><tr><th>代码</th><th>名称</th><th>现价</th><th>跌幅</th><th>主力净流入</th><th>净流入占比</th><th>超大单</th><th>大单</th><th>成交额</th></tr></thead>
+                <tbody id="signals"><tr><td colspan="9" class="loading">加载中...</td></tr></tbody>
+            </table>
+        </div>
+        <h3 class="sec">💹 主力净流入 TOP20（全市场）</h3>
+        <table class="data-table">
+            <thead><tr><th>#</th><th>代码</th><th>名称</th><th>涨跌幅</th><th>主力净流入</th><th>净流入占比</th></tr></thead>
+            <tbody id="top"><tr><td colspan="6" class="loading">加载中...</td></tr></tbody>
+        </table>
+    </div>
+    <script>
+        const pwd = "{{ pwd }}";
+        async function load(refresh = false) {
+            const btn = document.getElementById('refresh');
+            btn.disabled = true;
+            try {
+                const r = await fetch(`/api/research/moneyflow?pwd=${pwd}` + (refresh ? '&refresh=1' : ''));
+                const d = await r.json();
+                if (!r.ok) throw new Error(d.detail || '加载失败');
+                render(d);
+                document.getElementById('meta').textContent = `更新于 ${d.fetchedAt} · 缓存 5 分钟`;
+            } catch (e) {
+                document.getElementById('meta').textContent = '加载失败：' + e.message + '（东财接口可能限流，稍后重试）';
+            } finally { btn.disabled = false; }
+        }
+        function render(d) {
+            document.getElementById('k-universe').textContent = d.universe ?? '-';
+            document.getElementById('k-signals').textContent = d.signal_count ?? 0;
+            document.getElementById('signals').innerHTML = (d.signals || []).map(s => `
+                <tr>
+                    <td>${s.code}</td><td style="font-weight:600">${s.name}</td><td>${s.price}</td>
+                    <td class="down">${s.chg}%</td>
+                    <td class="up">${s.main_inflow_wan >= 0 ? '+' : ''}${s.main_inflow_wan}万</td>
+                    <td>${s.inflow_rate}%</td>
+                    <td>${s.super_inflow_wan}万</td><td>${s.large_inflow_wan}万</td>
+                    <td>${s.turnover_yi}亿</td>
+                </tr>`).join('') || '<tr><td colspan="9" class="loading">当前无背离信号</td></tr>';
+            document.getElementById('top').innerHTML = (d.inflow_top || []).map((s, i) => `
+                <tr>
+                    <td>${i + 1}</td><td>${s.code}</td><td style="font-weight:600">${s.name}</td>
+                    <td class="${s.chg >= 0 ? 'up' : 'down'}">${s.chg}%</td>
+                    <td class="up">+${s.main_inflow_wan}万</td><td>${s.inflow_rate}%</td>
+                </tr>`).join('') || '<tr><td colspan="6" class="loading">暂无数据</td></tr>';
+        }
+        document.getElementById('refresh').addEventListener('click', () => load(true));
+        load();
+    </script>
+</body>
+</html>

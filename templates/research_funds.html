@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>基金经理跟踪 - Jungle 研究中心</title>
+    <link rel="stylesheet" href="/static/styles.css">
+    <style>
+        .page { max-width: 1000px; margin: 0 auto; padding: 20px; }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #fff; padding: 26px; border-radius: 12px; margin-bottom: 12px; text-align: center;
+        }
+        .header h1 { font-size: 1.7em; margin-bottom: 6px; }
+        .nav-row { display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
+        .nav-btn {
+            display: inline-block; padding: 10px 20px; background: #fff; color: #667eea;
+            border: 2px solid #667eea; border-radius: 8px; text-decoration: none; font-weight: 600;
+        }
+        .nav-btn:hover { background: #667eea; color: #fff; }
+        .kpi-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 20px; }
+        .kpi {
+            background: #fff; border: 2px solid #e2e8f0; border-radius: 12px; padding: 16px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1); text-align: center;
+        }
+        .kpi .v { font-size: 20px; font-weight: 800; }
+        .kpi .l { font-size: 12px; color: #64748b; margin-top: 4px; }
+        .up { color: #ef4444; } .down { color: #10b981; }
+        table.data-table {
+            width: 100%; border-collapse: collapse; background: #fff;
+            border: 2px solid #e2e8f0; border-radius: 12px; overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .data-table th { background: #667eea; color: #fff; padding: 11px 12px; font-size: 13px; text-align: left; }
+        .data-table td { padding: 10px 12px; font-size: 13px; border-bottom: 1px solid #f1f5f9; }
+        .data-table tr:hover { background: #f8f7ff; }
+        .scan-bar {
+            background: #fff; border: 2px solid #e2e8f0; border-radius: 12px; padding: 12px 16px;
+            display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;
+            margin-bottom: 16px; font-size: 13px; color: #64748b;
+        }
+        .scan-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #fff;
+            border: none; border-radius: 8px; padding: 8px 18px; font-size: 13px; font-weight: 600; cursor: pointer;
+        }
+        .scan-btn:disabled { opacity: 0.6; }
+        .mgr { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 12px; font-weight: 600; color: #fff; background: #667eea; margin-right: 6px; }
+        .loading { text-align: center; padding: 40px; color: #666; }
+    </style>
+</head>
+<body>
+    <div class="page">
+        <div class="nav-row">
+            <a href="/research?pwd={{ pwd }}" class="nav-btn">← 研究中心</a>
+            <a href="/?pwd={{ pwd }}" class="nav-btn">返回持仓</a>
+        </div>
+        <div class="header">
+            <h1>💰 长跑型基金经理跟踪</h1>
+            <p>朱少醒 · 郑希 · 杨金金 · 贾成东 —— 核心 A 份额基金净值（天天基金）</p>
+        </div>
+        <div class="scan-bar">
+            <span id="meta">加载中...</span>
+            <button class="scan-btn" id="refresh">立即刷新</button>
+        </div>
+        <div class="kpi-row" id="kpi"></div>
+        <table class="data-table">
+            <thead>
+                <tr><th>经理</th><th>基金</th><th>单位净值</th><th>净值日期</th><th>累计净值</th><th>日涨跌</th><th>备注</th></tr>
+            </thead>
+            <tbody id="tbody"><tr><td colspan="7" class="loading">加载中...</td></tr></tbody>
+        </table>
+    </div>
+    <script>
+        const pwd = "{{ pwd }}";
+        async function load(refresh = false) {
+            const btn = document.getElementById('refresh');
+            btn.disabled = true;
+            try {
+                const r = await fetch(`/api/research/funds?pwd=${pwd}` + (refresh ? '&refresh=1' : ''));
+                const d = await r.json();
+                if (!r.ok) throw new Error(d.detail || '加载失败');
+                render(d);
+                document.getElementById('meta').textContent = `更新于 ${d.fetchedAt} · 净值通常交易日 18:00-20:00 确认`;
+            } catch (e) {
+                document.getElementById('meta').textContent = '加载失败：' + e.message;
+            } finally { btn.disabled = false; }
+        }
+        function render(d) {
+            const chg = v => { const x = parseFloat(v); return isNaN(x) ? '-' : (x >= 0 ? '+' : '') + x.toFixed(2) + '%'; };
+            const cls = v => parseFloat(v) >= 0 ? 'up' : 'down';
+            document.getElementById('kpi').innerHTML = [
+                d.best ? `<div class="kpi"><div class="v ${cls(d.best.chg)}">${chg(d.best.chg)}</div><div class="l">📈 当日最强 ${d.best.name}</div></div>` : '',
+                d.worst ? `<div class="kpi"><div class="v ${cls(d.worst.chg)}">${chg(d.worst.chg)}</div><div class="l">📉 当日最弱 ${d.worst.name}</div></div>` : '',
+            ].join('');
+            document.getElementById('tbody').innerHTML = d.funds.map(f => f.ok ? `
+                <tr>
+                    <td><span class="mgr">${f.manager}</span></td>
+                    <td style="font-weight:600">${f.name}<div style="font-size:11px;color:#94a3b8">${f.code} · ${f.company}</div></td>
+                    <td style="font-weight:700">${f.nav || '-'}</td>
+                    <td>${f.nav_date || '-'}</td>
+                    <td>${f.acc_nav || '-'}</td>
+                    <td class="${cls(f.chg)}">${chg(f.chg)}</td>
+                    <td style="font-size:12px;color:#64748b">${f.note || ''}</td>
+                </tr>` : `<tr><td>${f.manager}</td><td>${f.name}</td><td colspan="5" style="color:#ef4444">获取失败：${f.error}</td></tr>`
+            ).join('');
+        }
+        document.getElementById('refresh').addEventListener('click', () => load(true));
+        load();
+    </script>
+</body>
+</html>

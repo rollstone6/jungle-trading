@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>央行流动性仪表板 - Jungle 研究中心</title>
+    <link rel="stylesheet" href="/static/styles.css">
+    <style>
+        .page { max-width: 1100px; margin: 0 auto; padding: 20px; }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #fff; padding: 26px; border-radius: 12px; margin-bottom: 12px; text-align: center;
+        }
+        .header h1 { font-size: 1.7em; margin-bottom: 6px; }
+        .nav-row { display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
+        .nav-btn {
+            display: inline-block; padding: 10px 20px; background: #fff; color: #667eea;
+            border: 2px solid #667eea; border-radius: 8px; text-decoration: none; font-weight: 600;
+        }
+        .nav-btn:hover { background: #667eea; color: #fff; }
+        .scan-bar {
+            background: #fff; border: 2px solid #e2e8f0; border-radius: 12px; padding: 12px 16px;
+            display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;
+            margin-bottom: 16px; font-size: 13px; color: #64748b;
+        }
+        .scan-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #fff;
+            border: none; border-radius: 8px; padding: 8px 18px; font-size: 13px; font-weight: 600; cursor: pointer;
+        }
+        .kpi-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin-bottom: 20px; }
+        .kpi {
+            background: #fff; border: 2px solid #e2e8f0; border-radius: 12px; padding: 16px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1); text-align: center;
+        }
+        .kpi .v { font-size: 24px; font-weight: 800; color: #667eea; }
+        .kpi .l { font-size: 12px; color: #64748b; margin-top: 4px; }
+        .net-chart {
+            display: flex; align-items: flex-end; gap: 2px; height: 120px;
+            background: #fff; border: 2px solid #e2e8f0; border-radius: 12px;
+            padding: 14px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-bottom: 20px;
+        }
+        .net-bar { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; height: 100%; position: relative; }
+        .net-bar .bar { width: 100%; min-height: 2px; border-radius: 2px 2px 0 0; }
+        .net-bar.pos .bar { background: #e74c3c; }
+        .net-bar.neg .bar { background: #27ae60; }
+        .net-bar .tip {
+            position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%);
+            font-size: 9px; color: #64748b; white-space: nowrap; display: none;
+        }
+        .net-bar:hover .tip { display: block; }
+        table.data-table {
+            width: 100%; border-collapse: collapse; background: #fff;
+            border: 2px solid #e2e8f0; border-radius: 12px; overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-bottom: 20px;
+        }
+        .data-table th { background: #667eea; color: #fff; padding: 10px 10px; font-size: 12px; text-align: left; }
+        .data-table td { padding: 8px 10px; font-size: 12px; border-bottom: 1px solid #f1f5f9; }
+        .data-table tr:hover { background: #f8f7ff; }
+        .pos-t { color: #e74c3c; font-weight: 600; } .neg-t { color: #27ae60; font-weight: 600; }
+        h3.sec { color: #334155; font-size: 15px; margin: 18px 0 10px; }
+        .loading { text-align: center; padding: 40px; color: #666; }
+        .src-note { font-size: 11px; color: #94a3b8; margin-top: 6px; }
+    </style>
+</head>
+<body>
+    <div class="page">
+        <div class="nav-row">
+            <a href="/research?pwd={{ pwd }}" class="nav-btn">← 研究中心</a>
+            <a href="/?pwd={{ pwd }}" class="nav-btn">返回持仓</a>
+        </div>
+        <div class="header">
+            <h1>🏦 央行公开市场操作 · 流动性仪表板</h1>
+            <p>逆回购投放/到期/净投放 · 买断式逆回购（MLF 替代）到期日历</p>
+        </div>
+        <div class="scan-bar">
+            <span id="meta">加载中...</span>
+            <button class="scan-btn" id="refresh">立即刷新</button>
+        </div>
+        <div class="kpi-row" id="kpi"></div>
+        <h3 class="sec">📊 近 30 日净投放（红=投放 绿=回笼，亿元，悬停看明细）</h3>
+        <div class="net-chart" id="chart"></div>
+        <h3 class="sec">🗓️ 买断式逆回购未来到期（公告明示到期日）</h3>
+        <table class="data-table">
+            <thead><tr><th>操作日</th><th>金额(亿)</th><th>期限</th><th>到期日</th><th>剩余天数</th></tr></thead>
+            <tbody id="bo"><tr><td colspan="5" class="loading">加载中...</td></tr></tbody>
+        </table>
+        <h3 class="sec">📋 近期逆回购公告（含零操作）</h3>
+        <table class="data-table">
+            <thead><tr><th>日期</th><th>投放(亿)</th><th>利率</th><th>到期(亿,推算)</th><th>净投放(亿)</th></tr></thead>
+            <tbody id="rr"><tr><td colspan="5" class="loading">加载中...</td></tr></tbody>
+        </table>
+        <div class="src-note">数据来源：pbc.gov.cn 官网公告 · 7天期逆回购到期按「7个自然日+周末顺延」推算（节假日未剔除）· MLF 已被买断式逆回购替代</div>
+    </div>
+    <script>
+        const pwd = "{{ pwd }}";
+        async function load(refresh = false) {
+            const btn = document.getElementById('refresh');
+            btn.disabled = true;
+            try {
+                const r = await fetch(`/api/research/pboc?pwd=${pwd}` + (refresh ? '&refresh=1' : ''));
+                const d = await r.json();
+                if (!r.ok) throw new Error(d.detail || '加载失败');
+                render(d);
+                document.getElementById('meta').textContent =
+                    `更新于 ${d.fetchedAt}` + (d.parse_errors ? ` · ${d.parse_errors} 条公告解析失败` : '');
+            } catch (e) {
+                document.getElementById('meta').textContent = '加载失败：' + e.message + '（央行官网可能限流，稍后重试）';
+            } finally { btn.disabled = false; }
+        }
+        function render(d) {
+            const t = d.today || {};
+            const net30 = (d.daily || []).reduce((s, x) => s + x.net, 0);
+            document.getElementById('kpi').innerHTML = [
+                [t.amount != null ? t.amount + ' 亿' : '-', '最新投放（' + (t.date || '-') + '）'],
+                [t.rate != null ? t.rate + '%' : '-', '7天期操作利率'],
+                [(net30 >= 0 ? '+' : '') + net30.toFixed(0) + ' 亿', '近30日累计净投放'],
+                [d.upcoming_bo ? d.upcoming_bo.length : 0, '买断式待到期笔数'],
+            ].map(k => `<div class="kpi"><div class="v">${k[0]}</div><div class="l">${k[1]}</div></div>`).join('');
+
+            const maxAbs = Math.max(1, ...(d.daily || []).map(x => Math.abs(x.net)));
+            document.getElementById('chart').innerHTML = (d.daily || []).map(x => {
+                const h = Math.max(3, Math.round(Math.abs(x.net) / maxAbs * 95));
+                return `<div class="net-bar ${x.net >= 0 ? 'pos' : 'neg'}" style="height:100%">
+                    <span class="tip">${x.date.slice(5)} 净${x.net >= 0 ? '投放' : '回笼'}${Math.abs(x.net).toFixed(0)}亿</span>
+                    <div class="bar" style="height:${h}%"></div></div>`;
+            }).join('');
+
+            document.getElementById('bo').innerHTML = (d.upcoming_bo || []).map(o => `
+                <tr><td>${o.date || '-'}</td><td>${o.amount}</td><td>${o.term}</td>
+                    <td>${o.date_maturity}</td><td>${o.days_to_maturity} 天后</td></tr>`).join('')
+                || '<tr><td colspan="5" class="loading">暂无未来到期（或公告未披露）</td></tr>';
+
+            const dailyMap = {};
+            (d.daily || []).forEach(x => dailyMap[x.date] = x);
+            document.getElementById('rr').innerHTML = (d.rr_ops || []).slice(0, 10).map(o => {
+                const day = dailyMap[o.date] || {};
+                return `<tr>
+                    <td>${o.date}</td>
+                    <td class="${o.amount > 0 ? 'pos-t' : ''}">${o.amount > 0 ? o.amount : '零操作'}</td>
+                    <td>${o.rate != null ? o.rate + '%' : '-'}</td>
+                    <td>${day.maturity != null ? day.maturity : '-'}</td>
+                    <td class="${(day.net || 0) >= 0 ? 'pos-t' : 'neg-t'}">${day.net != null ? (day.net >= 0 ? '+' : '') + day.net : '-'}</td></tr>`;
+            }).join('') || '<tr><td colspan="5" class="loading">暂无公告数据</td></tr>';
+        }
+        document.getElementById('refresh').addEventListener('click', () => load(true));
+        load();
+    </script>
+</body>
+</html>

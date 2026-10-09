@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>研究中心 - Jungle 天才交易员</title>
+    <link rel="stylesheet" href="/static/styles.css">
+    <style>
+        .hub-container { max-width: 1100px; margin: 0 auto; padding: 20px; }
+        .hub-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #fff; padding: 30px; border-radius: 12px;
+            margin-bottom: 20px; text-align: center;
+        }
+        .hub-header h1 { font-size: 2em; margin-bottom: 8px; }
+        .nav-row { display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
+        .nav-btn {
+            display: inline-block; padding: 10px 20px; background: #fff; color: #667eea;
+            border: 2px solid #667eea; border-radius: 8px; text-decoration: none; font-weight: 600;
+        }
+        .nav-btn:hover { background: #667eea; color: #fff; }
+        .card-grid {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px;
+        }
+        .card {
+            background: #fff; border: 2px solid #e2e8f0; border-radius: 12px;
+            padding: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            text-decoration: none; color: #334155; transition: all 0.25s;
+            border-top: 4px solid #667eea;
+        }
+        .card:hover { transform: translateY(-3px); box-shadow: 0 8px 20px rgba(102,126,234,0.25); }
+        .card .icon { font-size: 2em; }
+        .card h2 { margin: 10px 0 8px; color: #1e293b; font-size: 1.25em; }
+        .card p { margin: 0; font-size: 13px; color: #64748b; line-height: 1.6; }
+        .card .src { margin-top: 10px; font-size: 11px; color: #94a3b8; }
+    </style>
+</head>
+<body>
+    <div class="hub-container">
+        <div class="nav-row">
+            <a href="/?pwd={{ pwd }}" class="nav-btn">← 返回持仓</a>
+            <a href="/backtest?pwd={{ pwd }}" class="nav-btn">🧪 量化回测实验室</a>
+            <a href="/regime?pwd={{ pwd }}" class="nav-btn">📊 走势分类扫描</a>
+        </div>
+        <div class="hub-header">
+            <h1>🔬 研究中心</h1>
+            <p>基金 · 排行榜 · 资金流 · 宏观流动性 —— 数据来自 hermes-skills 研究技能集</p>
+        </div>
+        <div class="card-grid">
+            <a class="card" href="/research/funds?pwd={{ pwd }}">
+                <div class="icon">💰</div>
+                <h2>基金经理跟踪</h2>
+                <p>朱少醒 / 郑希 / 杨金金 / 贾成东 四位长跑型经理的核心基金：最新净值、盘中估算涨跌、当日最强最弱。</p>
+                <div class="src">数据源：天天基金 fundgz 接口 · 缓存 30 分钟</div>
+            </a>
+            <a class="card" href="/research/rankings?pwd={{ pwd }}">
+                <div class="icon">🏆</div>
+                <h2>模拟组合排行榜</h2>
+                <p>东方财富模拟组合日/5日/20日/250日/总收益五维排行 TOP30，跨维度热门股票频率统计（北交所标注）。</p>
+                <div class="src">数据源：simqry2.eastmoney.com API · 缓存 30 分钟</div>
+            </a>
+            <a class="card" href="/research/moneyflow?pwd={{ pwd }}">
+                <div class="icon">🌊</div>
+                <h2>资金流向背离监测</h2>
+                <p>全市场扫描「股价下跌 + 主力净流入」的 contrarian 背离信号，附主力净流入榜。交易时段实时更新。</p>
+                <div class="src">数据源：东财 push2 实时接口 · 缓存 5 分钟</div>
+            </a>
+            <a class="card" href="/research/pboc?pwd={{ pwd }}">
+                <div class="icon">🏦</div>
+                <h2>央行流动性仪表板</h2>
+                <p>央行公开市场操作：逆回购投放/到期/净投放序列、买断式逆回购到期日历，资金面环境一目了然。</p>
+                <div class="src">数据源：pbc.gov.cn 官网公告 · 缓存 6 小时</div>
+            </a>
+        </div>
+    </div>
+</body>
+</html>

@@ -45,3 +45,4 @@ result.txt
 
 # 每日扫描缓存（运行时数据，不入库）
 data/regime_scan.json
+data/research_*.json

@@ -446,6 +446,128 @@ async def regime_latest(request: Request, pwd: str = check_password, refresh: in
     return result
 
 
+# === 研究中心（整合 hermes-skills 的 4 个研究技能） ===
+RESEARCH_CACHE_DIR = BASE_DIR / "data"
+
+
+@app.get("/research", response_class=HTMLResponse)
+async def research_hub(request: Request, pwd: str = check_password):
+    """研究中心入口页"""
+    return templates.TemplateResponse(
+        request, "research_hub.html", {"request": request, "pwd": pwd}
+    )
+
+
+@app.get("/research/funds", response_class=HTMLResponse)
+async def research_funds_page(request: Request, pwd: str = check_password):
+    """基金经理跟踪页"""
+    return templates.TemplateResponse(
+        request, "research_funds.html", {"request": request, "pwd": pwd}
+    )
+
+
+@app.get("/api/research/funds")
+async def research_funds_api(request: Request, pwd: str = check_password, refresh: int = 0):
+    """长跑型基金经理核心基金净值（缓存30分钟）"""
+    from app.services import research as rs
+
+    async def produce():
+        return await rs.fetch_fund_nav()
+
+    return await _research_produce("funds", 30, refresh, produce)
+
+
+@app.get("/research/rankings", response_class=HTMLResponse)
+async def research_rankings_page(request: Request, pwd: str = check_password):
+    """东财模拟组合排行榜页"""
+    return templates.TemplateResponse(
+        request, "research_rankings.html", {"request": request, "pwd": pwd}
+    )
+
+
+@app.get("/api/research/rankings")
+async def research_rankings_api(request: Request, pwd: str = check_password,
+                                refresh: int = 0, top: int = 30):
+    """东财模拟组合排行榜五维度 + 热门股票统计（缓存30分钟）"""
+    from app.services import research as rs
+    top = max(10, min(top, 100))
+
+    async def produce():
+        return await rs.fetch_em_rankings(top)
+
+    return await _research_produce("rankings", 30, refresh, produce, suffix=f"_{top}")
+
+
+@app.get("/research/moneyflow", response_class=HTMLResponse)
+async def research_moneyflow_page(request: Request, pwd: str = check_password):
+    """资金流向背离监测页"""
+    return templates.TemplateResponse(
+        request, "research_moneyflow.html", {"request": request, "pwd": pwd}
+    )
+
+
+@app.get("/api/research/moneyflow")
+async def research_moneyflow_api(request: Request, pwd: str = check_password, refresh: int = 0):
+    """价资背离信号 + 主力净流入榜（实时数据，缓存5分钟）"""
+    from app.services import research as rs
+
+    async def produce():
+        return await rs.fetch_money_flow()
+
+    return await _research_produce("moneyflow", 5, refresh, produce)
+
+
+@app.get("/research/pboc", response_class=HTMLResponse)
+async def research_pboc_page(request: Request, pwd: str = check_password):
+    """央行流动性仪表板页"""
+    return templates.TemplateResponse(
+        request, "research_pboc.html", {"request": request, "pwd": pwd}
+    )
+
+
+@app.get("/api/research/pboc")
+async def research_pboc_api(request: Request, pwd: str = check_password, refresh: int = 0):
+    """央行公开市场操作：逆回购/买断式，投放到期净投放（缓存6小时）"""
+    from app.services import research as rs
+
+    async def produce():
+        return await rs.fetch_pboc_liquidity()
+
+    return await _research_produce("pboc", 360, refresh, produce)
+
+
+async def _research_produce(name: str, ttl_minutes: int, refresh: int, produce, suffix: str = ""):
+    """async 版通用缓存：TTL 内返回缓存，否则 await producer 并落盘。
+    抓取失败时若有旧缓存则返回旧数据并标记 stale，否则抛 502"""
+    RESEARCH_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    cache_file = RESEARCH_CACHE_DIR / f"research_{name}{suffix}.json"
+    if not refresh and cache_file.exists():
+        try:
+            cached = json.loads(cache_file.read_text(encoding="utf-8"))
+            fetched = datetime.strptime(cached.get("fetchedAt", ""), "%Y-%m-%d %H:%M:%S")
+            if (datetime.now() - fetched).total_seconds() < ttl_minutes * 60:
+                return cached
+        except Exception:
+            pass
+    try:
+        result = await produce()
+    except Exception as e:
+        if cache_file.exists():
+            try:
+                cached = json.loads(cache_file.read_text(encoding="utf-8"))
+                cached["stale"] = True
+                cached["error"] = str(e)[:120]
+                return cached
+            except Exception:
+                pass
+        raise HTTPException(status_code=502, detail=str(e)[:200])
+    try:
+        cache_file.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
+    except Exception:
+        pass  # 落盘失败不影响返回
+    return result
+
+
 @app.post("/api/backtest/run")
 async def run_backtest_api(request: Request, pwd: str = check_password):
     """运行回测"""
