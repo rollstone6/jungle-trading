@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>量化信号中心 - Jungle 天才交易员</title>
+    <link rel="stylesheet" href="/static/styles.css">
+    <style>
+        .quant-container { max-width: 1280px; margin: 0 auto; padding: 20px; }
+
+        .quant-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white; padding: 30px; border-radius: 12px;
+            margin-bottom: 12px; text-align: center;
+        }
+        .quant-header h1 { font-size: 2em; margin-bottom: 10px; }
+        .nav-row { display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
+        .nav-btn {
+            display: inline-block; padding: 10px 20px; background: white;
+            color: #667eea; border: 2px solid #667eea; border-radius: 8px;
+            text-decoration: none; font-weight: 600; transition: all 0.3s;
+        }
+        .nav-btn:hover { background: #667eea; color: white; }
+
+        .tab-row { display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
+        .tab-btn {
+            padding: 10px 22px; border-radius: 8px; border: 2px solid #667eea;
+            background: white; color: #667eea; font-weight: 600; cursor: pointer;
+            transition: all 0.2s; font-size: 14px;
+        }
+        .tab-btn.active { background: #667eea; color: white; }
+        .tab-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+        .panel { display: none; }
+        .panel.active { display: block; }
+
+        .scan-bar {
+            background: white; border: 2px solid #e2e8f0; border-radius: 12px;
+            padding: 14px 18px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            display: flex; justify-content: space-between; align-items: center;
+            gap: 12px; flex-wrap: wrap; margin-bottom: 20px;
+            font-size: 14px; color: #64748b;
+        }
+        .scan-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #fff; border: none; border-radius: 8px; padding: 10px 22px;
+            font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s;
+        }
+        .scan-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+        .sel {
+            padding: 8px 12px; border: 2px solid #e2e8f0; border-radius: 8px;
+            font-size: 14px; color: #334155; background: white;
+        }
+
+        .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 16px; margin-bottom: 20px; }
+        .kpi-card {
+            background: white; border: 2px solid #e2e8f0; border-radius: 12px;
+            padding: 18px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); text-align: center;
+        }
+        .kpi-card .v { font-size: 32px; font-weight: 800; }
+        .kpi-card .l { font-size: 13px; color: #64748b; margin-top: 4px; }
+        .kpi-card.pass .v { color: #10b981; }
+        .kpi-card.box .v { color: #f59e0b; }
+        .kpi-card.score .v { color: #667eea; }
+
+        .data-table {
+            width: 100%; border-collapse: collapse; background: white;
+            border: 2px solid #e2e8f0; border-radius: 12px; overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .data-table th {
+            background: #667eea; color: #fff; padding: 11px 12px;
+            font-size: 13px; text-align: left; white-space: nowrap;
+        }
+        .data-table td { padding: 9px 12px; font-size: 13px; border-bottom: 1px solid #f1f5f9; }
+        .data-table tr:hover { background: #f8f7ff; }
+        .badge {
+            display: inline-block; padding: 3px 12px; border-radius: 20px;
+            font-size: 12px; font-weight: 600; color: #fff;
+        }
+        .badge.ok { background: #10b981; }
+        .badge.no { background: #cbd5e1; }
+        .mark { font-size: 14px; }
+        .mark.yes { color: #10b981; }
+        .mark.no { color: #ef4444; }
+        .mono { font-variant-numeric: tabular-nums; }
+        .loading { text-align: center; padding: 40px; color: #666; }
+        .link-btn {
+            color: #667eea; cursor: pointer; text-decoration: underline;
+            font-size: 13px; white-space: nowrap;
+        }
+
+        .detail-box {
+            display: none; background: white; border: 2px solid #e2e8f0;
+            border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            padding: 18px; margin-bottom: 20px;
+        }
+        .detail-box h3 { margin: 0 0 4px; color: #334155; font-size: 16px; }
+        .detail-box .sub { color: #64748b; font-size: 13px; margin-bottom: 12px; }
+        .detail-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin-bottom: 14px; }
+        .detail-item {
+            background: #f8f7ff; border-radius: 8px; padding: 10px 12px; font-size: 13px;
+        }
+        .detail-item .k { color: #64748b; font-size: 12px; }
+        .detail-item .v { font-weight: 700; color: #334155; font-size: 16px; }
+        #chip-canvas { width: 100%; height: 300px; border: 1px solid #e2e8f0; border-radius: 8px; }
+    </style>
+</head>
+<body>
+    <div class="quant-container">
+        <div class="nav-row">
+            <a href="/?pwd={{ pwd }}" class="nav-btn">← 返回持仓</a>
+            <a href="/backtest?pwd={{ pwd }}" class="nav-btn">🧪 量化回测实验室</a>
+            <a href="/regime?pwd={{ pwd }}" class="nav-btn">📊 走势分类扫描</a>
+            <a href="/research?pwd={{ pwd }}" class="nav-btn">🔬 研究中心</a>
+        </div>
+
+        <div class="quant-header">
+            <h1>📡 量化信号中心</h1>
+            <p>策略信号 · 趋势过滤 · 箱体检测 · 筹码分布 —— app/quant 模块全能力Web化，与持仓/回测共用同一股票池</p>
+        </div>
+
+        <div class="tab-row" id="tab-row">
+            <button class="tab-btn active" data-tab="signals">🎯 策略信号</button>
+            <button class="tab-btn" data-tab="trend">📈 趋势过滤</button>
+            <button class="tab-btn" data-tab="box">📦 箱体检测</button>
+            <button class="tab-btn" data-tab="chip">🧱 筹码分布</button>
+        </div>
+
+        <!-- ===== 策略信号 ===== -->
+        <div class="panel active" id="panel-signals">
+            <div class="scan-bar">
+                <span>
+                    策略：
+                    <select class="sel" id="signal-strategy"></select>
+                    <span id="signal-meta" style="margin-left:12px">加载中...</span>
+                </span>
+                <button class="scan-btn" id="signal-refresh">重新扫描</button>
+            </div>
+            <table class="data-table">
+                <thead><tr>
+                    <th>日期</th><th>名称</th><th>代码</th><th>收盘价</th><th>评分</th><th>信号细节</th><th>止损 / 止盈</th>
+                </tr></thead>
+                <tbody id="signal-body"><tr><td colspan="7" class="loading">加载中...</td></tr></tbody>
+            </table>
+        </div>
+
+        <!-- ===== 趋势过滤 ===== -->
+        <div class="panel" id="panel-trend">
+            <div class="scan-bar">
+                <span>
+                    模式：
+                    <select class="sel" id="trend-mode">
+                        <option value="strong">强趋势（均线多头+新高）</option>
+                        <option value="oversold">超卖（低于MA20）</option>
+                        <option value="loose">宽松（仅检查数据量）</option>
+                    </select>
+                    <span id="trend-meta" style="margin-left:12px">加载中...</span>
+                </span>
+                <button class="scan-btn" id="trend-refresh">重新扫描</button>
+            </div>
+            <div class="kpi-grid" id="trend-kpi"><div class="loading">加载中...</div></div>
+            <table class="data-table">
+                <thead><tr>
+                    <th>通过</th><th>名称</th><th>代码</th><th>收盘</th>
+                    <th>①均线多头</th><th>②MA20向上</th><th>③20日新高</th><th>④量能</th><th>未通过原因</th>
+                </tr></thead>
+                <tbody id="trend-body"><tr><td colspan="9" class="loading">加载中...</td></tr></tbody>
+            </table>
+        </div>
+
+        <!-- ===== 箱体检测 ===== -->
+        <div class="panel" id="panel-box">
+            <div class="scan-bar">
+                <span id="box-meta">加载中...</span>
+                <button class="scan-btn" id="box-refresh">重新扫描</button>
+            </div>
+            <div class="kpi-grid" id="box-kpi"><div class="loading">加载中...</div></div>
+            <table class="data-table">
+                <thead><tr>
+                    <th>名称</th><th>代码</th><th>箱体上沿</th><th>箱体下沿</th><th>宽度%</th>
+                    <th>当前位置%</th><th>评分</th><th>趋势</th><th>操作建议</th>
+                </tr></thead>
+                <tbody id="box-body"><tr><td colspan="9" class="loading">加载中...</td></tr></tbody>
+            </table>
+        </div>
+
+        <!-- ===== 筹码分布 ===== -->
+        <div class="panel" id="panel-chip">
+            <div class="scan-bar">
+                <span id="chip-meta">加载中...</span>
+                <button class="scan-btn" id="chip-refresh">重新扫描</button>
+            </div>
+            <div class="kpi-grid" id="chip-kpi"><div class="loading">加载中...</div></div>
+            <table class="data-table">
+                <thead><tr>
+                    <th>#</th><th>名称</th><th>代码</th><th>现价</th><th>峰值价</th>
+                    <th>90%集中</th><th>70%集中</th><th>主峰占比</th><th>评分</th><th>分布</th>
+                </tr></thead>
+                <tbody id="chip-body"><tr><td colspan="10" class="loading">加载中...</td></tr></tbody>
+            </table>
+            <div class="detail-box" id="chip-detail">
+                <h3 id="chip-detail-title">筹码分布</h3>
+                <div class="sub" id="chip-detail-sub"></div>
+                <div class="detail-grid" id="chip-detail-metrics"></div>
+                <canvas id="chip-canvas"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const pwd = "{{ pwd }}";
+
+        // ---------- Tab 切换 ----------
+        document.getElementById('tab-row').addEventListener('click', (e) => {
+            const btn = e.target.closest('.tab-btn');
+            if (!btn) return;
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+            btn.classList.add('active');
+            document.getElementById('panel-' + btn.dataset.tab).classList.add('active');
+        });
+
+        async function fetchJSON(url) {
+            const resp = await fetch(url);
+            const data = await resp.json();
+            if (!resp.ok) throw new Error(data.detail || '加载失败');
+            return data;
+        }
+
+        const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+        // ---------- 1. 策略信号 ----------
+        let signalStrategy = 'breakout';
+        async function initSignals() {
+            try {
+                const d = await fetchJSON(`/api/quant/strategies?pwd=${pwd}`);
+                const sel = document.getElementById('signal-strategy');
+                sel.innerHTML = d.strategies.map(s =>
+                    `<option value="${s.key}">${esc(s.name)}（${s.timeframe}）</option>`).join('');
+                signalStrategy = d.strategies[0] ? d.strategies[0].key : 'breakout';
+                sel.value = signalStrategy;
+                sel.onchange = () => { signalStrategy = sel.value; loadSignals(false); };
+            } catch (e) {
+                document.getElementById('signal-meta').textContent = '策略列表加载失败：' + e.message;
+            }
+            loadSignals(false);
+        }
+        async function loadSignals(refresh) {
+            const meta = document.getElementById('signal-meta');
+            const btn = document.getElementById('signal-refresh');
+            btn.disabled = true;
+            meta.textContent = '扫描中（全池取数+信号计算，首次约1-2分钟）...';
+            try {
+                const d = await fetchJSON(`/api/quant/signals?pwd=${pwd}&strategy=${signalStrategy}` + (refresh ? '&refresh=1' : ''));
+                const rows = d.signals || [];
+                document.getElementById('signal-body').innerHTML = rows.length ? rows.map(s => {
+                    const md = s.metadata || {};
+                    const detail = md.score_detail || [
+                        md.box_width ? `箱体宽${md.box_width}` : '',
+                        md.pullback || '',
+                        md.vol_ratio ? `量比${md.vol_ratio}` : '',
+                        md.obv_alert || '',
+                    ].filter(Boolean).join(' · ');
+                    return `<tr>
+                        <td class="mono">${s.date}</td>
+                        <td style="font-weight:600">${esc(s.name)}</td>
+                        <td class="mono">${s.symbol}</td>
+                        <td class="mono">${s.close}</td>
+                        <td><span class="badge ${md.score >= 70 ? 'ok' : 'no'}">${md.score ?? '-'}</span></td>
+                        <td style="font-size:12px;color:#64748b">${esc(detail)}</td>
+                        <td class="mono" style="font-size:12px">${s.metadata?.stop_loss ?? '-'} / ${s.metadata?.take_profit ?? '-'}</td>
+                    </tr>`;
+                }).join('') : '<tr><td colspan="7" class="loading">近30天暂无信号</td></tr>';
+                meta.textContent = `数据日期 ${d.asOf} · 更新于 ${d.fetchedAt} · 近${d.lookbackDays}天共 ${d.total} 条信号` +
+                    (d.failures && d.failures.length ? ` · ${d.failures.length} 只取数失败` : '');
+            } catch (e) {
+                meta.textContent = '加载失败：' + e.message;
+            } finally {
+                btn.disabled = false;
+            }
+        }
+        document.getElementById('signal-refresh').addEventListener('click', () => loadSignals(true));
+
+        // ---------- 2. 趋势过滤 ----------
+        async function loadTrend(refresh) {
+            const mode = document.getElementById('trend-mode').value;
+            const meta = document.getElementById('trend-meta');
+            const btn = document.getElementById('trend-refresh');
+            btn.disabled = true;
+            meta.textContent = '扫描中...';
+            try {
+                const d = await fetchJSON(`/api/quant/trend?pwd=${pwd}&mode=${mode}` + (refresh ? '&refresh=1' : ''));
+                document.getElementById('trend-kpi').innerHTML = `
+                    <div class="kpi-card pass"><div class="v">${d.passedCount}</div><div class="l">通过筛选（共 ${d.stocks.length} 只）</div></div>
+                    <div class="kpi-card"><div class="v">${d.stocks.length - d.passedCount}</div><div class="l">未通过</div></div>
+                    <div class="kpi-card"><div class="v">${d.failures ? d.failures.length : 0}</div><div class="l">取数失败</div></div>`;
+                const mark = (v) => v ? '<span class="mark yes">✔</span>' : '<span class="mark no">✘</span>';
+                document.getElementById('trend-body').innerHTML = d.stocks.length ? d.stocks.map(s => `
+                    <tr>
+                        <td>${s.pass ? '<span class="badge ok">通过</span>' : '<span class="badge no">未过</span>'}</td>
+                        <td style="font-weight:600">${esc(s.name)}</td>
+                        <td class="mono">${s.symbol}</td>
+                        <td class="mono">${s.detail?.close ?? '-'}</td>
+                        <td>${mark(s.ma_bullish)}</td><td>${mark(s.ma20_up)}</td>
+                        <td>${mark(s.near_high)}</td><td>${mark(s.vol_ok)}</td>
+                        <td style="font-size:12px;color:#ef4444">${esc((s.reasons || []).join('、'))}</td>
+                    </tr>`).join('') : '<tr><td colspan="9" class="loading">无数据</td></tr>';
+                meta.textContent = `数据日期 ${d.asOf} · 更新于 ${d.fetchedAt} · 模式 ${d.mode}`;
+            } catch (e) {
+                meta.textContent = '加载失败：' + e.message;
+            } finally {
+                btn.disabled = false;
+            }
+        }
+        document.getElementById('trend-refresh').addEventListener('click', () => loadTrend(true));
+        document.getElementById('trend-mode').addEventListener('change', () => loadTrend(false));
+
+        // ---------- 3. 箱体检测 ----------
+        async function loadBox(refresh) {
+            const meta = document.getElementById('box-meta');
+            const btn = document.getElementById('box-refresh');
+            btn.disabled = true;
+            meta.textContent = '扫描中...';
+            try {
+                const d = await fetchJSON(`/api/quant/box?pwd=${pwd}` + (refresh ? '&refresh=1' : ''));
+                document.getElementById('box-kpi').innerHTML = `
+                    <div class="kpi-card box"><div class="v">${d.total}</div><div class="l">处于箱体（最近 ${d.boxBars} 根日K）</div></div>
+                    <div class="kpi-card"><div class="v">${d.failures ? d.failures.length : 0}</div><div class="l">取数失败</div></div>`;
+                document.getElementById('box-body').innerHTML = d.stocks.length ? d.stocks.map(s => `
+                    <tr>
+                        <td style="font-weight:600">${esc(s.name)}</td>
+                        <td class="mono">${s.symbol}</td>
+                        <td class="mono">${s.box_high}</td>
+                        <td class="mono">${s.box_low}</td>
+                        <td class="mono">${s.box_width}%</td>
+                        <td class="mono">${s.price_position}%</td>
+                        <td>${esc(s.quality_text)}</td>
+                        <td>${esc(s.trend)}</td>
+                        <td style="font-size:12px">${esc(s.action_hint)}</td>
+                    </tr>`).join('') : '<tr><td colspan="9" class="loading">股票池中没有处于箱体的股票</td></tr>';
+                meta.textContent = `数据日期 ${d.asOf} · 更新于 ${d.fetchedAt}`;
+            } catch (e) {
+                meta.textContent = '加载失败：' + e.message;
+            } finally {
+                btn.disabled = false;
+            }
+        }
+        document.getElementById('box-refresh').addEventListener('click', () => loadBox(true));
+
+        // ---------- 4. 筹码分布 ----------
+        async function loadChip(refresh) {
+            const meta = document.getElementById('chip-meta');
+            const btn = document.getElementById('chip-refresh');
+            btn.disabled = true;
+            meta.textContent = '扫描中...';
+            try {
+                const d = await fetchJSON(`/api/quant/chip?pwd=${pwd}` + (refresh ? '&refresh=1' : ''));
+                document.getElementById('chip-kpi').innerHTML = `
+                    <div class="kpi-card score"><div class="v">${d.stocks.length}</div><div class="l">完成扫描</div></div>
+                    <div class="kpi-card pass"><div class="v">${d.passedCount}</div><div class="l">集中度达标</div></div>`;
+                document.getElementById('chip-body').innerHTML = d.stocks.length ? d.stocks.map((s, i) => {
+                    const m = s.metrics;
+                    return `<tr>
+                        <td>${i + 1}</td>
+                        <td style="font-weight:600">${esc(s.name)}</td>
+                        <td class="mono">${s.symbol}</td>
+                        <td class="mono">${s.close}</td>
+                        <td class="mono">${m.peak_price}</td>
+                        <td class="mono">${m.conc_90}%</td>
+                        <td class="mono">${m.conc_70}%</td>
+                        <td class="mono">${m.peak_ratio}%</td>
+                        <td><span class="badge ${m.pass ? 'ok' : 'no'}">${m.score}</span></td>
+                        <td><span class="link-btn" onclick="showChipDetail('${s.symbol}', '${esc(s.name)}')">查看分布</span></td>
+                    </tr>`;
+                }).join('') : '<tr><td colspan="10" class="loading">无数据</td></tr>';
+                meta.textContent = `数据日期 ${d.asOf} · 更新于 ${d.fetchedAt} · 按综合评分降序`;
+            } catch (e) {
+                meta.textContent = '加载失败：' + e.message;
+            } finally {
+                btn.disabled = false;
+            }
+        }
+        document.getElementById('chip-refresh').addEventListener('click', () => loadChip(true));
+
+        // 单股筹码分布图
+        window.showChipDetail = async function(symbol, name) {
+            const box = document.getElementById('chip-detail');
+            box.style.display = 'block';
+            document.getElementById('chip-detail-title').textContent = `🧱 ${name}（${symbol}）筹码分布`;
+            document.getElementById('chip-detail-sub').textContent = '计算中...';
+            document.getElementById('chip-detail-metrics').innerHTML = '';
+            box.scrollIntoView({ behavior: 'smooth' });
+            try {
+                const d = await fetchJSON(`/api/quant/chip/detail?pwd=${pwd}&symbol=${symbol}`);
+                const m = d.metrics;
+                document.getElementById('chip-detail-sub').textContent =
+                    `现价 ${d.close} · 峰值价 ${m.peak_price} · 90%集中 ${m.conc_90}% · 综合评分 ${m.score}${m.pass ? '（达标）' : ''}`;
+                const items = [
+                    ['90%集中度', m.conc_90 + '%'], ['70%集中度', m.conc_70 + '%'],
+                    ['主峰占比', m.peak_ratio + '%'], ['峰度', m.kurtosis],
+                    ['偏度', m.skewness], ['中心偏离', m.center_offset + '%'],
+                ];
+                document.getElementById('chip-detail-metrics').innerHTML = items.map(i =>
+                    `<div class="detail-item"><div class="k">${i[0]}</div><div class="v">${i[1]}</div></div>`).join('');
+                drawChipChart(d.distribution, d.close, m.peak_price);
+            } catch (e) {
+                document.getElementById('chip-detail-sub').textContent = '加载失败：' + e.message;
+            }
+        };
+
+        function drawChipChart(dist, currentPrice, peakPrice) {
+            const canvas = document.getElementById('chip-canvas');
+            const dpr = window.devicePixelRatio || 1;
+            const w = canvas.clientWidth, h = 300;
+            canvas.width = w * dpr; canvas.height = h * dpr;
+            const ctx = canvas.getContext('2d');
+            ctx.scale(dpr, dpr);
+            ctx.clearRect(0, 0, w, h);
+
+            const padL = 56, padR = 16, padT = 16, padB = 28;
+            const prices = dist.map(p => p.price);
+            const pMin = Math.min(...prices), pMax = Math.max(...prices);
+            const maxRatio = Math.max(...dist.map(p => p.ratio)) * 1.15 || 1;
+            const x = (price) => padL + (price - pMin) / (pMax - pMin || 1) * (w - padL - padR);
+            const y = (ratio) => h - padB - ratio / maxRatio * (h - padT - padB);
+
+            // 分布柱状
+            const barW = Math.max(2, (w - padL - padR) / dist.length - 1);
+            dist.forEach(p => {
+                ctx.fillStyle = Math.abs(p.price - peakPrice) < (pMax - pMin) * 0.03 ? '#f59e0b' : '#667eea';
+                ctx.fillRect(x(p.price) - barW / 2, y(p.ratio), barW, h - padB - y(p.ratio));
+            });
+            // 峰值价竖线
+            ctx.strokeStyle = '#f59e0b'; ctx.setLineDash([5, 4]); ctx.lineWidth = 1.5;
+            ctx.beginPath(); ctx.moveTo(x(peakPrice), padT); ctx.lineTo(x(peakPrice), h - padB); ctx.stroke();
+            // 现价竖线
+            ctx.strokeStyle = '#ef4444'; ctx.setLineDash([]);
+            ctx.beginPath(); ctx.moveTo(x(currentPrice), padT); ctx.lineTo(x(currentPrice), h - padB); ctx.stroke();
+            // 轴
+            ctx.strokeStyle = '#e2e8f0'; ctx.lineWidth = 1;
+            ctx.beginPath(); ctx.moveTo(padL, h - padB); ctx.lineTo(w - padR, h - padB); ctx.stroke();
+            ctx.fillStyle = '#64748b'; ctx.font = '11px sans-serif';
+            for (let i = 0; i <= 4; i++) {
+                const price = pMin + (pMax - pMin) * i / 4;
+                ctx.fillText(price.toFixed(2), x(price) - 14, h - 10);
+            }
+            // 图例
+            ctx.fillStyle = '#f59e0b'; ctx.fillText('峰值价 ' + peakPrice, Math.min(x(peakPrice) + 4, w - 90), padT + 12);
+            ctx.fillStyle = '#ef4444'; ctx.fillText('现价 ' + currentPrice, Math.min(x(currentPrice) + 4, w - 90), padT + 26);
+        }
+
+        // ---------- 启动 ----------
+        initSignals();
+        loadTrend(false);
+        loadBox(false);
+        loadChip(false);
+    </script>
+</body>
+</html>

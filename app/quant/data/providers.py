@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import time
 from pathlib import Path
 
@@ -14,6 +15,12 @@ import akshare as ak
 import pandas as pd
 import requests
 import tushare as ts
+
+#: py_mini_racer（akshare 的 JS 解码依赖）的 V8 引擎池不支持并发初始化：
+#: 多线程同时首次调用会直接 FATAL 崩溃整个进程。
+#: 所有 akshare 调用统一经此锁串行化（网络 IO 本身也是串行瓶颈，影响有限）。
+import threading
+_AK_LOCK = threading.Lock()
 
 # 代理绕过配置
 os.environ["NO_PROXY"] = "*"
@@ -121,17 +128,35 @@ def fetch_tushare(symbol: str, start_date: str, timeframe: str = "1d") -> pd.Dat
 
 
 def fetch_eastmoney(symbol: str, start_date: str, timeframe: str = "1d") -> pd.DataFrame:
-    """数据源1: 东方财富（AKShare stock_zh_a_hist）。"""
+    """数据源1: 东方财富（AKShare）。
+
+    日线走 stock_zh_a_hist；分钟数据在新版 akshare 中迁移到
+    stock_zh_a_hist_min_em（period 支持 1/5/15/30/60）。
+    """
     tf_cfg = _get_tf_config(timeframe)
-    df = ak.stock_zh_a_hist(
-        symbol=symbol,
-        period=tf_cfg["eastmoney"],
-        start_date=start_date,
-        adjust="qfq",
-    )
+    if timeframe == "1d":
+        with _AK_LOCK:
+            df = ak.stock_zh_a_hist(
+                symbol=symbol,
+                period="daily",
+                start_date=start_date,
+                adjust="qfq",
+            )
+    else:
+        start_fmt = (
+            f"{start_date[:4]}-{start_date[4:6]}-{start_date[6:]} 09:30:00"
+        )
+        with _AK_LOCK:
+            df = ak.stock_zh_a_hist_min_em(
+                symbol=symbol,
+                start_date=start_fmt,
+                period=tf_cfg["eastmoney"],
+                adjust="qfq",
+            )
     df = df.rename(
         columns={
             "日期": "date",
+            "时间": "date",
             "开盘": "open",
             "收盘": "close",
             "最高": "high",
@@ -154,7 +179,8 @@ def fetch_sina(symbol: str, start_date: str, timeframe: str = "1d") -> pd.DataFr
     else:
         full_symbol = f"sz{symbol}"
 
-    df = ak.stock_zh_a_daily(symbol=full_symbol, adjust="qfq")
+    with _AK_LOCK:
+        df = ak.stock_zh_a_daily(symbol=full_symbol, adjust="qfq")
     df = df.rename(
         columns={
             "date": "date",
@@ -165,6 +191,52 @@ def fetch_sina(symbol: str, start_date: str, timeframe: str = "1d") -> pd.DataFr
             "volume": "volume",
         }
     )
+    df["date"] = pd.to_datetime(df["date"])
+    df = df[df["date"] >= pd.to_datetime(start_date)]
+    df = df.sort_values("date").reset_index(drop=True)
+    return df[["date", "open", "high", "low", "close", "volume"]]
+
+
+def fetch_sina_minute(symbol: str, start_date: str = "20240101",
+                      timeframe: str = "60m") -> pd.DataFrame:
+    """数据源2.5: 新浪财经分钟K线（60/30/15分钟，单次约1023根）。
+
+    60分钟约覆盖13个月。腾讯 fqkline 分钟参数已失效（param error），
+    分钟数据主力走新浪源，与本站走势分类扫描同一实现。
+    """
+    scale_map = {"60m": 60, "30m": 30, "15m": 15}
+    scale = scale_map.get(timeframe)
+    if scale is None:
+        raise ValueError(f"新浪财经分钟仅支持 60m/30m/15m，收到: {timeframe}")
+
+    prefix = "sh" if symbol.startswith("6") else "sz"
+    url = (
+        "https://quotes.sina.cn/cn/api/jsonp_v2.php/var%20_=/CN_MarketDataService.getKLineData"
+        f"?symbol={prefix}{symbol}&scale={scale}&ma=no&datalen=1023"
+    )
+    resp = requests.get(
+        url, headers={"User-Agent": "Mozilla/5.0"}, timeout=15
+    )
+    resp.raise_for_status()
+    m = re.search(r"\((\[.*\])\)", resp.text, re.S)
+    if not m:
+        raise ValueError("新浪分钟接口返回为空")
+    items = json.loads(m.group(1))
+    if not items:
+        raise ValueError("新浪分钟接口返回为空")
+
+    records = [
+        {
+            "date": item.get("day", ""),
+            "open": float(item.get("open", 0)),
+            "high": float(item.get("high", 0)),
+            "low": float(item.get("low", 0)),
+            "close": float(item.get("close", 0)),
+            "volume": float(item.get("volume", 0)),
+        }
+        for item in items
+    ]
+    df = pd.DataFrame(records)
     df["date"] = pd.to_datetime(df["date"])
     df = df[df["date"] >= pd.to_datetime(start_date)]
     df = df.sort_values("date").reset_index(drop=True)
@@ -227,7 +299,8 @@ def fetch_tencent(symbol: str, start_date: str, timeframe: str = "1d") -> pd.Dat
 
 def fetch_copper_futures(start_date: str = "20240101") -> pd.DataFrame:
     """获取沪铜期货日线数据。"""
-    df = ak.futures_main_sina(symbol="CU0", start_date=start_date)
+    with _AK_LOCK:
+        df = ak.futures_main_sina(symbol="CU0", start_date=start_date)
     df = df.rename(
         columns={
             "日期": "date",
@@ -246,7 +319,8 @@ def fetch_copper_futures(start_date: str = "20240101") -> pd.DataFrame:
 def fetch_fund_flow(symbol: str = "600183") -> pd.DataFrame:
     """获取个股主力资金流向数据。"""
     market = "sh" if symbol.startswith("6") else "sz"
-    df = ak.stock_individual_fund_flow(stock=symbol, market=market)
+    with _AK_LOCK:
+        df = ak.stock_individual_fund_flow(stock=symbol, market=market)
     df = df.rename(
         columns={
             "日期": "date",
@@ -264,12 +338,13 @@ def fetch_margin_trading(symbol: str = "600183") -> pd.DataFrame:
 
     end_date = datetime.now()
 
-    if symbol.startswith("6"):
-        df = ak.stock_margin_detail_sse(date=end_date.strftime("%Y%m%d"))
-        code_col = "标的证券代码"
-    else:
-        df = ak.stock_margin_detail_szse(date=end_date.strftime("%Y%m%d"))
-        code_col = "证券代码"
+    with _AK_LOCK:
+        if symbol.startswith("6"):
+            df = ak.stock_margin_detail_sse(date=end_date.strftime("%Y%m%d"))
+            code_col = "标的证券代码"
+        else:
+            df = ak.stock_margin_detail_szse(date=end_date.strftime("%Y%m%d"))
+            code_col = "证券代码"
 
     df = df[df[code_col] == symbol]
     df = df.rename(
@@ -285,7 +360,8 @@ def fetch_margin_trading(symbol: str = "600183") -> pd.DataFrame:
 
 def fetch_all_stocks() -> list[dict]:
     """获取全量A股股票列表。"""
-    df = ak.stock_info_a_code_name()
+    with _AK_LOCK:
+        df = ak.stock_info_a_code_name()
     df = df.rename(
         columns={
             "code": "symbol",

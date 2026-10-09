@@ -22,6 +22,9 @@
 - ⚠️ **风控系统** —— 自动计算仓位风险、盈亏预警、单票风险等级
 - 🤖 **AI 策略报告** —— 读取 `reports/` 下的 Markdown 报告并在页面展示
 - 🔬 **三套回测引擎** —— Backtrader（`app/services/backtest.py`）、Zipline（`zipline_backtest.py`）、vnpy（`vnpy_service.py`），经 `/backtest` 页面和 API 调用（懒加载，缺装返回 503）
+- 📊 **走势分类扫描**（`/regime`）—— 布林带带宽量化分类（挤压/趋势/区间/中性），日线+30分钟双周期共振
+- 📡 **量化信号中心**（`/quant`）—— app/quant 全能力 Web 化：策略信号扫描（突破回踩/均值回归/主力吸筹）、趋势过滤（强趋势/超卖/宽松）、箱体检测、筹码分布（含单股分布图）
+- 🔬 **研究中心**（`/research`）—— 基金经理跟踪 / 东财模拟组合排行 / 资金流向背离 / 央行流动性仪表板
 
 ### 量化研究模块（`app/quant/`）
 
@@ -92,12 +95,12 @@ jungle-trading/
 │   │   ├── zipline_backtest.py     # Zipline 回测
 │   │   └── vnpy_service.py         # vnpy 实盘/回测
 │   └── quant/                      # ===== 量化研究模块（原 fi_quant） =====
-│       ├── config.py               # StrategyConfig：策略参数与 13 只默认股票池
+│       ├── config.py               # StrategyConfig：策略参数与默认股票池
 │       ├── core/                   # Signal / SignalFrame / StrategyBase 抽象基类
-│       ├── data/                   # fetcher（级联取数）/ providers / cache / universe
-│       ├── strategies/             # 6 个策略引擎
+│       ├── data/                   # fetcher（级联取数+股票池）/ providers / cache
+│       ├── strategies/             # 6 个策略引擎 + accumulation_scoring（吸筹评分 Mixin）
 │       ├── backtesting/            # engine（统一回测引擎）+ runner（CLI 入口）
-│       └── utils/                  # 箱体识别 / 筹码分布 / 趋势过滤
+│       └── utils/                  # 箱体识别 / 筹码分布 / 趋势过滤 + reporting（共享报告输出）
 ├── scripts/
 │   ├── run.py                      # 启动 uvicorn（端口 8090，--reload）
 │   └── refresh.py                  # 手动刷新全部持仓行情（crontab 用）
@@ -140,6 +143,17 @@ akshare ──┴──────► quant/data/fetcher.py（级联降级，�
 | GET | `/backtest` | 回测页面 |
 | GET | `/api/backtest/strategies` | 列出可用回测策略 |
 | POST | `/api/backtest/run` | 运行回测 |
+| GET | `/regime` | 走势分类扫描页 |
+| GET | `/api/regime/latest?refresh=1` | 全池走势分类（当日缓存落盘 `data/regime_scan.json`） |
+| GET | `/research` | 研究中心入口（基金/排行/资金流/央行 4 子页） |
+| GET | `/api/research/{funds\|rankings\|moneyflow\|pboc}?refresh=1` | 研究数据接口（当日缓存） |
+| GET | `/quant` | 量化信号中心页 |
+| GET | `/api/quant/strategies` | 可扫描策略列表 |
+| GET | `/api/quant/signals?strategy=breakout&refresh=1` | 策略信号扫描（近30天，当日缓存） |
+| GET | `/api/quant/trend?mode=strong&refresh=1` | 全池趋势过滤（strong/loose/oversold） |
+| GET | `/api/quant/box?refresh=1` | 全池箱体检测 |
+| GET | `/api/quant/chip?refresh=1` | 全池筹码集中度扫描 |
+| GET | `/api/quant/chip/detail?symbol=600183` | 单股筹码分布明细（画图数据） |
 
 ## 定时任务（可选）
 
@@ -159,5 +173,8 @@ akshare ──┴──────► quant/data/fetcher.py（级联降级，�
 
 - 三个回测引擎为可选依赖、路由内懒加载：未安装时对应引擎的 API 返回 503 并提示安装命令，不影响其余页面（zipline-reloaded / vnpy 尚不支持 Python 3.14，backtrader2 已可用）
 - 百度股市通 K 线接口已开启风控（403），K 线自动降级到腾讯财经前复权数据，行为透明无需配置
+- 腾讯 fqkline 分钟参数已失效（param error），分钟数据（60m/30m/15m）走新浪 `CN_MarketDataService.getKLineData` 源，单次约 1023 根（60 分钟约 13 个月）
+- 东方财富分钟数据在新版 akshare 中迁移到 `stock_zh_a_hist_min_em`，providers 已适配；东财对单 IP 有频率限制，触发后自动降级新浪源
+- akshare 依赖 py_mini_racer（V8），其引擎池不支持并发初始化，多线程首次调用会直接 FATAL 崩溃进程——providers 中所有 akshare 调用统一经 `_AK_LOCK` 串行化
 - `app/quant/backtesting/` 目录名与 PyPI 上的 `backtesting` 包同名，避免 `pip install backtesting` 到同一环境
 - 数据库为单文件 SQLite（`data/`），适合个人单机使用，勿多进程并发写；`scripts/refresh.py` 首次运行会自动建库建表

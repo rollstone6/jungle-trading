@@ -598,6 +598,74 @@ async def run_backtest_api(request: Request, pwd: str = check_password):
     return result
 
 
+# === 量化信号中心（app/quant 四大能力 Web 化：策略信号/趋势过滤/箱体/筹码） ===
+
+@app.get("/quant", response_class=HTMLResponse)
+async def quant_hub(request: Request, pwd: str = check_password):
+    """量化信号中心入口页"""
+    return templates.TemplateResponse(
+        request, "quant.html", {"request": request, "pwd": pwd}
+    )
+
+
+@app.get("/api/quant/strategies")
+async def quant_strategies(request: Request, pwd: str = check_password):
+    """可扫描策略列表"""
+    from app.services.quant_scan import list_strategies
+    return {"strategies": list_strategies()}
+
+
+@app.get("/api/quant/signals")
+async def quant_signals_api(request: Request, pwd: str = check_password,
+                            strategy: str = "breakout", refresh: int = 0):
+    """策略信号扫描（当日缓存，refresh=1 强制重扫）"""
+    from app.services.quant_scan import scan_signals
+    try:
+        return await asyncio.to_thread(scan_signals, strategy, bool(refresh))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+@app.get("/api/quant/trend")
+async def quant_trend_api(request: Request, pwd: str = check_password,
+                          mode: str = "strong", refresh: int = 0):
+    """全池趋势过滤（strong/loose/oversold）"""
+    from app.services.quant_scan import scan_trend
+    try:
+        return await asyncio.to_thread(scan_trend, mode, bool(refresh))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+@app.get("/api/quant/box")
+async def quant_box_api(request: Request, pwd: str = check_password,
+                        refresh: int = 0):
+    """全池箱体检测"""
+    from app.services.quant_scan import scan_box
+    return await asyncio.to_thread(scan_box, bool(refresh))
+
+
+@app.get("/api/quant/chip")
+async def quant_chip_api(request: Request, pwd: str = check_password,
+                         refresh: int = 0):
+    """全池筹码集中度扫描"""
+    from app.services.quant_scan import scan_chip
+    return await asyncio.to_thread(scan_chip, bool(refresh))
+
+
+@app.get("/api/quant/chip/detail")
+async def quant_chip_detail_api(request: Request, pwd: str = check_password,
+                                symbol: str = ""):
+    """单股筹码分布明细（画图用）"""
+    from app.services.quant_scan import chip_detail
+    if not symbol:
+        raise HTTPException(status_code=400, detail="缺少股票代码")
+    try:
+        return await asyncio.to_thread(chip_detail, symbol)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8888)

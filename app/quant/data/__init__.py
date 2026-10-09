@@ -12,16 +12,14 @@ from app.quant.data.cache import (
     set_mem_cache,
 )
 from app.quant.data.fetcher import (
+    load_all_stocks,
+    load_all_stocks_filtered,
     load_copper_futures,
     load_fund_flow,
     load_margin_trading,
     load_real_data,
     parallel_fetch_dispatch,
     parallel_fetch_simple,
-)
-from app.quant.data.universe import (
-    load_all_stocks,
-    load_all_stocks_filtered,
 )
 
 __all__ = [

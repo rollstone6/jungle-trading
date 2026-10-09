@@ -3,14 +3,16 @@
 - 计算筹码分布：三角分布 + 换手率衰减
 - 计算集中度指标：90%集中度、70%集中度、主峰占比、峰度、偏度
 - 支持单股分析和批量扫描
+
+打印/报告逻辑集中在 app.quant.utils.reporting，本模块只保留计算与扫描编排。
 """
 
 import sys
-import time
 import numpy as np
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from app.quant.config import StrategyConfig
+from app.quant.utils import reporting
 
 
 class ChipDistributionAnalyzer:
@@ -405,9 +407,7 @@ class ChipDistributionAnalyzer:
         cache = data_cache or {}
 
         if print_detail:
-            print("\n" + "=" * 70)
-            print("  筹码峰集中度扫描（最近交易日）")
-            print("=" * 70)
+            reporting.section("筹码峰集中度扫描（最近交易日）", width=70)
 
         def process_stock(stock, verbose=False):
             symbol = stock['symbol']
@@ -466,52 +466,9 @@ class ChipDistributionAnalyzer:
 
         # 打印报告
         if print_detail:
-            self._print_report(results)
+            reporting.print_chip_scan_report(results)
 
         return results
-
-    def _print_report(self, results):
-        """打印扫描报告"""
-        print("\n" + "=" * 70)
-        print("  筹码峰集中度扫描结果")
-        print("=" * 70)
-
-        if not results:
-            print("  未找到符合条件的股票")
-            print("=" * 70)
-            return
-
-        # 表头
-        header = (
-            f"  {'排名':<4} {'股票':<16} {'现价':<8} "
-            f"{'峰值价':<8} {'90%集中':<8} {'70%集中':<8} "
-            f"{'中心偏离%':<9} {'主峰%':<7} {'峰度':<6} {'评分':<6}"
-        )
-        print(header)
-        print("  " + "-" * 78)
-
-        for i, r in enumerate(results, 1):
-            m = r['metrics']
-            name = r['name'][:6] if len(r['name']) > 6 else r['name']
-            row = (
-                f"  {i:<4} {name}({r['symbol']}) "
-                f"{r['close']:<8.2f} {m['peak_price']:<8.2f} "
-                f"{m['conc_90']:<8.1f} {m['conc_70']:<8.1f} "
-                f"{m['center_offset']:<9.2f} "
-                f"{m['peak_ratio']:<7.1f} "
-                f"{m['kurtosis']:<6.1f} {m['score']:<6.1f}"
-            )
-            print(row)
-
-        print("  " + "-" * 78)
-
-        # 通过筛选的股票
-        passed = [r for r in results if r['metrics']['pass']]
-        print(f"\n  通过筛选：{len(passed)} 只")
-        for r in passed:
-            print(f"    ✅ {r['name']} ({r['symbol']})")
-
-        print("=" * 70)
 
 
 if __name__ == "__main__":

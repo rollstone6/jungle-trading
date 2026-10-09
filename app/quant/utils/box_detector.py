@@ -5,10 +5,13 @@
 - 计算价格位置和质量评分
 - 支持批量扫描股票池
 - 提供操作建议
+
+打印/报告逻辑集中在 app.quant.utils.reporting，本模块只保留检测计算与扫描编排。
 """
 
 import numpy as np
 from app.quant.config import StrategyConfig, STOCK_LIST
+from app.quant.utils import reporting
 
 
 class BoxDetector:
@@ -177,46 +180,10 @@ class BoxDetector:
         }
 
     def print_report(self, stock_name, symbol, box_info):
-        """打印单只股票的箱体检测报告"""
-        print("\n" + "=" * 50)
-        print("  股票：{} ({})".format(stock_name, symbol))
-        print("  数据级别：日K线")
-        print("  箱体周期：最近 {} 根K线".format(self.box_bars))
-        print("-" * 50)
-
-        if not box_info.get('has_box'):
-            error_msg = box_info.get('error', '未知原因')
-            print("  【箱体状态】❌ 未形成箱体")
-            print("  【原因】{}".format(error_msg))
-            print("=" * 50)
-            return
-
-        print("  【箱体状态】✅ 处于箱体震荡中")
-        print("  【箱体趋势】{}".format(box_info['trend']))
-        print()
-        print("  ┌─────────────────────────────────────────┐")
-        print("  │  箱体上沿：{:>8.2f} 元                    │".format(box_info['box_high']))
-        print("  │  箱体下沿：{:>8.2f} 元                    │".format(box_info['box_low']))
-        print("  │  箱体中轴：{:>8.2f} 元                    │".format(box_info['box_mid']))
-        print("  │  箱体宽度：{:>7.2f}%                      │".format(box_info['box_width']))
-        print("  └─────────────────────────────────────────┘")
-        print()
-        print("  【当前价格】{:.2f} 元".format(box_info['current_price']))
-        print("  【价格位置】{:.1f}% ({})".format(
-            box_info['price_position'], box_info['price_hint']
-        ))
-        print("  【操作建议】{}".format(box_info['action_hint']))
-        print()
-        print("  【箱体时间】{} ~ {}".format(
-            box_info['box_start_date'], box_info['box_end_date']
-        ))
-        print("  【波动率】{:.2f}%".format(box_info['volatility']))
-        print()
-        print("  【箱体质量】")
-        print("    - 触及上沿次数：{}次".format(box_info['touch_high_count']))
-        print("    - 触及下沿次数：{}次".format(box_info['touch_low_count']))
-        print("    - 震荡评分：{}".format(box_info['quality_text']))
-        print("=" * 50)
+        """打印单只股票的箱体检测报告（委托给 reporting 模块）"""
+        reporting.print_box_report(
+            self.box_bars, stock_name, symbol, box_info
+        )
 
     def scan_stocks(self, stock_list, print_detail=True):
         """
@@ -230,15 +197,10 @@ class BoxDetector:
             list: 处于箱体的股票信息列表
         """
         from app.quant.data.fetcher import load_real_data
-        
+
         box_stocks = []
-        
-        print("\n" + "=" * 70)
-        print("  箱体检测 - 批量扫描")
-        print("  股票池：{} 只 | 箱体周期：{} 根日K线".format(
-            len(stock_list), self.box_bars
-        ))
-        print("=" * 70)
+
+        reporting.print_box_scan_header(len(stock_list), self.box_bars)
 
         for stock in stock_list:
             symbol = stock['symbol']
@@ -267,43 +229,7 @@ class BoxDetector:
                 box_stocks.append(box_info)
 
         # 打印汇总
-        print("\n" + "=" * 70)
-        print("  扫描汇总")
-        print("=" * 70)
-        print("  扫描股票数：{}".format(len(stock_list)))
-        print("  处于箱体：{}".format(len(box_stocks)))
-        
-        if box_stocks:
-            print("\n  处于箱体的股票（按评分排序）：")
-            print("-" * 70)
-            print("  {:<12} {:>8} {:>8} {:>6} {:>6} {:>8}".format(
-                "股票", "上限", "下限", "宽度%", "位置%", "评分"
-            ))
-            print("-" * 70)
-            sorted_stocks = sorted(
-                box_stocks,
-                key=lambda x: x['quality_score'],
-                reverse=True,
-            )
-            for info in sorted_stocks:
-                print("  {:<10} {:>8.2f} {:>8.2f} {:>6.1f} {:>6.1f} {:>8}".format(
-                    "{}({})".format(info['name'], info['symbol']),
-                    info['box_high'],
-                    info['box_low'],
-                    info['box_width'],
-                    info['price_position'],
-                    info['quality_text'].split()[0]
-                ))
-            print("-" * 70)
-            
-            # 显示操作建议汇总
-            print("\n  操作建议：")
-            for info in sorted_stocks:
-                print("    {}({}): {} | {}".format(
-                    info['name'], info['symbol'],
-                    info['price_hint'], info['action_hint']
-                ))
-        print("=" * 70)
+        reporting.print_box_scan_summary(len(stock_list), box_stocks)
 
         return box_stocks
 

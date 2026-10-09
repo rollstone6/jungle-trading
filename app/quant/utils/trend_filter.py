@@ -3,14 +3,16 @@
 - 策略运行前自动过滤股票池
 - 四项条件：均线多头、MA20向上、20日新高附近、量能不过度萎缩
 - 支持多线程并发筛选
+
+打印/报告逻辑集中在 app.quant.utils.reporting，本模块只保留筛选计算与编排。
 """
 
-import sys
 import time
 import talib
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from app.quant.config import StrategyConfig
+from app.quant.utils import reporting
 
 
 class TrendFilter:
@@ -310,9 +312,7 @@ class TrendFilter:
         }.get(mode, mode)
 
         if print_detail:
-            print("\n" + "=" * 60)
-            print(f"  日线趋势预筛选 [{mode_desc}]")
-            print("=" * 60)
+            reporting.section(f"日线趋势预筛选 [{mode_desc}]")
 
         total = len(stock_list)
         verbose = print_detail
@@ -334,8 +334,8 @@ class TrendFilter:
                     continue
 
                 if print_detail:
-                    self._print_stock_report(
-                        stock['name'], stock['symbol'], result
+                    reporting.print_trend_stock_report(
+                        self.cfg, stock['name'], stock['symbol'], result
                     )
 
                 if result['pass']:
@@ -349,7 +349,6 @@ class TrendFilter:
             print(f"\n  使用 {max_workers} 线程并发筛选 {total} 只股票...")
             completed = 0
             start_time = time.time()
-            bar_width = 30
 
             with ThreadPoolExecutor(max_workers=max_workers) as executor:
                 futures = {
@@ -364,22 +363,9 @@ class TrendFilter:
                     stock, result, df = future.result()
 
                     # 进度条（单行刷新）
-                    pct = completed / total
-                    filled = int(bar_width * pct)
-                    bar = '█' * filled + '░' * (bar_width - filled)
-                    elapsed = time.time() - start_time
-                    if completed > 0:
-                        eta = elapsed * (total - completed) / completed
-                        eta_min = int(eta) // 60
-                        eta_sec = int(eta) % 60
-                        eta_str = f"{eta_min}分{eta_sec:02d}秒"
-                    else:
-                        eta_str = "--:--"
-                    line = (f"\r  趋势筛选: [{bar}] "
-                            f"{completed}/{total} ({pct:.0%}) "
-                            f"ETA: {eta_str}  ")
-                    sys.stdout.write(line)
-                    sys.stdout.flush()
+                    reporting.progress_line(
+                        "趋势筛选", completed, total, start_time
+                    )
 
                     if result is None:
                         failed_stocks.append(stock)
@@ -397,108 +383,11 @@ class TrendFilter:
 
         # 打印汇总
         if print_detail:
-            self._print_summary(total, passed_stocks, failed_stocks)
+            reporting.print_trend_summary(total, passed_stocks, failed_stocks)
 
         if return_data:
             return passed_stocks, data_cache
         return passed_stocks
-
-    def _print_stock_report(self, name, symbol, result):
-        """打印单只股票的筛选报告"""
-        print("\n  {}({})".format(name, symbol))
-        print("  " + "-" * 40)
-
-        d = result.get('detail', {})
-
-        # ① 均线多头
-        if result['ma_bullish']:
-            print("    ①均线多头 ✅ MA5({})>MA10({})>MA20({}), "
-                  "Close({})>MA5".format(
-                      d.get('ma5', '-'),
-                      d.get('ma10', '-'),
-                      d.get('ma20', '-'),
-                      d.get('close', '-'),
-                  ))
-        else:
-            print("    ①均线多头 ❌ MA5={}, MA10={}, MA20={}, "
-                  "Close={}".format(
-                      d.get('ma5', '-'),
-                      d.get('ma10', '-'),
-                      d.get('ma20', '-'),
-                      d.get('close', '-'),
-                  ))
-
-        # ② MA20向上
-        if result['ma20_up']:
-            print("    ②MA20向上 ✅ MA20: {} > {}({}日前)".format(
-                d.get('ma20', '-'),
-                d.get('ma20_prev', '-'),
-                self.cfg.trend_ma20_lookback,
-            ))
-        else:
-            print("    ②MA20向上 ❌ MA20: {} <= {}({}日前)".format(
-                d.get('ma20', '-'),
-                d.get('ma20_prev', '-'),
-                self.cfg.trend_ma20_lookback,
-            ))
-
-        # ③ 20日新高附近
-        threshold = self.cfg.trend_high_threshold
-        if result['near_high']:
-            print("    ③20日新高 ✅ Close {} >= High20 {}*{}".format(
-                d.get('close', '-'),
-                d.get('high20', '-'),
-                threshold,
-            ))
-        else:
-            print("    ③20日新高 ❌ Close {} < High20 {}*{}".format(
-                d.get('close', '-'),
-                d.get('high20', '-'),
-                threshold,
-            ))
-
-        # ④ 量能
-        vol_ratio = self.cfg.trend_vol_min_ratio
-        if result['vol_ok']:
-            print("    ④量能正常 ✅ Vol {} >= MA5Vol {}*{}".format(
-                d.get('volume', '-'),
-                d.get('vol_ma', '-'),
-                vol_ratio,
-            ))
-        else:
-            print("    ④量能正常 ❌ Vol {} < MA5Vol {}*{}".format(
-                d.get('volume', '-'),
-                d.get('vol_ma', '-'),
-                vol_ratio,
-            ))
-
-        # 综合判定
-        if result['pass']:
-            print("    → ✅ 通过")
-        else:
-            reasons = ', '.join(result['reasons'])
-            print("    → ❌ 未通过 ({})".format(reasons))
-
-    def _print_summary(self, total, passed, failed):
-        """打印汇总报告"""
-        print("\n" + "=" * 60)
-        print("  筛选汇总")
-        print("=" * 60)
-        print("  股票池总数：{} 只".format(total))
-        print("  通过筛选：{} 只".format(len(passed)))
-        print("  未通过：{} 只".format(len(failed)))
-
-        if passed:
-            print("\n  通过筛选的股票：")
-            for s in passed:
-                print("    - {} ({})".format(s['name'], s['symbol']))
-
-        if failed:
-            print("\n  被过滤的股票：")
-            for s in failed:
-                print("    - {} ({})".format(s['name'], s['symbol']))
-
-        print("=" * 60)
 
 
 if __name__ == "__main__":
