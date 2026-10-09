@@ -1,6 +1,7 @@
 """Jungle 天才交易员持仓工作台 - FastAPI 主应用"""
 import os
 import json
+import asyncio
 from datetime import datetime
 from pathlib import Path
 
@@ -357,7 +358,7 @@ async def regime_page(request: Request, pwd: str = check_password):
 @app.get("/api/regime/latest")
 async def regime_latest(request: Request, pwd: str = check_password, refresh: int = 0):
     """最新全池分类扫描结果：当天已有缓存直接返回，否则现场扫描并落盘到 data/regime_scan.json"""
-    from app.services.regime import classify_regime, REGIME_ADVICE
+    from app.services.regime import classify_regime, combine_timeframes, REGIME_LABEL, REGIME_ADVICE
 
     today = datetime.now().strftime("%Y-%m-%d")
     if not refresh and REGIME_CACHE_FILE.exists():
@@ -368,33 +369,54 @@ async def regime_latest(request: Request, pwd: str = check_password, refresh: in
         except Exception:
             pass  # 缓存损坏则重新扫描
 
-    from app.services.market import fetch_kline_tencent
-    stocks, alerts, as_of = [], [], ""
-    seen_symbols = set()
+    from app.services.market import fetch_kline_tencent, fetch_kline_sina_minute
+
+    pool, seen_symbols = [], set()
     for s in STOCK_LIST:
         if s["symbol"] in seen_symbols:
             continue  # 配置里 688017 出现两次，扫描去重
         seen_symbols.add(s["symbol"])
+        pool.append(s)
+
+    async def scan_one(s):
+        """日线 + 30分钟双周期并发取数与分类"""
         try:
-            kl = await fetch_kline_tencent(s["symbol"], days=550, full_date=True)
+            kl_d, kl_m = await asyncio.gather(
+                fetch_kline_tencent(s["symbol"], days=550, full_date=True),
+                fetch_kline_sina_minute(s["symbol"], scale=30),
+            )
         except Exception:
-            kl = []
-        if len(kl) < 30:
+            kl_d, kl_m = [], []
+        if len(kl_d) < 30:
+            return None
+        info_d = classify_regime(kl_d)
+        info_m = classify_regime(kl_m) if len(kl_m) >= 30 else None
+        regime = combine_timeframes(info_d, info_m)
+        return {
+            "code": s["symbol"], "name": s["name"],
+            "regime": regime, "label": REGIME_LABEL[regime],
+            "regime_30m": info_m["regime"] if info_m else "unknown",
+            "label_30m": info_m["label"] if info_m else "无数据",
+            "outside_ratio": info_d["outside_ratio"],
+            "bandwidth_pct": info_d["bandwidth_pct"],
+            "bandwidth_pct_30m": info_m["bandwidth_pct"] if info_m else None,
+            "ma_dev_pct": info_d["ma_dev_pct"],
+            "alert": info_d.get("alert"),
+            "as_of": kl_d[-1]["date"],
+        }
+
+    results = await asyncio.gather(*[scan_one(s) for s in pool])
+    stocks, alerts, as_of = [], [], ""
+    for r in results:
+        if not r:
             continue
         if not as_of:
-            as_of = kl[-1]["date"]
-        info = classify_regime(kl)
-        stocks.append({
-            "code": s["symbol"], "name": s["name"],
-            "regime": info["regime"], "label": info["label"],
-            "outside_ratio": info["outside_ratio"],
-            "bandwidth_pct": info["bandwidth_pct"],
-            "ma_dev_pct": info["ma_dev_pct"],
-        })
-        if info.get("alert"):
+            as_of = r["as_of"]
+        stocks.append({k: v for k, v in r.items() if k not in ("alert", "as_of")})
+        if r["alert"]:
             alerts.append({
-                "code": s["symbol"], "name": s["name"],
-                "type": info["alert"][0], "text": info["alert"][1],
+                "code": r["code"], "name": r["name"],
+                "type": r["alert"][0], "text": r["alert"][1],
             })
 
     counts = {"squeeze": 0, "trending": 0, "ranging": 0, "neutral": 0}

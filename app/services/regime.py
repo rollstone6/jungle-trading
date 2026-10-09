@@ -2,7 +2,8 @@
 
 把一只股票的近期走势量化为四类状态，用于推荐匹配的量化策略：
 
-- squeeze   挤压待变：带宽处于自身历史低位（近120根最低20%分位），变盘前兆
+- squeeze   挤压待变：带宽处于自身历史低位（近120根最低10%分位）且价格安静待在轨道内
+              （近20根轨外比例<=10%），变盘前兆——需双周期共振确认，宁缺毋滥
 - trending  趋势型：近20根K线中 >=20% 收盘在轨道外，或均线多头排列且偏离MA20超5%
 - ranging   区间型：近20根中 <=5% 在轨道外且非多头排列，价格严格回归轨道
 - neutral   中性：以上都不满足，特征不明显
@@ -51,7 +52,9 @@ def classify_regime(klines: list[dict]) -> dict:
     bullish_align = bool(ma5 > ma10 > ma20_last and last_close > ma5)
     ma_dev = (last_close / ma20_last - 1) if ma20_last else 0.0
 
-    if bw_pct <= 0.20:
+    # 挤压待变（收紧）：带宽近120根最低10%分位，且近20根价格安静待在轨道内，
+    # 避免把长期低波动股误判为挤压
+    if bw_pct <= 0.10 and outside_ratio <= 0.10:
         regime = "squeeze"
     elif outside_ratio >= 0.20 or (bullish_align and ma_dev > 0.05):
         regime = "trending"
@@ -60,11 +63,11 @@ def classify_regime(klines: list[dict]) -> dict:
     else:
         regime = "neutral"
 
-    # 带宽张开预警：昨日带宽仍在20%低分位内，今日收盘已突破轨道
+    # 带宽张开预警：昨日带宽仍在10%低分位内，今日收盘已突破轨道
     alert = None
-    if n >= 2 and bw_pct > 0.20:
+    if n >= 2 and bw_pct > 0.10:
         prev_bw_pct = float((lookback.iloc[:-1] <= bandwidth.iloc[-2]).mean())
-        if prev_bw_pct <= 0.20:
+        if prev_bw_pct <= 0.10:
             if last_close > float(upper.iloc[-1]):
                 alert = ("squeeze_break_up", "挤压后向上突破上轨，关注变盘向上")
             elif last_close < float(lower.iloc[-1]):
@@ -83,11 +86,35 @@ def classify_regime(klines: list[dict]) -> dict:
     }
 
 
-REGIME_ADVICE = {
-    "squeeze": {
+def combine_timeframes(daily: dict, intraday: dict | None) -> str:
+    """多周期共振分类：日线为主、30分钟为辅。
+
+    - 挤压待变：日线收紧标准 + 30分钟轨外比例<=25%（ intraday 尚未明显张开，
+      把 breakout 已启动的剔除，交给带宽张开预警捕捉）
+    - 趋势型：日线趋势成立；或30分钟强趋势（轨外>=35%）且日线也不安静（轨外>=15%），
+      用于捕捉刚从分钟级启动的趋势，同时避免误杀日线安静的区间股
+    - 区间型：日线区间；30分钟强趋势与日线区间冲突时降级为中性
+    """
+    d = daily.get("regime", "neutral")
+    if not intraday or intraday.get("regime") == "unknown":
+        return d
+    m_out = intraday.get("outside_ratio")
+    if d == "squeeze" and (m_out is None or m_out <= 0.25):
+        return "squeeze"
+    if d == "trending" or (m_out is not None and m_out >= 0.35
+                           and daily.get("outside_ratio", 0) >= 0.15):
+        return "trending"
+    if d == "ranging" and not (m_out is not None and m_out >= 0.35):
+        return "ranging"
+    if d == "neutral" and intraday.get("regime") == "ranging":
+        return "ranging"
+    return "neutral"
+
+
+REGIME_ADVICE = {    "squeeze": {
         "label": "挤压待变",
         "strategies": ["ma_macd", "macd_vol"],
-        "note": "带宽处于自身历史低位，变盘前兆：先观望，带宽张开后顺势跟进",
+        "note": "双周期共振确认的带宽压缩，变盘前兆：先观望，带宽张开后顺势跟进",
     },
     "trending": {
         "label": "趋势型",
