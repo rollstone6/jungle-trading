@@ -275,7 +275,10 @@
 </head>
 <body>
     <div class="backtest-container">
-        <a href="/?pwd={{ pwd }}" class="back-button">← 返回持仓</a>
+        <div class="nav-row" style="display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap;">
+            <a href="/?pwd={{ pwd }}" class="back-button" style="margin-bottom:0;">← 返回持仓</a>
+            <a href="/regime?pwd={{ pwd }}" class="back-button" style="margin-bottom:0;">📊 走势分类扫描</a>
+        </div>
         
         <div class="backtest-header">
             <h1>🧪 量化回测实验室</h1>

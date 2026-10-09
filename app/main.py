@@ -285,6 +285,11 @@ async def backtest_page(request: Request, pwd: str = check_password):
 
 async def _fetch_backtest_klines(code: str, period: str) -> list:
     """按周期获取回测用K线：日线约1.5年（550根）；分钟线走新浪源（60/30/15）"""
+    # 统一去掉 sh/sz/bj 前缀，腾讯/新浪源均要求裸代码（如 601127）
+    for p in ("sh", "sz", "bj"):
+        if code.startswith(p):
+            code = code[len(p):]
+            break
     conn = get_db()
     row = conn.execute("SELECT kline_data FROM positions WHERE code=?", (code,)).fetchone()
     conn.close()
@@ -331,7 +336,92 @@ async def classify_api(request: Request, pwd: str = check_password):
     klines = await _fetch_backtest_klines(code, period)
     from app.services.regime import classify_regime, REGIME_ADVICE
     info = classify_regime(klines)
-    return {**info, **REGIME_ADVICE[info["regime"]]}
+    advice = REGIME_ADVICE[info["regime"]]
+    info.pop("alert", None)
+    return {**info, **advice}
+
+
+# === 走势分类扫描页（全池共享数据） ===
+
+REGIME_CACHE_FILE = BASE_DIR / "data" / "regime_scan.json"
+
+
+@app.get("/regime", response_class=HTMLResponse)
+async def regime_page(request: Request, pwd: str = check_password):
+    """全池走势分类扫描页"""
+    return templates.TemplateResponse(
+        request, "regime.html", {"request": request, "pwd": pwd}
+    )
+
+
+@app.get("/api/regime/latest")
+async def regime_latest(request: Request, pwd: str = check_password, refresh: int = 0):
+    """最新全池分类扫描结果：当天已有缓存直接返回，否则现场扫描并落盘到 data/regime_scan.json"""
+    from app.services.regime import classify_regime, REGIME_ADVICE
+
+    today = datetime.now().strftime("%Y-%m-%d")
+    if not refresh and REGIME_CACHE_FILE.exists():
+        try:
+            cached = json.loads(REGIME_CACHE_FILE.read_text(encoding="utf-8"))
+            if cached.get("asOf") == today and cached.get("stocks"):
+                return cached
+        except Exception:
+            pass  # 缓存损坏则重新扫描
+
+    from app.services.market import fetch_kline_tencent
+    stocks, alerts, as_of = [], [], ""
+    seen_symbols = set()
+    for s in STOCK_LIST:
+        if s["symbol"] in seen_symbols:
+            continue  # 配置里 688017 出现两次，扫描去重
+        seen_symbols.add(s["symbol"])
+        try:
+            kl = await fetch_kline_tencent(s["symbol"], days=550, full_date=True)
+        except Exception:
+            kl = []
+        if len(kl) < 30:
+            continue
+        if not as_of:
+            as_of = kl[-1]["date"]
+        info = classify_regime(kl)
+        stocks.append({
+            "code": s["symbol"], "name": s["name"],
+            "regime": info["regime"], "label": info["label"],
+            "outside_ratio": info["outside_ratio"],
+            "bandwidth_pct": info["bandwidth_pct"],
+            "ma_dev_pct": info["ma_dev_pct"],
+        })
+        if info.get("alert"):
+            alerts.append({
+                "code": s["symbol"], "name": s["name"],
+                "type": info["alert"][0], "text": info["alert"][1],
+            })
+
+    counts = {"squeeze": 0, "trending": 0, "ranging": 0, "neutral": 0}
+    for st in stocks:
+        counts[st["regime"]] = counts.get(st["regime"], 0) + 1
+    summary = (
+        f"扫描{len(stocks)}只：挤压待变{counts['squeeze']}、趋势型{counts['trending']}、"
+        f"区间型{counts['ranging']}、中性{counts['neutral']}"
+        + (f"；带宽张开预警{len(alerts)}只" if alerts else "；暂无带宽张开预警")
+    )
+    result = {
+        "asOf": as_of,
+        "fetchedAt": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "stale": False,
+        "counts": counts,
+        "stocks": stocks,
+        "alerts": alerts,
+        "summary": summary,
+    }
+    try:
+        REGIME_CACHE_FILE.parent.mkdir(parents=True, exist_ok=True)
+        REGIME_CACHE_FILE.write_text(
+            json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+    except Exception:
+        pass  # 落盘失败不影响返回
+    return result
 
 
 @app.post("/api/backtest/run")

@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>走势分类扫描 - Jungle 天才交易员</title>
+    <link rel="stylesheet" href="/static/styles.css">
+    <style>
+        .regime-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .regime-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 12px;
+            margin-bottom: 12px;
+            text-align: center;
+        }
+        .regime-header h1 { font-size: 2em; margin-bottom: 10px; }
+        .nav-row { display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
+        .nav-btn {
+            display: inline-block;
+            padding: 10px 20px;
+            background: white;
+            color: #667eea;
+            border: 2px solid #667eea;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+        .nav-btn:hover { background: #667eea; color: white; }
+
+        .scan-bar {
+            background: white;
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 14px 18px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+            font-size: 14px;
+            color: #64748b;
+        }
+        .scan-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            padding: 10px 22px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .scan-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+        .kpi-card {
+            background: white;
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 18px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        .kpi-card .v { font-size: 32px; font-weight: 800; }
+        .kpi-card .l { font-size: 13px; color: #64748b; margin-top: 4px; }
+        .kpi-card.squeeze .v { color: #f59e0b; }
+        .kpi-card.trending .v { color: #667eea; }
+        .kpi-card.ranging .v { color: #10b981; }
+        .kpi-card.neutral .v { color: #94a3b8; }
+
+        .alert-box {
+            display: none;
+            background: #fff;
+            border: 2px solid rgba(239,68,68,0.4);
+            border-radius: 12px;
+            box-shadow: inset 4px 0 0 #ef4444, 0 2px 8px rgba(0,0,0,0.1);
+            padding: 16px 20px;
+            margin-bottom: 20px;
+        }
+        .alert-box h3 { margin: 0 0 8px; color: #ef4444; font-size: 15px; }
+        .alert-row { font-size: 14px; padding: 3px 0; color: #334155; }
+        .alert-row.down { color: #ef4444; }
+        .alert-row.up { color: #10b981; }
+
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .data-table th {
+            background: #667eea;
+            color: #fff;
+            padding: 11px 12px;
+            font-size: 13px;
+            text-align: left;
+        }
+        .data-table td { padding: 9px 12px; font-size: 13px; border-bottom: 1px solid #f1f5f9; }
+        .data-table tr:hover { background: #f8f7ff; }
+        .badge {
+            display: inline-block;
+            padding: 3px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            color: #fff;
+        }
+        .badge.squeeze { background: #f59e0b; }
+        .badge.trending { background: #667eea; }
+        .badge.ranging { background: #10b981; }
+        .badge.neutral { background: #94a3b8; }
+        .loading { text-align: center; padding: 40px; color: #666; }
+    </style>
+</head>
+<body>
+    <div class="regime-container">
+        <div class="nav-row">
+            <a href="/?pwd={{ pwd }}" class="nav-btn">← 返回持仓</a>
+            <a href="/backtest?pwd={{ pwd }}" class="nav-btn">🧪 量化回测实验室</a>
+        </div>
+
+        <div class="regime-header">
+            <h1>📊 股票池走势分类扫描</h1>
+            <p>布林带带宽量化分类 · 与每日收盘定时任务同一份数据逻辑</p>
+        </div>
+
+        <div class="scan-bar">
+            <span id="scan-meta">加载中...</span>
+            <button class="scan-btn" id="refresh-btn">立即重新扫描</button>
+        </div>
+
+        <div class="kpi-grid" id="kpi-grid">
+            <div class="loading">正在读取扫描结果...</div>
+        </div>
+
+        <div class="alert-box" id="alert-box">
+            <h3>⚠️ 带宽张开预警</h3>
+            <div id="alert-list"></div>
+        </div>
+
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>名称</th><th>代码</th><th>分类</th><th>轨外比例</th><th>带宽分位</th><th>偏离MA20</th>
+                </tr>
+            </thead>
+            <tbody id="table-body">
+                <tr><td colspan="6" class="loading">加载中...</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <script>
+        const pwd = "{{ pwd }}";
+        const ORDER = { squeeze: 0, trending: 1, ranging: 2, neutral: 3 };
+
+        async function load(refresh = false) {
+            const meta = document.getElementById('scan-meta');
+            const btn = document.getElementById('refresh-btn');
+            btn.disabled = true;
+            try {
+                const url = `/api/regime/latest?pwd=${pwd}` + (refresh ? '&refresh=1' : '');
+                const resp = await fetch(url);
+                const data = await resp.json();
+                if (!resp.ok) throw new Error(data.detail || '加载失败');
+                render(data);
+                meta.textContent = `数据日期 ${data.asOf} · 更新于 ${data.fetchedAt} · ${data.summary}`;
+            } catch (e) {
+                meta.textContent = '加载失败：' + e.message;
+            } finally {
+                btn.disabled = false;
+            }
+        }
+
+        function render(d) {
+            const c = d.counts || {};
+            document.getElementById('kpi-grid').innerHTML = [
+                ['squeeze', c.squeeze || 0, '挤压待变'],
+                ['trending', c.trending || 0, '趋势型'],
+                ['ranging', c.ranging || 0, '区间型'],
+                ['neutral', c.neutral || 0, '中性'],
+            ].map(k => `<div class="kpi-card ${k[0]}"><div class="v">${k[1]}</div><div class="l">${k[2]}</div></div>`).join('');
+
+            const box = document.getElementById('alert-box');
+            if (d.alerts && d.alerts.length) {
+                document.getElementById('alert-list').innerHTML = d.alerts.map(a =>
+                    `<div class="alert-row ${a.type === 'squeeze_break_up' ? 'up' : 'down'}">${a.name}（${a.code}）：${a.text}</div>`
+                ).join('');
+                box.style.display = 'block';
+            } else {
+                box.style.display = 'none';
+            }
+
+            const rows = (d.stocks || []).slice().sort((a, b) => (ORDER[a.regime] ?? 9) - (ORDER[b.regime] ?? 9));
+            document.getElementById('table-body').innerHTML = rows.map(s =>
+                `<tr><td style="font-weight:600">${s.name}</td><td>${s.code}</td>` +
+                `<td><span class="badge ${s.regime}">${s.label}</span></td>` +
+                `<td>${Math.round((s.outside_ratio || 0) * 100)}%</td>` +
+                `<td>${Math.round((s.bandwidth_pct || 0) * 100)}%</td>` +
+                `<td>${s.ma_dev_pct >= 0 ? '+' : ''}${s.ma_dev_pct}%</td></tr>`
+            ).join('');
+        }
+
+        document.getElementById('refresh-btn').addEventListener('click', () => load(true));
+        load();
+    </script>
+</body>
+</html>

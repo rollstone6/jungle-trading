@@ -15,6 +15,13 @@
 """
 import pandas as pd
 
+REGIME_LABEL = {
+    "squeeze": "挤压待变",
+    "trending": "趋势型",
+    "ranging": "区间型",
+    "neutral": "中性",
+}
+
 
 def classify_regime(klines: list[dict]) -> dict:
     """输入K线列表，输出量化分类结果"""
@@ -53,13 +60,25 @@ def classify_regime(klines: list[dict]) -> dict:
     else:
         regime = "neutral"
 
+    # 带宽张开预警：昨日带宽仍在20%低分位内，今日收盘已突破轨道
+    alert = None
+    if n >= 2 and bw_pct > 0.20:
+        prev_bw_pct = float((lookback.iloc[:-1] <= bandwidth.iloc[-2]).mean())
+        if prev_bw_pct <= 0.20:
+            if last_close > float(upper.iloc[-1]):
+                alert = ("squeeze_break_up", "挤压后向上突破上轨，关注变盘向上")
+            elif last_close < float(lower.iloc[-1]):
+                alert = ("squeeze_break_down", "挤压后向下突破下轨，警惕变盘向下")
+
     return {
         "regime": regime,
+        "label": REGIME_LABEL[regime],
         "outside_ratio": round(outside_ratio, 3),
         "bandwidth": round(float(bandwidth.iloc[-1]), 4),
         "bandwidth_pct": round(bw_pct, 3),
         "bullish_align": bullish_align,
         "ma_dev_pct": round(ma_dev * 100, 2),
+        "alert": alert,
         "bars": n,
     }
 
