@@ -294,16 +294,14 @@
                         </span>
                     </div>
                     
-                    <h3 class="subhead tech-title">技术面</h3>
-                    
-                    <!-- 走势分类标签 -->
-                    {% if pos.regime_label %}
-                    <div style="margin-bottom: 8px;">
+                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                        <h3 class="subhead tech-title" style="margin: 0;">技术面</h3>
+                        {% if pos.regime_label %}
                         <span class="badge" style="background: {% if pos.regime_label == '挤压待变' %}#f59e0b{% elif pos.regime_label == '趋势型' %}#10b981{% elif pos.regime_label == '区间型' %}#3b82f6{% else %}#6b7280{% endif %};">
                             {{ pos.regime_label }}
                         </span>
+                        {% endif %}
                     </div>
-                    {% endif %}
                     
                     <!-- 均线系统 -->
                     <div class="tech-pills">
@@ -315,50 +313,29 @@
                         {% if pos.ma250 > 0 %}<span><b>MA250</b>{{ "%.2f"|format(pos.ma250) }}</span>{% endif %}
                     </div>
                     
-                    <!-- 布林带 -->
+                    <!-- 技术指标合并显示 -->
                     <div class="tech-pills">
                         {% if pos.boll_upper > 0 %}
                         <span><b>BOLL上</b>{{ "%.2f"|format(pos.boll_upper) }}</span>
                         <span><b>BOLL下</b>{{ "%.2f"|format(pos.boll_lower) }}</span>
                         {% endif %}
-                    </div>
-                    
-                    <!-- KDJ 指标 -->
-                    <div class="tech-pills">
                         {% if pos.kdj_k > 0 %}
-                        <span class="{% if pos.kdj_k > 80 %}high{% elif pos.kdj_k < 20 %}low{% endif %}">
-                            <b>K</b>{{ "%.1f"|format(pos.kdj_k) }}
-                        </span>
-                        <span class="{% if pos.kdj_d > 80 %}high{% elif pos.kdj_d < 20 %}low{% endif %}">
-                            <b>D</b>{{ "%.1f"|format(pos.kdj_d) }}
-                        </span>
-                        <span class="{% if pos.kdj_j > 100 %}high{% elif pos.kdj_j < 0 %}low{% endif %}">
-                            <b>J</b>{{ "%.1f"|format(pos.kdj_j) }}
-                        </span>
+                        <span class="{% if pos.kdj_k > 80 %}high{% elif pos.kdj_k < 20 %}low{% endif %}"><b>K</b>{{ "%.1f"|format(pos.kdj_k) }}</span>
+                        <span class="{% if pos.kdj_d > 80 %}high{% elif pos.kdj_d < 20 %}low{% endif %}"><b>D</b>{{ "%.1f"|format(pos.kdj_d) }}</span>
+                        <span class="{% if pos.kdj_j > 100 %}high{% elif pos.kdj_j < 0 %}low{% endif %}"><b>J</b>{{ "%.1f"|format(pos.kdj_j) }}</span>
                         {% endif %}
                     </div>
                     
-                    <!-- MACD 指标 -->
                     <div class="tech-pills">
                         {% if pos.macd_dif != 0 %}
-                        <span class="{% if pos.macd_dif > 0 %}up{% else %}down{% endif %}">
-                            <b>DIF</b>{{ "%.3f"|format(pos.macd_dif) }}
-                        </span>
-                        <span class="{% if pos.macd_dea > 0 %}up{% else %}down{% endif %}">
-                            <b>DEA</b>{{ "%.3f"|format(pos.macd_dea) }}
-                        </span>
-                        <span class="{% if pos.macd_hist > 0 %}up{% else %}down{% endif %}">
-                            <b>MACD</b>{{ "%.3f"|format(pos.macd_hist) }}
-                        </span>
+                        <span class="{% if pos.macd_dif > 0 %}up{% else %}down{% endif %}"><b>DIF</b>{{ "%.3f"|format(pos.macd_dif) }}</span>
+                        <span class="{% if pos.macd_dea > 0 %}up{% else %}down{% endif %}"><b>DEA</b>{{ "%.3f"|format(pos.macd_dea) }}</span>
+                        <span class="{% if pos.macd_hist > 0 %}up{% else %}down{% endif %}"><b>MACD</b>{{ "%.3f"|format(pos.macd_hist) }}</span>
+                        {% endif %}
+                        {% if pos.volume_ratio > 0 %}
+                        <span><b>量比</b>{{ "%.2f"|format(pos.volume_ratio) }}</span>
                         {% endif %}
                     </div>
-                    
-                    <!-- 量比 -->
-                    {% if pos.volume_ratio > 0 %}
-                    <div class="tech-pills">
-                        <span><b>量比</b>{{ "%.2f"|format(pos.volume_ratio) }}</span>
-                    </div>
-                    {% endif %}
                     
                     {% if pos.kline %}
                     <div class="kline-card">
