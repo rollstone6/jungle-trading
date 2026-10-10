@@ -697,6 +697,79 @@ function formatMoney(value) {
 // 页面加载时获取ETF数据
 loadETFFlow();
 
+// === 持仓走势分类（日线+30分钟双周期共振） ===
+const REGIME_LABELS = { squeeze: '挤压待变', trending: '趋势型', ranging: '区间型', neutral: '中性' };
+
+async function loadPositionRegime() {
+    const cards = Array.from(document.querySelectorAll('.position-card[data-code]'));
+    if (!cards.length) return;
+    const posCodes = cards.map(c => c.dataset.code);
+    const listEl = document.getElementById('regime-panel-list');
+    const timeEl = document.getElementById('regime-panel-time');
+    try {
+        const response = await fetch(apiUrl('/api/regime/latest'));
+        const data = await response.json();
+        const byCode = {};
+        (data.stocks || []).forEach(s => { byCode[s.code] = s; });
+        const alertByCode = {};
+        (data.alerts || []).forEach(a => { alertByCode[a.code] = a; });
+
+        // 更新时间
+        if (data.fetchedAt) {
+            timeEl.textContent = `更新于 ${data.fetchedAt.slice(5, 16)}`;
+        }
+
+        // 1) 面板：每只持仓一个彩色 chip
+        const chips = posCodes.map(code => {
+            const s = byCode[code];
+            if (!s) return `<div class="regime-chip neutral"><div class="rc-top"><span class="rc-name">${code}</span><span class="rc-label">计算中</span></div></div>`;
+            const al = alertByCode[code];
+            const alertHtml = al ? `<div class="rc-alert">⚡ ${al.text || '带宽张开预警'}</div>` : '';
+            return `
+                <div class="regime-chip ${s.regime}" title="日线 ${s.label_daily || s.label} / 30分钟 ${s.label_30m}；轨外${(s.outside_ratio*100).toFixed(0)}% 带宽分位${(s.bandwidth_pct*100).toFixed(0)}%">
+                    <div class="rc-top">
+                        <span class="rc-name">${s.name}</span>
+                        <span class="rc-label">${s.label}</span>
+                    </div>
+                    <div class="rc-tf">日K ${s.label_daily || '-'} · 30分 ${s.label_30m}</div>
+                    <div class="rc-evidence">轨外${(s.outside_ratio*100).toFixed(0)}% · 带宽分位${(s.bandwidth_pct*100).toFixed(0)}% · 偏离MA20 ${s.ma_dev_pct > 0 ? '+' : ''}${s.ma_dev_pct.toFixed(1)}%</div>
+                    ${alertHtml}
+                </div>`;
+        });
+        listEl.innerHTML = chips.join('');
+
+        // 2) 卡片徽章：升级为双周期结果 + 子标签显示分周期
+        cards.forEach(card => {
+            const s = byCode[card.dataset.code];
+            if (!s) return;
+            const badge = card.querySelector('.regime-badge');
+            const sub = card.querySelector('.regime-sub');
+            if (badge) {
+                badge.textContent = s.label;
+                badge.dataset.fallback = s.label;
+                const grad = {
+                    squeeze: 'linear-gradient(135deg,#f59e0b,#ef4444)',
+                    trending: 'linear-gradient(135deg,#10b981,#0ea5e9)',
+                    ranging: 'linear-gradient(135deg,#3b82f6,#6366f1)',
+                    neutral: 'linear-gradient(135deg,#64748b,#94a3b8)',
+                }[s.regime] || 'linear-gradient(135deg,#64748b,#94a3b8)';
+                badge.style.background = grad;
+                badge.style.color = '#fff';
+            }
+            if (sub) sub.textContent = `日K ${s.label_daily || '-'} / 30分 ${s.label_30m}`;
+        });
+    } catch (err) {
+        console.error('加载持仓走势分类失败:', err);
+        listEl.innerHTML = '<div class="etf-loading">加载失败，稍后自动重试</div>';
+        // 回退：保留 SSR 渲染的日线徽章
+        document.querySelectorAll('.regime-badge[data-fallback]').forEach(b => {
+            if (!b.textContent.trim()) b.textContent = b.dataset.fallback;
+        });
+    }
+}
+
+loadPositionRegime();
+
 function isCnTradingRefreshWindow() {
   const now = new Date();
   const cn = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Shanghai" }));

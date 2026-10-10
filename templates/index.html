@@ -177,6 +177,95 @@
             grid-template-columns: repeat(auto-fill, minmax(450px, 1fr));
             gap: 16px;
         }
+
+        /* 持仓走势分类面板 */
+        .regime-panel {
+            margin-top: 16px;
+            background: #fff;
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 14px 16px;
+        }
+        .regime-panel-header {
+            display: flex;
+            align-items: baseline;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-bottom: 10px;
+        }
+        .regime-panel-header h3 {
+            margin: 0;
+            font-size: 15px;
+        }
+        .regime-panel-header small {
+            color: #64748b;
+            font-weight: normal;
+            font-size: 11px;
+            margin-left: 6px;
+        }
+        .regime-panel-time {
+            font-size: 12px;
+            color: #94a3b8;
+        }
+        .regime-panel-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 10px;
+        }
+        .regime-chip {
+            border-radius: 10px;
+            padding: 10px 12px;
+            color: #fff;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.12);
+        }
+        .regime-chip.squeeze { background: linear-gradient(135deg, #f59e0b, #ef4444); }
+        .regime-chip.trending { background: linear-gradient(135deg, #10b981, #0ea5e9); }
+        .regime-chip.ranging { background: linear-gradient(135deg, #3b82f6, #6366f1); }
+        .regime-chip.neutral { background: linear-gradient(135deg, #64748b, #94a3b8); }
+        .regime-chip .rc-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            gap: 6px;
+        }
+        .regime-chip .rc-name {
+            font-weight: 700;
+            font-size: 14px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .regime-chip .rc-label {
+            font-size: 12px;
+            font-weight: 700;
+            background: rgba(255,255,255,0.25);
+            padding: 1px 8px;
+            border-radius: 999px;
+            white-space: nowrap;
+        }
+        .regime-chip .rc-tf {
+            font-size: 11px;
+            opacity: 0.95;
+        }
+        .regime-chip .rc-evidence {
+            font-size: 10px;
+            opacity: 0.85;
+        }
+        .regime-chip .rc-alert {
+            font-size: 11px;
+            background: #fff;
+            color: #dc2626;
+            border-radius: 6px;
+            padding: 2px 6px;
+            font-weight: 700;
+        }
+        @media (max-width: 480px) {
+            .regime-panel-list { grid-template-columns: 1fr 1fr; }
+        }
         
         @media (max-width: 768px) {
             .position-list {
@@ -263,7 +352,7 @@
             <h2>当前持仓</h2>
             <div class="position-list">
                 {% for pos in positions %}
-                <article class="position-card {% if pos.risk_level == '高' %}danger{% endif %}">
+                <article class="position-card {% if pos.risk_level == '高' %}danger{% endif %}" data-code="{{ pos.code }}">
                     <div class="position-main">
                         <div>
                             <strong>{{ pos.name }}</strong>
@@ -294,13 +383,13 @@
                         </span>
                     </div>
                     
-                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px; flex-wrap: wrap;">
                         <h3 class="subhead tech-title" style="margin: 0;">技术面</h3>
-                        {% if pos.regime_label %}
-                        <span class="badge" style="background: {% if pos.regime_label == '挤压待变' %}#f59e0b{% elif pos.regime_label == '趋势型' %}#10b981{% elif pos.regime_label == '区间型' %}#3b82f6{% else %}#6b7280{% endif %};">
-                            {{ pos.regime_label }}
+                        <span class="badge regime-badge" {% if pos.regime_label %}data-fallback="{{ pos.regime_label }}"{% endif %}
+                            style="background: {% if pos.regime_label == '挤压待变' %}linear-gradient(135deg,#f59e0b,#ef4444){% elif pos.regime_label == '趋势型' %}linear-gradient(135deg,#10b981,#0ea5e9){% elif pos.regime_label == '区间型' %}linear-gradient(135deg,#3b82f6,#6366f1){% else %}linear-gradient(135deg,#6b7280,#94a3b8){% endif %}; color: #fff;">
+                            {% if pos.regime_label %}{{ pos.regime_label }}{% endif %}
                         </span>
-                        {% endif %}
+                        <span class="regime-sub" style="font-size: 11px; color: #64748b;"></span>
                     </div>
                     
                     <!-- 均线系统 -->
@@ -368,6 +457,17 @@
                     {% endif %}
                 </article>
                 {% endfor %}
+            </div>
+
+            <!-- 持仓走势分类（日线+30分钟双周期共振） -->
+            <div class="regime-panel" id="position-regime">
+                <div class="regime-panel-header">
+                    <h3>🧭 持仓走势分类 <small>日线 + 30分钟双周期共振</small></h3>
+                    <span class="regime-panel-time" id="regime-panel-time">加载中...</span>
+                </div>
+                <div class="regime-panel-list" id="regime-panel-list">
+                    <div class="etf-loading">正在计算分类...</div>
+                </div>
             </div>
         </section>
 

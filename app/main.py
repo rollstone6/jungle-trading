@@ -414,7 +414,12 @@ async def regime_latest(request: Request, pwd: str = check_password, refresh: in
     if not refresh and REGIME_CACHE_FILE.exists():
         try:
             cached = json.loads(REGIME_CACHE_FILE.read_text(encoding="utf-8"))
-            if cached.get("asOf") == today and cached.get("stocks"):
+            cached_codes = {st["code"] for st in cached.get("stocks", [])}
+            pconn = get_db()
+            pos_codes = {r["code"] for r in pconn.execute("SELECT code FROM positions").fetchall()}
+            pconn.close()
+            if (cached.get("asOf") == today and cached.get("stocks")
+                    and pos_codes <= cached_codes):
                 return cached
         except Exception:
             pass  # 缓存损坏则重新扫描
@@ -427,6 +432,14 @@ async def regime_latest(request: Request, pwd: str = check_password, refresh: in
             continue  # 配置里 688017 出现两次，扫描去重
         seen_symbols.add(s["symbol"])
         pool.append(s)
+
+    # 当前持仓并入扫描池（持仓与量化池不一致时也能展示分类）
+    pconn = get_db()
+    for row in pconn.execute("SELECT code, name FROM positions").fetchall():
+        if row["code"] not in seen_symbols:
+            seen_symbols.add(row["code"])
+            pool.append({"symbol": row["code"], "name": row["name"]})
+    pconn.close()
 
     async def scan_one(s):
         """日线 + 30分钟双周期并发取数与分类"""
@@ -445,6 +458,7 @@ async def regime_latest(request: Request, pwd: str = check_password, refresh: in
         return {
             "code": s["symbol"], "name": s["name"],
             "regime": regime, "label": REGIME_LABEL[regime],
+            "regime_daily": info_d["regime"], "label_daily": info_d["label"],
             "regime_30m": info_m["regime"] if info_m else "unknown",
             "label_30m": info_m["label"] if info_m else "无数据",
             "outside_ratio": info_d["outside_ratio"],
