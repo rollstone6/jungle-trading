@@ -157,6 +157,22 @@
             color: #667eea;
         }
 
+        /* 边界接近度辉光（prox 越大越亮，由后端计算内联注入） */
+        .tech-pills span.near-up {
+            color: #b91c1c;
+            font-weight: 600;
+        }
+        .tech-pills span.near-up b {
+            color: #ef4444;
+        }
+        .tech-pills span.near-down {
+            color: #15803d;
+            font-weight: 600;
+        }
+        .tech-pills span.near-down b {
+            color: #22c55e;
+        }
+
         /* K线卡 */
         .kline-card {
             background: #f8f7ff;
@@ -392,21 +408,33 @@
                         <span class="regime-sub" style="font-size: 11px; color: #64748b;"></span>
                     </div>
                     
-                    <!-- 均线系统 -->
+                    <!-- 均线系统（现价靠近的边界值高亮，越近越亮） -->
+                    {% macro tpill(label, value, near) %}
+                        {% set n = near.get(label) if near else None %}
+                        {% if n %}
+                            {% set col = '239,68,68' if n.side == 'up' else '34,197,94' %}
+                            <span class="near-{{ n.side }}"
+                                  title="{{ '压力' if n.side == 'up' else '支撑' }} · 距现价 {{ n.dist }}%"
+                                  style="background: rgba({{ col }}, {{ '%.2f'|format(0.06 + 0.20 * n.prox) }}); border-color: rgba({{ col }}, {{ '%.2f'|format(0.30 + 0.65 * n.prox) }}); box-shadow: 0 0 {{ (1 + 7 * n.prox)|round|int }}px rgba({{ col }}, {{ '%.2f'|format(0.20 + 0.55 * n.prox) }});">
+                                <b>{{ label }}</b>{{ value }}</span>
+                        {% else %}
+                            <span><b>{{ label }}</b>{{ value }}</span>
+                        {% endif %}
+                    {% endmacro %}
                     <div class="tech-pills">
-                        {% if pos.ma3 > 0 %}<span><b>MA3</b>{{ "%.2f"|format(pos.ma3) }}</span>{% endif %}
-                        {% if pos.ma8 > 0 %}<span><b>MA8</b>{{ "%.2f"|format(pos.ma8) }}</span>{% endif %}
-                        {% if pos.ma20 > 0 %}<span><b>MA20</b>{{ "%.2f"|format(pos.ma20) }}</span>{% endif %}
-                        {% if pos.ma60 > 0 %}<span><b>MA60</b>{{ "%.2f"|format(pos.ma60) }}</span>{% endif %}
-                        {% if pos.ma120 > 0 %}<span><b>MA120</b>{{ "%.2f"|format(pos.ma120) }}</span>{% endif %}
-                        {% if pos.ma250 > 0 %}<span><b>MA250</b>{{ "%.2f"|format(pos.ma250) }}</span>{% endif %}
+                        {% if pos.ma3 > 0 %}{{ tpill('MA3', "%.2f"|format(pos.ma3), pos.near) }}{% endif %}
+                        {% if pos.ma8 > 0 %}{{ tpill('MA8', "%.2f"|format(pos.ma8), pos.near) }}{% endif %}
+                        {% if pos.ma20 > 0 %}{{ tpill('MA20', "%.2f"|format(pos.ma20), pos.near) }}{% endif %}
+                        {% if pos.ma60 > 0 %}{{ tpill('MA60', "%.2f"|format(pos.ma60), pos.near) }}{% endif %}
+                        {% if pos.ma120 > 0 %}{{ tpill('MA120', "%.2f"|format(pos.ma120), pos.near) }}{% endif %}
+                        {% if pos.ma250 > 0 %}{{ tpill('MA250', "%.2f"|format(pos.ma250), pos.near) }}{% endif %}
                     </div>
                     
                     <!-- 技术指标合并显示 -->
                     <div class="tech-pills">
                         {% if pos.boll_upper > 0 %}
-                        <span><b>BOLL上</b>{{ "%.2f"|format(pos.boll_upper) }}</span>
-                        <span><b>BOLL下</b>{{ "%.2f"|format(pos.boll_lower) }}</span>
+                        {{ tpill('BOLL上', "%.2f"|format(pos.boll_upper), pos.near) }}
+                        {{ tpill('BOLL下', "%.2f"|format(pos.boll_lower), pos.near) }}
                         {% endif %}
                         {% if pos.kdj_k > 0 %}
                         <span class="{% if pos.kdj_k > 80 %}high{% elif pos.kdj_k < 20 %}low{% endif %}"><b>K</b>{{ "%.1f"|format(pos.kdj_k) }}</span>

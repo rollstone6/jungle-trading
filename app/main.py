@@ -17,7 +17,7 @@ from app.services.market import (
     fetch_etf_money_flow, calc_ma, calc_boll, calc_kdj, calc_macd, calc_volume_ratio
 )
 from app.services.portfolio import (
-    get_account, get_all_positions, calc_position_metrics,
+    get_account, get_all_positions, calc_position_metrics, calc_boundary_proximity,
     calc_risk, get_summary
 )
 from app.services.reports import get_available_dates, get_report
@@ -222,6 +222,7 @@ async def index(request: Request, pwd: str = check_password):
 
     # Calculate metrics
     positions = calc_position_metrics(positions, account)
+    positions = calc_boundary_proximity(positions)
     positions = calc_risk(positions)
     summary = get_summary(positions, account)
 

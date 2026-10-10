@@ -60,6 +60,34 @@ def get_all_positions() -> list[dict]:
     return positions
 
 
+def calc_boundary_proximity(positions: list[dict]) -> list[dict]:
+    """计算现价与各指标边界值(MA/BOLL轨)的接近度，用于前端颜色高亮。
+    prox = 1 - 距离%/2.0（2% 以内视为靠近，越近越接近 1）；side: up=边界在上方(压力) / down=下方(支撑)"""
+    for p in positions:
+        price = p.get("latest_price") or 0
+        near = {}
+        if price > 0:
+            checks = [
+                ("MA3", p.get("ma3")), ("MA8", p.get("ma8")), ("MA20", p.get("ma20")),
+                ("MA60", p.get("ma60")), ("MA120", p.get("ma120")), ("MA250", p.get("ma250")),
+                ("BOLL上", p.get("boll_upper")), ("BOLL下", p.get("boll_lower")),
+            ]
+            for label, v in checks:
+                if not v or v <= 0:
+                    continue
+                dist_pct = abs(price - v) / price * 100
+                prox = max(0.0, 1.0 - dist_pct / 2.0)
+                if prox <= 0:
+                    continue
+                near[label] = {
+                    "prox": round(prox, 3),
+                    "side": "up" if v > price else "down",
+                    "dist": round(dist_pct, 2),
+                }
+        p["near"] = near
+    return positions
+
+
 def calc_position_metrics(positions: list[dict], account: dict) -> list[dict]:
     """计算每个持仓的市值、盈亏、仓位占比"""
     principal = account["principal"]
