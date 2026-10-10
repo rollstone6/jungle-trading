@@ -10,7 +10,10 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from app.models.database import get_db, init_db
-from app.services.market import fetch_realtime_tencent, fetch_kline_baidu, fetch_news_eastmoney, calc_ma, calc_volume_ratio
+from app.services.market import (
+    fetch_realtime_tencent, fetch_kline_baidu, fetch_news_eastmoney,
+    calc_ma, calc_volume_ratio, calc_boll, calc_kdj, calc_macd,
+)
 
 async def refresh_all():
     """刷新所有持仓的行情数据"""
@@ -51,25 +54,38 @@ async def refresh_all():
         
         # 检查是否需要更新K线（每天一次）
         row = conn.execute("SELECT kline_data FROM positions WHERE code=?", (code,)).fetchone()
-        kline_data = json.loads(row[0]) if row else []
+        kline_data = json.loads(row[0]) if row and row[0] else []
         
         # 如果K线数据少于60天或最后一天不是今天，更新K线
         today = datetime.now().strftime("%m-%d")
         need_kline_update = len(kline_data) < 60 or (kline_data and kline_data[-1].get("date") != today)
         
         if need_kline_update:
-            klines = await fetch_kline_baidu(code, 120)
+            klines = await fetch_kline_baidu(code, 250)
             if klines:
-                ma5 = calc_ma(klines, 5)
-                ma20 = calc_ma(klines, 20)
-                ma60 = calc_ma(klines, 60)
-                volume_ratio = calc_volume_ratio(klines)
-                
+                import json as _json
+                boll_upper, _, boll_lower = calc_boll(klines)
+                kdj_k, kdj_d, kdj_j = calc_kdj(klines)
+                macd_dif, macd_dea, macd_hist = calc_macd(klines)
+                try:
+                    from app.services.regime import classify_regime
+                    regime_label = classify_regime(klines).get("label", "")
+                except Exception:
+                    regime_label = ""
                 conn.execute("""
                     UPDATE positions 
-                    SET kline_data=?, ma5=?, ma20=?, ma60=?, volume_ratio=?
+                    SET kline_data=?, ma3=?, ma8=?, ma20=?, ma60=?, ma120=?, ma250=?,
+                        boll_upper=?, boll_lower=?, kdj_k=?, kdj_d=?, kdj_j=?,
+                        macd_dif=?, macd_dea=?, macd_hist=?, regime_label=?, volume_ratio=?
                     WHERE code=?
-                """, (json.dumps(klines), ma5, ma20, ma60, volume_ratio, code))
+                """, (
+                    _json.dumps(klines),
+                    calc_ma(klines, 3), calc_ma(klines, 8), calc_ma(klines, 20),
+                    calc_ma(klines, 60), calc_ma(klines, 120), calc_ma(klines, 250),
+                    boll_upper, boll_lower, kdj_k, kdj_d, kdj_j,
+                    macd_dif, macd_dea, macd_hist, regime_label,
+                    calc_volume_ratio(klines), code,
+                ))
                 print(f"  ✓ {code} K线已更新")
     
     conn.commit()
