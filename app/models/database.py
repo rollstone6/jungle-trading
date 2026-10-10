@@ -14,6 +14,37 @@ def get_db():
     return conn
 
 
+def _migrate(conn):
+    """为已存在的旧库补充新增列（ALTER TABLE 幂等，重复执行安全）。
+
+    CREATE TABLE IF NOT EXISTS 不会给老表加新列，直接拉新代码跑旧库会
+    在读取 positions 时 IndexError，这里显式做轻量迁移。
+    """
+    new_columns = [
+        ("ma3", "REAL DEFAULT 0"),
+        ("ma8", "REAL DEFAULT 0"),
+        ("ma20", "REAL DEFAULT 0"),
+        ("ma60", "REAL DEFAULT 0"),
+        ("ma120", "REAL DEFAULT 0"),
+        ("ma250", "REAL DEFAULT 0"),
+        ("boll_upper", "REAL DEFAULT 0"),
+        ("boll_lower", "REAL DEFAULT 0"),
+        ("kdj_k", "REAL DEFAULT 0"),
+        ("kdj_d", "REAL DEFAULT 0"),
+        ("kdj_j", "REAL DEFAULT 0"),
+        ("macd_dif", "REAL DEFAULT 0"),
+        ("macd_dea", "REAL DEFAULT 0"),
+        ("macd_hist", "REAL DEFAULT 0"),
+        ("regime_label", "TEXT DEFAULT ''"),
+    ]
+    for name, ddl in new_columns:
+        try:
+            conn.execute(f"ALTER TABLE positions ADD COLUMN {name} {ddl}")
+        except sqlite3.OperationalError:
+            pass  # 列已存在
+    conn.commit()
+
+
 def init_db():
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     conn = get_db()
@@ -67,5 +98,6 @@ def init_db():
         );
         INSERT OR IGNORE INTO account (id, principal, total_asset) VALUES (1, 300000, 300000);
     """)
+    _migrate(conn)
     conn.commit()
     conn.close()
