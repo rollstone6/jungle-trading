@@ -381,7 +381,7 @@ function readKlinePoints(el) {
 function ensureKlineState(el) {
   if (el._klineState) return el._klineState;
   const points = readKlinePoints(el);
-  const visible = Math.min(points.length, 10);
+  const visible = Math.min(points.length, 60);
   el._klineState = {
     points,
     visible,
@@ -397,11 +397,11 @@ function ensureKlineState(el) {
 
 function klineGeometry(el, state) {
   const width = Math.max(300, Math.floor(el.clientWidth || 320));
-  const height = 188;
-  const pad = { top: 14, right: 10, bottom: 26, left: 42 };
+  const height = 120;
+  const pad = { top: 8, right: 6, bottom: 20, left: 36 };
   const plotW = width - pad.left - pad.right;
   const plotH = height - pad.top - pad.bottom;
-  const visible = clamp(state.visible || 10, Math.min(5, state.points.length || 5), state.points.length || 5);
+  const visible = clamp(state.visible || 20, Math.min(5, state.points.length || 5), state.points.length || 5);
   const start = clamp(state.start || 0, 0, Math.max(0, state.points.length - visible));
   return { width, height, pad, plotW, plotH, visible, start };
 }
@@ -428,7 +428,7 @@ function renderKlineChart(el) {
   const minY = min - range * 0.08;
   const maxY = max + range * 0.08;
   const step = plotW / Math.max(view.length, 1);
-  const candleW = Math.max(4, Math.min(12, step * 0.52));
+  const candleW = Math.max(2, Math.min(8, step * 0.7));
   const last = view[view.length - 1];
 
   const grid = [0, 0.5, 1]
@@ -616,85 +616,86 @@ function bindKlineCharts() {
 
 bindKlineCharts();
 
-function moodConfig(pnlPercent) {
-  if (pnlPercent >= 5) {
-    return {
-      cls: "mood-sunny",
-      title: "晴天模式",
-      copy: "今天账户有阳光。开心可以，但不要因为手感好就放大仓位。",
-      persona: "今日交易人格：冷静收获型天才",
-      rain: 0,
-    };
-  }
-  if (pnlPercent >= 0) {
-    return {
-      cls: "mood-cloudy",
-      title: "多云转晴",
-      copy: "小赚也是赚。保持节奏，不把计划外的冲动当灵感。",
-      persona: "今日交易人格：稳健观察型天才",
-      rain: 0,
-    };
-  }
-  if (pnlPercent >= -3) {
-    return {
-      cls: "mood-overcast",
-      title: "阴天模式",
-      copy: "账户有点闷，但还不到慌的时候。先看规则，再看情绪。",
-      persona: "今日交易人格：低噪音观察员",
-      rain: 0,
-    };
-  }
-  if (pnlPercent >= -8) {
-    return {
-      cls: "mood-light-rain",
-      title: "小雨模式",
-      copy: "账户在下小雨。先收伞，少做冲动单，把防守位看清楚。",
-      persona: "今日交易人格：雨天防守型天才",
-      rain: 24,
-    };
-  }
-  return {
-    cls: "mood-heavy-rain",
-    title: "大雨模式",
-    copy: "现在是防守日。先活下来，再谈反击；不补仓摊平，不追高证明自己。",
-    persona: "今日交易人格：雨天防守型天才",
-    rain: 44,
-  };
-}
+// ETF资金流向
+async function loadETFFlow() {
+    try {
+        const response = await fetch(apiUrl('/api/etf-moneyflow'));
+        const data = await response.json();
 
-function bindMoodWeather() {
-  const card = document.querySelector(".mood-weather");
-  if (!card) return;
-  const pnlPercent = Number.parseFloat(card.dataset.pnlPercent || "0");
-  const config = moodConfig(Number.isFinite(pnlPercent) ? pnlPercent : 0);
-  const pressure = Math.max(0, Math.min(100, 100 + pnlPercent));
+        if (!data.items || data.items.length === 0) {
+            document.getElementById('etf-flow-list').innerHTML = '<div class="etf-loading">暂无数据</div>';
+            return;
+        }
 
-  card.classList.add(config.cls);
-  const title = card.querySelector("[data-mood-title]");
-  const copy = card.querySelector("[data-mood-copy]");
-  const pressureText = card.querySelector("[data-pressure-text]");
-  const pressureBar = card.querySelector("[data-pressure-bar]");
-  const persona = card.querySelector("[data-persona]");
-  const rain = card.querySelector(".weather-rain");
+        // 更新时间
+        const now = new Date();
+        document.getElementById('etf-update-time').textContent = `更新于 ${now.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}`;
 
-  if (title) title.textContent = config.title;
-  if (copy) copy.textContent = config.copy;
-  if (pressureText) pressureText.textContent = `${pressure.toFixed(2)} / 100`;
-  if (pressureBar) pressureBar.style.width = `${pressure}%`;
-  if (persona) persona.textContent = config.persona;
-  if (rain) {
-    rain.textContent = "";
-    for (let index = 0; index < config.rain; index += 1) {
-      const drop = document.createElement("span");
-      drop.style.left = `${(index * 37) % 100}%`;
-      drop.style.animationDelay = `${(index % 11) * 0.11}s`;
-      drop.style.opacity = String(0.45 + (index % 5) * 0.1);
-      rain.appendChild(drop);
+        // 计算汇总数据
+        const totalInflow = data.items.reduce((sum, item) => sum + (item.main_net_inflow || 0), 0);
+        const inflowCount = data.items.filter(item => item.main_net_inflow > 0).length;
+        const outflowCount = data.items.filter(item => item.main_net_inflow < 0).length;
+        const topInflow = data.items.reduce((max, item) => item.main_net_inflow > max.main_net_inflow ? item : max, data.items[0]);
+
+        // 渲染汇总
+        const summaryEl = document.getElementById('etf-summary');
+        summaryEl.innerHTML = `
+            <div class="etf-summary-card">
+                <div class="label">TOP15主力净流入</div>
+                <div class="value ${totalInflow > 0 ? 'positive' : 'negative'}">${formatMoney(totalInflow)}</div>
+            </div>
+            <div class="etf-summary-card">
+                <div class="label">流入/流出</div>
+                <div class="value">${inflowCount} / ${outflowCount}</div>
+            </div>
+            <div class="etf-summary-card">
+                <div class="label">最强流入</div>
+                <div class="value positive" style="font-size: 13px;">${topInflow.name.substring(0, 8)}</div>
+            </div>
+        `;
+
+        // 渲染列表
+        const listEl = document.getElementById('etf-flow-list');
+        listEl.innerHTML = data.items.map(item => {
+            const changeClass = item.change_pct > 0 ? 'gain' : item.change_pct < 0 ? 'loss' : 'neutral';
+            const inflowClass = item.main_net_inflow > 0 ? 'positive' : 'negative';
+            const inflowText = formatMoney(item.main_net_inflow);
+
+            return `
+                <div class="etf-item">
+                    <div>
+                        <div class="etf-item-name">${item.name}</div>
+                        <div class="etf-item-code">${item.code}</div>
+                    </div>
+                    <div class="etf-item-price">${item.price.toFixed(3)}</div>
+                    <div class="etf-item-change ${changeClass}">
+                        ${item.change_pct > 0 ? '+' : ''}${item.change_pct.toFixed(2)}%
+                    </div>
+                    <div class="etf-item-inflow ${inflowClass}">
+                        ${item.main_net_inflow > 0 ? '+' : ''}${inflowText}
+                    </div>
+                </div>
+            `;
+        }).join('');
+    } catch (err) {
+        console.error('加载ETF资金流向失败:', err);
+        document.getElementById('etf-flow-list').innerHTML = '<div class="etf-loading">加载失败，请刷新重试</div>';
     }
-  }
 }
 
-bindMoodWeather();
+function formatMoney(value) {
+    const abs = Math.abs(value);
+    if (abs >= 100000000) {
+        return (value / 100000000).toFixed(2) + '亿';
+    } else if (abs >= 10000) {
+        return (value / 10000).toFixed(2) + '万';
+    } else {
+        return value.toFixed(2);
+    }
+}
+
+// 页面加载时获取ETF数据
+loadETFFlow();
 
 function isCnTradingRefreshWindow() {
   const now = new Date();

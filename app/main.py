@@ -14,7 +14,7 @@ from pydantic import BaseModel
 from app.models.database import init_db, get_db
 from app.services.market import (
     fetch_realtime_tencent, fetch_kline_baidu, fetch_news_eastmoney,
-    calc_ma, calc_volume_ratio
+    fetch_etf_money_flow, calc_ma, calc_boll, calc_kdj, calc_macd, calc_volume_ratio
 )
 from app.services.portfolio import (
     get_account, get_all_positions, calc_position_metrics,
@@ -148,21 +148,62 @@ async def index(request: Request, pwd: str = check_password):
     conn.commit()
     conn.close()
 
-    # Fetch kline for each if not cached
+    # Fetch kline for each if not cached or recalculate indicators
     conn = get_db()
     for p in positions:
-        if not p["kline"] or len(p["kline"]) < 10:
-            klines = await fetch_kline_baidu(p["code"], 120)
+        # 检查是否缺少技术指标字段（新表结构）
+        needs_indicators = not all([
+            p.get("ma3"), p.get("ma8"), p.get("ma20"), p.get("ma60"),
+            p.get("ma120"), p.get("ma250"), p.get("boll_upper"),
+            p.get("kdj_k"), p.get("kdj_d"), p.get("kdj_j"),
+            p.get("macd_dif"), p.get("macd_dea"), p.get("macd_hist")
+        ])
+        
+        # 如果没有K线或需要重新计算指标
+        if not p["kline"] or len(p["kline"]) < 10 or needs_indicators:
+            klines = await fetch_kline_baidu(p["code"], 250)
             if klines:
                 p["kline"] = klines
-                p["ma5"] = calc_ma(klines, 5)
+                # 计算技术指标
+                p["ma3"] = calc_ma(klines, 3)
+                p["ma8"] = calc_ma(klines, 8)
                 p["ma20"] = calc_ma(klines, 20)
                 p["ma60"] = calc_ma(klines, 60)
+                p["ma120"] = calc_ma(klines, 120)
+                p["ma250"] = calc_ma(klines, 250)
                 p["volume_ratio"] = calc_volume_ratio(klines)
+                
+                # 布林带
+                boll_upper, _, boll_lower = calc_boll(klines)
+                p["boll_upper"] = boll_upper
+                p["boll_lower"] = boll_lower
+                
+                # KDJ
+                kdj_k, kdj_d, kdj_j = calc_kdj(klines)
+                p["kdj_k"] = kdj_k
+                p["kdj_d"] = kdj_d
+                p["kdj_j"] = kdj_j
+                
+                # MACD
+                macd_dif, macd_dea, macd_hist = calc_macd(klines)
+                p["macd_dif"] = macd_dif
+                p["macd_dea"] = macd_dea
+                p["macd_hist"] = macd_hist
+                
+                # 走势分类
+                from app.services.regime import classify_regime, REGIME_LABEL
+                regime_info = classify_regime(klines)
+                p["regime_label"] = regime_info.get("label", "")
+                
                 conn.execute("""
-                    UPDATE positions SET kline_data=?, ma5=?, ma20=?, ma60=?, volume_ratio=?
+                    UPDATE positions SET kline_data=?, ma3=?, ma8=?, ma20=?, ma60=?, ma120=?, ma250=?,
+                        boll_upper=?, boll_lower=?, kdj_k=?, kdj_d=?, kdj_j=?,
+                        macd_dif=?, macd_dea=?, macd_hist=?, regime_label=?, volume_ratio=?
                     WHERE code=?
-                """, (json.dumps(klines), p["ma5"], p["ma20"], p["ma60"], p["volume_ratio"], p["code"]))
+                """, (json.dumps(klines), p["ma3"], p["ma8"], p["ma20"], p["ma60"], 
+                      p["ma120"], p["ma250"], boll_upper, boll_lower,
+                      kdj_k, kdj_d, kdj_j, macd_dif, macd_dea, macd_hist,
+                      p["regime_label"], p["volume_ratio"], p["code"]))
     conn.commit()
     conn.close()
 
@@ -205,6 +246,13 @@ async def index(request: Request, pwd: str = check_password):
 
 
 # --- API ---
+@app.get("/api/etf-moneyflow")
+async def api_etf_moneyflow(pwd: str = check_password):
+    """ETF资金流向（实时）"""
+    data = await fetch_etf_money_flow(15)
+    return {"items": data}
+
+
 @app.post("/api/positions/manual")
 async def update_manual(data: ManualUpdate, request: Request, pwd: str = check_password):
     """手工更新持仓"""
@@ -475,6 +523,21 @@ async def research_funds_api(request: Request, pwd: str = check_password, refres
         return await rs.fetch_fund_nav()
 
     return await _research_produce("funds", 30, refresh, produce)
+
+
+@app.get("/api/research/funds/holdings")
+async def research_fund_holdings_api(request: Request, pwd: str = check_password, 
+                                      fund_code: str = None, refresh: int = 0):
+    """基金经理持仓和季度变化（缓存6小时）"""
+    from app.services import research as rs
+    
+    if not fund_code:
+        return {"error": "missing fund_code"}
+
+    async def produce():
+        return await rs.fetch_fund_holdings(fund_code)
+
+    return await _research_produce(f"holdings_{fund_code}", 360, refresh, produce)
 
 
 @app.get("/research/rankings", response_class=HTMLResponse)

@@ -89,13 +89,20 @@
             background: #fff;
             border: 2px solid #e2e8f0;
             border-radius: 12px;
-            padding: 20px;
+            padding: 14px;
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
             transition: all 0.2s;
         }
         .position-card:hover {
             transform: translateY(-2px);
             box-shadow: 0 8px 16px rgba(102, 126, 234, 0.2);
+        }
+        .position-card .subhead {
+            margin: 10px 0 6px;
+            font-size: 13px;
+        }
+        .position-card .tech-pills {
+            gap: 4px;
         }
         .position-card.danger,
         .position-card.高 {
@@ -155,13 +162,26 @@
             background: #f8f7ff;
             border: 1px solid #e9e6ff;
             border-radius: 12px;
-            padding: 16px;
+            padding: 10px 12px;
             margin-top: 12px;
         }
 
         /* 消息链接 */
         .news-list a {
             color: #667eea;
+        }
+
+        /* 当前持仓 - 多列布局 */
+        .position-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(450px, 1fr));
+            gap: 16px;
+        }
+        
+        @media (max-width: 768px) {
+            .position-list {
+                grid-template-columns: 1fr;
+            }
         }
 
         /* 区块卡片包裹 */
@@ -275,13 +295,70 @@
                     </div>
                     
                     <h3 class="subhead tech-title">技术面</h3>
-                    <div class="tech-pills">
-                        <span><b>现价</b>{{ "%.3f"|format(pos.latest_price) }}</span>
-                        {% if pos.ma5 > 0 %}<span><b>5日线</b>{{ "%.3f"|format(pos.ma5) }}</span>{% endif %}
-                        {% if pos.ma20 > 0 %}<span><b>20日线</b>{{ "%.3f"|format(pos.ma20) }}</span>{% endif %}
-                        {% if pos.ma60 > 0 %}<span><b>60日线</b>{{ "%.3f"|format(pos.ma60) }}</span>{% endif %}
-                        {% if pos.volume_ratio > 0 %}<span><b>量比/20日均量</b>{{ "%.2f"|format(pos.volume_ratio) }}</span>{% endif %}
+                    
+                    <!-- 走势分类标签 -->
+                    {% if pos.regime_label %}
+                    <div style="margin-bottom: 8px;">
+                        <span class="badge" style="background: {% if pos.regime_label == '挤压待变' %}#f59e0b{% elif pos.regime_label == '趋势型' %}#10b981{% elif pos.regime_label == '区间型' %}#3b82f6{% else %}#6b7280{% endif %};">
+                            {{ pos.regime_label }}
+                        </span>
                     </div>
+                    {% endif %}
+                    
+                    <!-- 均线系统 -->
+                    <div class="tech-pills">
+                        {% if pos.ma3 > 0 %}<span><b>MA3</b>{{ "%.2f"|format(pos.ma3) }}</span>{% endif %}
+                        {% if pos.ma8 > 0 %}<span><b>MA8</b>{{ "%.2f"|format(pos.ma8) }}</span>{% endif %}
+                        {% if pos.ma20 > 0 %}<span><b>MA20</b>{{ "%.2f"|format(pos.ma20) }}</span>{% endif %}
+                        {% if pos.ma60 > 0 %}<span><b>MA60</b>{{ "%.2f"|format(pos.ma60) }}</span>{% endif %}
+                        {% if pos.ma120 > 0 %}<span><b>MA120</b>{{ "%.2f"|format(pos.ma120) }}</span>{% endif %}
+                        {% if pos.ma250 > 0 %}<span><b>MA250</b>{{ "%.2f"|format(pos.ma250) }}</span>{% endif %}
+                    </div>
+                    
+                    <!-- 布林带 -->
+                    <div class="tech-pills">
+                        {% if pos.boll_upper > 0 %}
+                        <span><b>BOLL上</b>{{ "%.2f"|format(pos.boll_upper) }}</span>
+                        <span><b>BOLL下</b>{{ "%.2f"|format(pos.boll_lower) }}</span>
+                        {% endif %}
+                    </div>
+                    
+                    <!-- KDJ 指标 -->
+                    <div class="tech-pills">
+                        {% if pos.kdj_k > 0 %}
+                        <span class="{% if pos.kdj_k > 80 %}high{% elif pos.kdj_k < 20 %}low{% endif %}">
+                            <b>K</b>{{ "%.1f"|format(pos.kdj_k) }}
+                        </span>
+                        <span class="{% if pos.kdj_d > 80 %}high{% elif pos.kdj_d < 20 %}low{% endif %}">
+                            <b>D</b>{{ "%.1f"|format(pos.kdj_d) }}
+                        </span>
+                        <span class="{% if pos.kdj_j > 100 %}high{% elif pos.kdj_j < 0 %}low{% endif %}">
+                            <b>J</b>{{ "%.1f"|format(pos.kdj_j) }}
+                        </span>
+                        {% endif %}
+                    </div>
+                    
+                    <!-- MACD 指标 -->
+                    <div class="tech-pills">
+                        {% if pos.macd_dif != 0 %}
+                        <span class="{% if pos.macd_dif > 0 %}up{% else %}down{% endif %}">
+                            <b>DIF</b>{{ "%.3f"|format(pos.macd_dif) }}
+                        </span>
+                        <span class="{% if pos.macd_dea > 0 %}up{% else %}down{% endif %}">
+                            <b>DEA</b>{{ "%.3f"|format(pos.macd_dea) }}
+                        </span>
+                        <span class="{% if pos.macd_hist > 0 %}up{% else %}down{% endif %}">
+                            <b>MACD</b>{{ "%.3f"|format(pos.macd_hist) }}
+                        </span>
+                        {% endif %}
+                    </div>
+                    
+                    <!-- 量比 -->
+                    {% if pos.volume_ratio > 0 %}
+                    <div class="tech-pills">
+                        <span><b>量比</b>{{ "%.2f"|format(pos.volume_ratio) }}</span>
+                    </div>
+                    {% endif %}
                     
                     {% if pos.kline %}
                     <div class="kline-card">
@@ -331,26 +408,15 @@
         </section>
         {% endif %}
 
-        <!-- 情绪天气 -->
-        <section class="mood-weather" data-pnl-percent="{{ summary.total_pnl_pct }}">
-            <div class="weather-sky">
-                <span class="weather-sun"></span>
-                <span class="weather-cloud cloud-a"></span>
-                <span class="weather-cloud cloud-b"></span>
-                <div class="weather-rain"></div>
+        <!-- ETF资金流向 -->
+        <section class="etf-flow-section" id="etf-flow-container">
+            <div class="etf-flow-header">
+                <h2>📊 ETF资金流入TOP15</h2>
+                <span class="etf-flow-time" id="etf-update-time">加载中...</span>
             </div>
-            <div class="weather-content">
-                <small>Jungle 情绪天气</small>
-                <h2 data-mood-title>计算中</h2>
-                <p data-mood-copy>正在读取账户气压。</p>
-                <div class="pressure-row">
-                    <span>账户气压</span>
-                    <strong data-pressure-text>-- / 100</strong>
-                </div>
-                <div class="pressure-track">
-                    <span data-pressure-bar></span>
-                </div>
-                <p class="persona" data-persona>今日交易人格：读取中</p>
+            <div class="etf-flow-summary" id="etf-summary"></div>
+            <div class="etf-flow-list" id="etf-flow-list">
+                <div class="etf-loading">正在获取资金数据...</div>
             </div>
         </section>
 

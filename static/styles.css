@@ -1461,7 +1461,7 @@ li {
 
 .mini-kline {
   position: relative;
-  min-height: 238px;
+  min-height: 180px;
   padding-top: 42px;
   cursor: crosshair;
   touch-action: none;

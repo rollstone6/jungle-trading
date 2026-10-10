@@ -76,6 +76,150 @@ async def fetch_fund_nav() -> dict:
     }
 
 
+def parse_fund_holdings_html(html: str) -> list[dict]:
+    """解析天天基金持仓HTML，返回最近两个季度的持仓数据"""
+    # 按 <h4 class='t'> 分割各季度内容
+    sections = re.split(r'<h4[^>]*class=[\'"]t[\'"]', html)
+    # sections[0] 是前缀，sections[1] 是Q1（最新），sections[2] 是Q2...
+    
+    dates = re.findall(r'截止至：.*?<font[^>]*>(\d{4}-\d{2}-\d{2})</font>', html)
+    
+    quarters = []
+    for idx in range(1, len(sections)):
+        section = sections[idx]
+        
+        # 提取季度名称
+        q_match = re.search(r'(\d{4})年(\d)季度', section)
+        if not q_match:
+            continue
+        year, q_num = q_match.groups()
+        quarter_name = f"{year}年{q_num}季度"
+        
+        # 日期：按顺序取（第1个section对应第1个日期）
+        date_idx = idx - 1
+        date = dates[date_idx] if date_idx < len(dates) else ""
+        
+        # 提取所有数据行
+        trs = re.findall(r'<tr>(.*?)</tr>', section, re.DOTALL)
+        stocks = []
+        for tr in trs:
+            tds = re.findall(r'<td[^>]*>(.*?)</td>', tr, re.DOTALL)
+            # 最新季度9列(含实时价)，历史季度7列；但末3列(占比/万股/万元)固定
+            if len(tds) < 7:
+                continue
+            # cell[0]=序号, [1]=股票代码, [2]=股票名称
+            # 末3列: [-3]=占比, [-2]=万股, [-1]=万元
+            rank_text = re.sub(r'<[^>]+>', '', tds[0]).strip()
+            code_text = re.sub(r'<[^>]+>', '', tds[1]).strip()
+            name_text = re.sub(r'<[^>]+>', '', tds[2]).strip()
+            ratio_text = re.sub(r'<[^>]+>', '', tds[-3]).strip()
+            shares_text = re.sub(r'<[^>]+>', '', tds[-2]).strip()
+            mv_text = re.sub(r'<[^>]+>', '', tds[-1]).strip()
+            
+            try:
+                rank = int(rank_text)
+                code = code_text
+                name = name_text
+                ratio = float(ratio_text.replace('%', ''))
+                shares = float(shares_text.replace(',', ''))
+                mv = float(mv_text.replace(',', ''))
+            except (ValueError, TypeError):
+                continue
+            
+            stocks.append({
+                "rank": rank,
+                "code": code,
+                "name": name,
+                "ratio": ratio,
+                "shares": shares,      # 万股
+                "market_value": mv,    # 万元
+            })
+        
+        if stocks:  # 只添加有数据的季度
+            quarters.append({
+                "quarter": quarter_name,
+                "date": date,
+                "stocks": stocks,
+            })
+    
+    return quarters[:2]  # 只返回最近两个季度
+
+
+def compare_quarters(prev_stocks: list[dict], curr_stocks: list[dict]) -> dict:
+    """对比两个季度持仓，返回变化"""
+    prev_map = {s["code"]: s for s in prev_stocks}
+    curr_map = {s["code"]: s for s in curr_stocks}
+    
+    prev_codes = set(prev_map.keys())
+    curr_codes = set(curr_map.keys())
+    
+    added = curr_codes - prev_codes
+    removed = prev_codes - curr_codes
+    kept = prev_codes & curr_codes
+    
+    changes = []
+    for code in kept:
+        prev = prev_map[code]
+        curr = curr_map[code]
+        ratio_diff = curr["ratio"] - prev["ratio"]
+        if abs(ratio_diff) > 0.1:  # 超过0.1%的变化才算显著
+            changes.append({
+                "code": code,
+                "name": curr["name"],
+                "prev_ratio": prev["ratio"],
+                "curr_ratio": curr["ratio"],
+                "diff": round(ratio_diff, 2),
+                "action": "加仓" if ratio_diff > 0 else "减仓",
+            })
+    
+    return {
+        "added": [curr_map[c] for c in added],
+        "removed": [prev_map[c] for c in removed],
+        "changed": sorted(changes, key=lambda x: abs(x["diff"]), reverse=True),
+    }
+
+
+async def fetch_fund_holdings(fund_code: str) -> dict:
+    """获取基金持仓数据和季度变化"""
+    url = f"https://fundf10.eastmoney.com/FundArchivesDatas.aspx?type=jjcc&code={fund_code}&topline=10"
+    headers = {**UA, "Referer": "https://fundf10.eastmoney.com/"}
+    
+    async with httpx.AsyncClient(timeout=12) as client:
+        try:
+            resp = await client.get(url, headers=headers)
+            text = resp.text
+            
+            # 提取HTML内容
+            content_match = re.search(r'content:"(.*?)"', text, re.DOTALL)
+            if not content_match:
+                return {"holdings": [], "comparison": None, "error": "无法解析数据"}
+            
+            html = content_match.group(1)
+            quarters = parse_fund_holdings_html(html)
+            
+            if len(quarters) < 2:
+                return {
+                    "holdings": quarters[0]["stocks"] if quarters else [],
+                    "quarter": quarters[0]["quarter"] if quarters else "",
+                    "comparison": None,
+                }
+            
+            # 对比最近两个季度
+            curr_q = quarters[0]
+            prev_q = quarters[1]
+            comparison = compare_quarters(prev_q["stocks"], curr_q["stocks"])
+            
+            return {
+                "holdings": curr_q["stocks"],
+                "quarter": curr_q["quarter"],
+                "date": curr_q["date"],
+                "comparison": comparison,
+                "prev_quarter": prev_q["quarter"],
+            }
+        except Exception as e:
+            return {"holdings": [], "comparison": None, "error": str(e)[:80]}
+
+
 # === 2. 东方财富模拟组合排行榜 ===
 RANK_DIMS = [
     ("10001", "日排行"), ("10005", "5日排行"), ("10020", "20日排行"),

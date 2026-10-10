@@ -46,6 +46,74 @@
         .scan-btn:disabled { opacity: 0.6; }
         .mgr { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 12px; font-weight: 600; color: #fff; background: #667eea; margin-right: 6px; }
         .loading { text-align: center; padding: 40px; color: #666; }
+        
+        /* 新增：可点击行和展开详情 */
+        .fund-row { cursor: pointer; transition: background 0.2s; }
+        .fund-row:hover { background: #f3f4f6 !important; }
+        .detail-row { display: none; }
+        .detail-row.show { display: table-row; }
+        .detail-cell { padding: 20px; background: #f9fafb; }
+        .detail-content {
+            background: #fff; border-radius: 8px; padding: 16px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .detail-header {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 12px; padding-bottom: 8px; border-bottom: 2px solid #e5e7eb;
+        }
+        .detail-title { font-size: 14px; font-weight: 700; color: #374151; }
+        .quarter-badge {
+            display: inline-block; padding: 4px 10px; background: #667eea; color: #fff;
+            border-radius: 6px; font-size: 11px; font-weight: 600;
+        }
+        .holdings-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; margin-bottom: 16px; }
+        .holding-card {
+            background: #fff; border: 1px solid #e5e7eb; border-radius: 6px;
+            padding: 10px; font-size: 12px;
+        }
+        .holding-rank {
+            display: inline-block; width: 22px; height: 22px; line-height: 22px;
+            text-align: center; background: #667eea; color: #fff; border-radius: 50%;
+            font-size: 11px; font-weight: 700; margin-right: 8px;
+        }
+        .holding-name { font-weight: 600; color: #111827; font-size: 13px; }
+        .holding-code { color: #6b7280; font-size: 11px; margin-left: 6px; }
+        .holding-ratio { float: right; font-weight: 700; color: #667eea; font-size: 13px; }
+        .holding-bar {
+            height: 4px; background: #e5e7eb; border-radius: 2px; margin-top: 6px; overflow: hidden;
+        }
+        .holding-bar-fill {
+            height: 100%; background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            border-radius: 2px; transition: width 0.3s;
+        }
+        
+        /* 季度变化 */
+        .comparison-section { margin-top: 16px; }
+        .comparison-title {
+            font-size: 12px; font-weight: 600; color: #374151; margin-bottom: 8px;
+            display: flex; align-items: center; gap: 6px;
+        }
+        .comparison-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+        .comparison-block {
+            background: #f9fafb; border-radius: 6px; padding: 10px;
+        }
+        .comparison-label {
+            font-size: 11px; color: #6b7280; margin-bottom: 6px;
+            display: flex; align-items: center; gap: 4px;
+        }
+        .comparison-items { font-size: 12px; }
+        .comparison-item {
+            padding: 4px 0; border-bottom: 1px solid #e5e7eb;
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .comparison-item:last-child { border-bottom: none; }
+        .stock-name { font-weight: 600; color: #111827; }
+        .stock-code { color: #9ca3af; font-size: 10px; margin-left: 4px; }
+        .change-up { color: #ef4444; font-weight: 600; }
+        .change-down { color: #10b981; font-weight: 600; }
+        .no-data { color: #9ca3af; font-style: italic; text-align: center; padding: 8px; }
+        
+        .loading-detail { text-align: center; padding: 20px; color: #9ca3af; }
     </style>
 </head>
 <body>
@@ -57,6 +125,7 @@
         <div class="header">
             <h1>💰 长跑型基金经理跟踪</h1>
             <p>朱少醒 · 郑希 · 杨金金 · 贾成东 —— 核心 A 份额基金净值（天天基金）</p>
+            <p style="font-size:11px;opacity:0.8;margin-top:6px">点击基金行查看持仓详情和季度变化</p>
         </div>
         <div class="scan-bar">
             <span id="meta">加载中...</span>
@@ -72,6 +141,8 @@
     </div>
     <script>
         const pwd = "{{ pwd }}";
+        let expandedFund = null;
+        
         async function load(refresh = false) {
             const btn = document.getElementById('refresh');
             btn.disabled = true;
@@ -85,6 +156,7 @@
                 document.getElementById('meta').textContent = '加载失败：' + e.message;
             } finally { btn.disabled = false; }
         }
+        
         function render(d) {
             const chg = v => { const x = parseFloat(v); return isNaN(x) ? '-' : (x >= 0 ? '+' : '') + x.toFixed(2) + '%'; };
             const cls = v => parseFloat(v) >= 0 ? 'up' : 'down';
@@ -92,18 +164,187 @@
                 d.best ? `<div class="kpi"><div class="v ${cls(d.best.chg)}">${chg(d.best.chg)}</div><div class="l">📈 当日最强 ${d.best.name}</div></div>` : '',
                 d.worst ? `<div class="kpi"><div class="v ${cls(d.worst.chg)}">${chg(d.worst.chg)}</div><div class="l">📉 当日最弱 ${d.worst.name}</div></div>` : '',
             ].join('');
-            document.getElementById('tbody').innerHTML = d.funds.map(f => f.ok ? `
-                <tr>
-                    <td><span class="mgr">${f.manager}</span></td>
-                    <td style="font-weight:600">${f.name}<div style="font-size:11px;color:#94a3b8">${f.code} · ${f.company}</div></td>
-                    <td style="font-weight:700">${f.nav || '-'}</td>
-                    <td>${f.nav_date || '-'}</td>
-                    <td>${f.acc_nav || '-'}</td>
-                    <td class="${cls(f.chg)}">${chg(f.chg)}</td>
-                    <td style="font-size:12px;color:#64748b">${f.note || ''}</td>
-                </tr>` : `<tr><td>${f.manager}</td><td>${f.name}</td><td colspan="5" style="color:#ef4444">获取失败：${f.error}</td></tr>`
-            ).join('');
+            
+            const rows = d.funds.map((f, idx) => {
+                if (!f.ok) {
+                    return `<tr><td>${f.manager}</td><td>${f.name}</td><td colspan="5" style="color:#ef4444">获取失败：${f.error}</td></tr>`;
+                }
+                
+                const mainRow = `
+                    <tr class="fund-row" data-code="${f.code}" data-idx="${idx}">
+                        <td><span class="mgr">${f.manager}</span></td>
+                        <td style="font-weight:600">${f.name}<div style="font-size:11px;color:#94a3b8">${f.code} · ${f.company}</div></td>
+                        <td style="font-weight:700">${f.nav || '-'}</td>
+                        <td>${f.nav_date || '-'}</td>
+                        <td>${f.acc_nav || '-'}</td>
+                        <td class="${cls(f.chg)}">${chg(f.chg)}</td>
+                        <td style="font-size:12px;color:#64748b">${f.note || ''}</td>
+                    </tr>
+                    <tr class="detail-row" id="detail-${idx}">
+                        <td colspan="7" class="detail-cell">
+                            <div class="detail-content" id="detail-content-${idx}">
+                                <div class="loading-detail">点击展开持仓详情...</div>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+                return mainRow;
+            }).join('');
+            
+            document.getElementById('tbody').innerHTML = rows;
+            
+            // 绑定点击事件
+            document.querySelectorAll('.fund-row').forEach(row => {
+                row.addEventListener('click', () => {
+                    const code = row.dataset.code;
+                    const idx = row.dataset.idx;
+                    toggleDetail(code, idx);
+                });
+            });
         }
+        
+        async function toggleDetail(code, idx) {
+            const detailRow = document.getElementById(`detail-${idx}`);
+            const isExpanded = detailRow.classList.contains('show');
+            
+            // 收起所有其他展开的行
+            document.querySelectorAll('.detail-row.show').forEach(r => {
+                r.classList.remove('show');
+            });
+            
+            if (!isExpanded) {
+                detailRow.classList.add('show');
+                expandedFund = code;
+                await loadHoldings(code, idx);
+            } else {
+                expandedFund = null;
+            }
+        }
+        
+        async function loadHoldings(code, idx) {
+            const container = document.getElementById(`detail-content-${idx}`);
+            container.innerHTML = '<div class="loading-detail">加载持仓数据中...</div>';
+            
+            try {
+                const r = await fetch(`/api/research/funds/holdings?pwd=${pwd}&fund_code=${code}`);
+                const data = await r.json();
+                
+                if (data.error) {
+                    container.innerHTML = `<div style="color:#ef4444;text-align:center">加载失败：${data.error}</div>`;
+                    return;
+                }
+                
+                renderHoldings(container, data);
+            } catch (e) {
+                container.innerHTML = `<div style="color:#ef4444;text-align:center">加载失败：${e.message}</div>`;
+            }
+        }
+        
+        function renderHoldings(container, data) {
+            const { holdings, quarter, date, comparison, prev_quarter } = data;
+            
+            if (!holdings || holdings.length === 0) {
+                container.innerHTML = '<div class="no-data">暂无持仓数据</div>';
+                return;
+            }
+            
+            let html = `
+                <div class="detail-header">
+                    <div class="detail-title">📊 最新持仓 (TOP ${holdings.length})</div>
+                    <div>
+                        <span class="quarter-badge">${quarter}</span>
+                        <span style="font-size:11px;color:#6b7280;margin-left:8px">${date}</span>
+                    </div>
+                </div>
+                <div class="holdings-grid">
+            `;
+            
+            // 持仓卡片
+            holdings.forEach(s => {
+                const barWidth = Math.min(s.ratio * 3, 100); // 最大宽度100%
+                html += `
+                    <div class="holding-card">
+                        <span class="holding-rank">${s.rank}</span>
+                        <span class="holding-name">${s.name}</span>
+                        <span class="holding-code">${s.code}</span>
+                        <span class="holding-ratio">${s.ratio}%</span>
+                        <div class="holding-bar">
+                            <div class="holding-bar-fill" style="width:${barWidth}%"></div>
+                        </div>
+                        <div style="margin-top:6px;font-size:11px;color:#6b7280">
+                            持股 ${s.shares.toFixed(0)}万股 · 市值 ${s.market_value.toFixed(0)}万元
+                        </div>
+                    </div>
+                `;
+            });
+            
+            html += '</div>';
+            
+            // 季度变化
+            if (comparison) {
+                html += `
+                    <div class="comparison-section">
+                        <div class="comparison-title">
+                            📈 季度调仓 (${prev_quarter} → ${quarter})
+                        </div>
+                        <div class="comparison-grid">
+                `;
+                
+                // 新增
+                html += `<div class="comparison-block">
+                    <div class="comparison-label"><span style="color:#10b981">➕</span> 新增 (${comparison.added.length}只)</div>
+                    <div class="comparison-items">`;
+                if (comparison.added.length > 0) {
+                    comparison.added.forEach(s => {
+                        html += `<div class="comparison-item">
+                            <span><span class="stock-name">${s.name}</span><span class="stock-code">${s.code}</span></span>
+                            <span class="change-up">${s.ratio}%</span>
+                        </div>`;
+                    });
+                } else {
+                    html += '<div class="no-data">无</div>';
+                }
+                html += `</div></div>`;
+                
+                // 退出
+                html += `<div class="comparison-block">
+                    <div class="comparison-label"><span style="color:#ef4444">➖</span> 退出 (${comparison.removed.length}只)</div>
+                    <div class="comparison-items">`;
+                if (comparison.removed.length > 0) {
+                    comparison.removed.forEach(s => {
+                        html += `<div class="comparison-item">
+                            <span><span class="stock-name">${s.name}</span><span class="stock-code">${s.code}</span></span>
+                        </div>`;
+                    });
+                } else {
+                    html += '<div class="no-data">无</div>';
+                }
+                html += `</div></div>`;
+                
+                // 调仓
+                html += `<div class="comparison-block">
+                    <div class="comparison-label"><span style="color:#667eea">🔄</span> 调仓 (${comparison.changed.length}只)</div>
+                    <div class="comparison-items">`;
+                if (comparison.changed.length > 0) {
+                    comparison.changed.slice(0, 5).forEach(c => {
+                        const cls = c.diff > 0 ? 'change-up' : 'change-down';
+                        const arrow = c.diff > 0 ? '↑' : '↓';
+                        html += `<div class="comparison-item">
+                            <span><span class="stock-name">${c.name}</span><span class="stock-code">${c.code}</span></span>
+                            <span class="${cls}">${c.prev_ratio}% ${arrow} ${c.curr_ratio}%</span>
+                        </div>`;
+                    });
+                } else {
+                    html += '<div class="no-data">无</div>';
+                }
+                html += `</div></div>`;
+                
+                html += '</div></div>';
+            }
+            
+            container.innerHTML = html;
+        }
+        
         document.getElementById('refresh').addEventListener('click', () => load(true));
         load();
     </script>
