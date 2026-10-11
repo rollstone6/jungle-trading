@@ -14,8 +14,9 @@ from pydantic import BaseModel
 from app.models.database import init_db, get_db
 from app.services.market import (
     fetch_realtime_tencent, fetch_kline_baidu, fetch_news_eastmoney,
-    fetch_etf_money_flow, calc_ma, calc_boll, calc_kdj, calc_macd, calc_volume_ratio
+    calc_ma, calc_boll, calc_kdj, calc_macd, calc_volume_ratio
 )
+from app.services import etf_flow
 from app.services.portfolio import (
     get_account, get_all_positions, calc_position_metrics, calc_boundary_proximity,
     calc_risk, get_summary
@@ -251,9 +252,13 @@ async def index(request: Request, pwd: str = check_password):
 # --- API ---
 @app.get("/api/etf-moneyflow")
 async def api_etf_moneyflow(pwd: str = check_password):
-    """ETF资金流向（实时）"""
-    data = await fetch_etf_money_flow(15)
-    return {"items": data}
+    """ETF资金流：realtime=盘中主力净流入(新浪,3分钟缓存)，apply=当日申购净流入(交易所份额法,T+1)"""
+    realtime = await etf_flow.fetch_realtime_main_flow()
+    apply_data = etf_flow.get_cached()
+    return {
+        "items": realtime[:15],
+        "apply": apply_data,
+    }
 
 
 @app.post("/api/positions/manual")

@@ -52,52 +52,6 @@ async def fetch_realtime_tencent(codes: list[str]) -> dict:
     return results
 
 
-async def fetch_etf_money_flow(count: int = 15) -> list[dict]:
-    """获取ETF资金流向（东方财富）- 同花顺风格"""
-    import urllib.request
-    
-    url = f"http://push2.eastmoney.com/api/qt/clist/get?cb=jQuery&pn=1&pz={count}&po=1&np=1&ut=bd1d9ddb04089700cf9c27f6f7426281&fltt=2&invt=2&dect=1&wbp2u=|0|0|0|web&fid=f62&fs=b:MK0021,b:MK0022,b:MK0023,b:MK0024&fields=f12,f14,f2,f3,f62,f184,f66,f69,f72,f75,f78,f81,f84,f87,f124"
-
-    try:
-        req = urllib.request.Request(url, headers={
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-            'Referer': 'https://quote.eastmoney.com/',
-            'Accept': '*/*'
-        })
-        
-        # 在线程池中执行同步请求
-        loop = asyncio.get_event_loop()
-        text = await loop.run_in_executor(None, lambda: urllib.request.urlopen(req, timeout=15).read().decode('utf-8'))
-        
-        # 去掉jQuery(...)包装
-        start = text.find("(") + 1
-        end = text.rfind(")")
-        if start > 0 and end > start:
-            text = text[start:end]
-        data = json.loads(text)
-        items = data.get("data", {}).get("diff", [])
-        result = []
-        for item in items:
-            result.append({
-                "code": item.get("f12", ""),
-                "name": item.get("f14", ""),
-                "price": item.get("f2", 0),
-                "change_pct": item.get("f3", 0),
-                "main_net_inflow": item.get("f62", 0),  # 主力净流入（元）
-                "main_pct": item.get("f184", 0),  # 主力净流入占比%
-                "super_large_net": item.get("f66", 0),  # 超大单净流入
-                "super_large_pct": item.get("f69", 0),
-                "large_net": item.get("f72", 0),  # 大单净流入
-                "large_pct": item.get("f75", 0),
-                "medium_net": item.get("f78", 0),  # 中单净流入
-                "medium_pct": item.get("f81", 0),
-                "small_net": item.get("f84", 0),  # 小单净流入
-                "small_pct": item.get("f87", 0),
-            })
-        return result
-    except Exception:
-        return []
-
 
 async def fetch_kline_sina_minute(code: str, scale: int = 60, datalen: int = 1023) -> list[dict]:
     """新浪分钟K线（支持 60/30/15 分钟，单次最多约 1023 根）

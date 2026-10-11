@@ -616,74 +616,113 @@ function bindKlineCharts() {
 
 bindKlineCharts();
 
-// ETF资金流向
+// ETF资金流向（双维度：盘中主力净流入 + 当日申购净流入T+1）
+let _etfData = null;
+let _etfTab = 'realtime';
+
 async function loadETFFlow() {
+    const listEl = document.getElementById('etf-flow-list');
     try {
         const response = await fetch(apiUrl('/api/etf-moneyflow'));
         const data = await response.json();
-
-        if (!data.items || data.items.length === 0) {
-            document.getElementById('etf-flow-list').innerHTML = '<div class="etf-loading">暂无数据</div>';
-            return;
-        }
-
-        // 更新时间
-        const now = new Date();
-        document.getElementById('etf-update-time').textContent = `更新于 ${now.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}`;
-
-        // 计算汇总数据
-        const totalInflow = data.items.reduce((sum, item) => sum + (item.main_net_inflow || 0), 0);
-        const inflowCount = data.items.filter(item => item.main_net_inflow > 0).length;
-        const outflowCount = data.items.filter(item => item.main_net_inflow < 0).length;
-        const topInflow = data.items.reduce((max, item) => item.main_net_inflow > max.main_net_inflow ? item : max, data.items[0]);
-
-        // 渲染汇总
-        const summaryEl = document.getElementById('etf-summary');
-        summaryEl.innerHTML = `
-            <div class="etf-summary-card">
-                <div class="label">TOP15主力净流入</div>
-                <div class="value ${totalInflow > 0 ? 'positive' : 'negative'}">${formatMoney(totalInflow)}</div>
-            </div>
-            <div class="etf-summary-card">
-                <div class="label">流入/流出</div>
-                <div class="value">${inflowCount} / ${outflowCount}</div>
-            </div>
-            <div class="etf-summary-card">
-                <div class="label">最强流入</div>
-                <div class="value positive" style="font-size: 13px;">${topInflow.name.substring(0, 8)}</div>
-            </div>
-        `;
-
-        // 渲染列表
-        const listEl = document.getElementById('etf-flow-list');
-        listEl.innerHTML = data.items.map(item => {
-            const changeClass = item.change_pct > 0 ? 'gain' : item.change_pct < 0 ? 'loss' : 'neutral';
-            const inflowClass = item.main_net_inflow > 0 ? 'positive' : 'negative';
-            const inflowText = formatMoney(item.main_net_inflow);
-
-            return `
-                <div class="etf-item">
-                    <div>
-                        <div class="etf-item-name">${item.name}</div>
-                        <div class="etf-item-code">${item.code}</div>
-                    </div>
-                    <div class="etf-item-price">${item.price.toFixed(3)}</div>
-                    <div class="etf-item-change ${changeClass}">
-                        ${item.change_pct > 0 ? '+' : ''}${item.change_pct.toFixed(2)}%
-                    </div>
-                    <div class="etf-item-inflow ${inflowClass}">
-                        ${item.main_net_inflow > 0 ? '+' : ''}${inflowText}
-                    </div>
-                </div>
-            `;
-        }).join('');
+        _etfData = data;
+        renderETFTab();
     } catch (err) {
         console.error('加载ETF资金流向失败:', err);
-        document.getElementById('etf-flow-list').innerHTML = '<div class="etf-loading">加载失败，请刷新重试</div>';
+        if (listEl) listEl.innerHTML = '<div class="etf-loading">加载失败，请刷新重试</div>';
     }
 }
 
+function renderETFTab() {
+    const data = _etfData;
+    if (!data) return;
+    const listEl = document.getElementById('etf-flow-list');
+    const summaryEl = document.getElementById('etf-summary');
+    const timeEl = document.getElementById('etf-update-time');
+    const noteEl = document.getElementById('etf-note');
+
+    if (_etfTab === 'realtime') {
+        const items = data.items || [];
+        if (!items.length) {
+            listEl.innerHTML = '<div class="etf-loading">暂无数据</div>';
+            summaryEl.innerHTML = '';
+            noteEl.textContent = '';
+            return;
+        }
+        const now = new Date();
+        timeEl.textContent = `更新于 ${now.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}（3分钟缓存）`;
+        const totalInflow = items.filter(x => x.main_net_inflow > 0).reduce((s, x) => s + x.main_net_inflow, 0);
+        const top = items[0];
+        summaryEl.innerHTML = `
+            <div class="etf-summary-card"><div class="label">TOP15净流入合计</div><div class="value ${totalInflow > 0 ? 'positive' : 'negative'}">${formatMoney(totalInflow)}</div></div>
+            <div class="etf-summary-card"><div class="label">最强流入</div><div class="value positive" style="font-size:13px;">${(top.name || '').slice(0, 8)}</div></div>
+            <div class="etf-summary-card"><div class="label">统计口径</div><div class="value" style="font-size:13px;">超大单+大单净额</div></div>
+        `;
+        listEl.innerHTML = `
+            <table class="etf-flow-table">
+                <thead><tr><th>ETF</th><th>现价</th><th>涨跌幅</th><th class="etf-hide-mobile">成交额</th><th>主力净流入</th></tr></thead>
+                <tbody>
+                ${items.map(it => {
+                    const chgCls = it.change_pct > 0 ? 'gain' : it.change_pct < 0 ? 'loss' : 'neutral';
+                    const flowCls = it.main_net_inflow > 0 ? 'positive' : 'negative';
+                    return `<tr>
+                        <td class="etf-name-cell"><span class="n">${it.name}</span><span class="c">${it.code}</span></td>
+                        <td>${(it.price || 0).toFixed(3)}</td>
+                        <td class="${chgCls}">${it.change_pct > 0 ? '+' : ''}${(it.change_pct || 0).toFixed(2)}%</td>
+                        <td class="etf-hide-mobile neutral">${formatMoney(it.amount || 0)}</td>
+                        <td class="inflow-cell ${flowCls}">${it.main_net_inflow > 0 ? '+' : ''}${formatMoney(it.main_net_inflow)}</td>
+                    </tr>`;
+                }).join('')}
+                </tbody>
+            </table>`;
+        noteEl.textContent = '盘中主力净流入＝当日超大单+大单买卖净额，反映二级市场大资金动向（股票/跨境/商品型ETF，剔除债基）。';
+    } else {
+        const apply = data.apply;
+        if (!apply || !apply.top_inflow || !apply.top_inflow.length) {
+            listEl.innerHTML = '<div class="etf-loading">申购数据未生成，等待每日刷新任务…</div>';
+            summaryEl.innerHTML = '';
+            noteEl.textContent = '';
+            return;
+        }
+        timeEl.textContent = `数据日期 ${apply.data_date}（T+1官方份额）`;
+        summaryEl.innerHTML = `
+            <div class="etf-summary-card"><div class="label">净申购ETF数</div><div class="value positive">${apply.inflow_count} 只</div></div>
+            <div class="etf-summary-card"><div class="label">净申购总额</div><div class="value positive">${formatMoney(apply.total_inflow)}</div></div>
+            <div class="etf-summary-card"><div class="label">净赎回总额</div><div class="value negative">${formatMoney(apply.total_outflow)}</div></div>
+        `;
+        listEl.innerHTML = `
+            <table class="etf-flow-table">
+                <thead><tr><th>ETF</th><th>现价</th><th class="etf-hide-mobile">份额变动</th><th>申购净流入</th></tr></thead>
+                <tbody>
+                ${apply.top_inflow.map(it => {
+                    const chgCls = it.change_pct > 0 ? 'gain' : it.change_pct < 0 ? 'loss' : 'neutral';
+                    const flowCls = it.net_inflow > 0 ? 'positive' : 'negative';
+                    const deltaTxt = it.delta_shares > 0 ? '+' + (it.delta_shares / 1e8).toFixed(2) + '亿份' : (it.delta_shares / 1e8).toFixed(2) + '亿份';
+                    return `<tr>
+                        <td class="etf-name-cell"><span class="n">${it.name}</span><span class="c">${it.code}</span></td>
+                        <td>${(it.price || 0).toFixed(3)}</td>
+                        <td class="etf-hide-mobile ${flowCls}">${deltaTxt}</td>
+                        <td class="inflow-cell ${flowCls}">${it.net_inflow > 0 ? '+' : ''}${formatMoney(it.net_inflow)}</td>
+                    </tr>`;
+                }).join('')}
+                </tbody>
+            </table>`;
+        noteEl.textContent = '申购净流入＝交易所官方份额变动 × 单位净值，一级市场申赎（机构建仓），为收盘后确认的 T+1 数据。';
+    }
+}
+
+function bindETFTabs() {
+    document.querySelectorAll('.etf-tab').forEach(btn => {
+        btn.addEventListener('click', () => {
+            _etfTab = btn.dataset.etfTab;
+            document.querySelectorAll('.etf-tab').forEach(b => b.classList.toggle('active', b === btn));
+            renderETFTab();
+        });
+    });
+}
+
 function formatMoney(value) {
+    value = value || 0;
     const abs = Math.abs(value);
     if (abs >= 100000000) {
         return (value / 100000000).toFixed(2) + '亿';
@@ -695,6 +734,7 @@ function formatMoney(value) {
 }
 
 // 页面加载时获取ETF数据
+bindETFTabs();
 loadETFFlow();
 
 // === 持仓走势分类（日线+30分钟双周期共振） ===

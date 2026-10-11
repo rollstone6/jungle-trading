@@ -331,6 +331,95 @@
             transform: translateY(-2px);
             box-shadow: 0 6px 16px rgba(102, 126, 234, 0.4);
         }
+
+        /* ===== ETF 资金流卡片 ===== */
+        .etf-flow-section {
+            background: #fff;
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 16px 18px;
+            margin-top: 20px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+        .etf-flow-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+        .etf-flow-header h2 { margin: 0; font-size: 17px; }
+        .etf-flow-time { font-size: 12px; color: #94a3b8; }
+        .etf-tabs {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+        .etf-tab {
+            padding: 6px 14px;
+            border-radius: 999px;
+            border: 1.5px solid #e2e8f0;
+            background: #f8fafc;
+            color: #64748b;
+            font-size: 13px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        .etf-tab.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-color: transparent;
+            color: #fff;
+        }
+        .etf-tab .tab-note { font-weight: 400; font-size: 11px; opacity: 0.75; margin-left: 3px; }
+        .etf-flow-summary {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 10px;
+            margin-bottom: 12px;
+        }
+        .etf-summary-card {
+            background: #f8fafc;
+            border: 1.5px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 8px 12px;
+        }
+        .etf-summary-card .label { font-size: 11px; color: #94a3b8; margin-bottom: 2px; }
+        .etf-summary-card .value { font-size: 16px; font-weight: 800; }
+        .etf-summary-card .value.positive { color: #dc2626; }
+        .etf-summary-card .value.negative { color: #16a34a; }
+        .etf-flow-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        .etf-flow-table th {
+            text-align: right;
+            color: #94a3b8;
+            font-weight: 600;
+            font-size: 11px;
+            padding: 4px 6px;
+            border-bottom: 1.5px solid #e2e8f0;
+        }
+        .etf-flow-table th:first-child, .etf-flow-table td:first-child { text-align: left; }
+        .etf-flow-table td {
+            text-align: right;
+            padding: 6px 6px;
+            border-bottom: 1px solid #f1f5f9;
+        }
+        .etf-flow-table tr:last-child td { border-bottom: none; }
+        .etf-name-cell { text-align: left !important; }
+        .etf-name-cell .n { font-weight: 700; color: #1e293b; display: block; line-height: 1.2; }
+        .etf-name-cell .c { font-size: 11px; color: #94a3b8; }
+        .etf-flow-table .gain { color: #dc2626; font-weight: 700; }
+        .etf-flow-table .loss { color: #16a34a; font-weight: 700; }
+        .etf-flow-table .neutral { color: #64748b; }
+        .etf-flow-table .inflow-cell { font-weight: 800; }
+        .etf-flow-table .inflow-cell.positive { color: #dc2626; }
+        .etf-flow-table .inflow-cell.negative { color: #16a34a; }
+        .etf-loading { color: #94a3b8; font-size: 13px; text-align: center; padding: 16px 0; }
+        .etf-note { font-size: 11px; color: #94a3b8; margin-top: 8px; line-height: 1.5; }
+        @media (max-width: 480px) {
+            .etf-flow-table th, .etf-flow-table td { padding: 5px 3px; font-size: 12px; }
+            .etf-hide-mobile { display: none; }
+        }
     </style>
 </head>
 <body>
@@ -516,13 +605,18 @@
         <!-- ETF资金流向 -->
         <section class="etf-flow-section" id="etf-flow-container">
             <div class="etf-flow-header">
-                <h2>📊 ETF资金流入TOP15</h2>
+                <h2>📊 ETF资金流入</h2>
                 <span class="etf-flow-time" id="etf-update-time">加载中...</span>
             </div>
+            <div class="etf-tabs">
+                <button class="etf-tab active" data-etf-tab="realtime">盘中主力净流入<span class="tab-note">实时</span></button>
+                <button class="etf-tab" data-etf-tab="apply">申购净流入<span class="tab-note">T+1官方</span></button>
+            </div>
             <div class="etf-flow-summary" id="etf-summary"></div>
-            <div class="etf-flow-list" id="etf-flow-list">
+            <div id="etf-flow-list">
                 <div class="etf-loading">正在获取资金数据...</div>
             </div>
+            <div class="etf-note" id="etf-note"></div>
         </section>
 
         <!-- 更新持仓按钮（维护模式） -->
