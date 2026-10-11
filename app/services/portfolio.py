@@ -60,9 +60,29 @@ def get_all_positions() -> list[dict]:
     return positions
 
 
+def calc_swing_levels(positions: list[dict]) -> list[dict]:
+    """波段压力位/支撑位：截至昨日的近60交易日高低点(排除今日K线，避免现价永远在区间内)。
+    压力位 = 前高(需向上突破)；支撑位 = 前低(跌破即破位)。次级 res20/sup20 为近20日高低点。"""
+    for p in positions:
+        kl = p.get("kline") or []
+        res = sup = res20 = sup20 = 0.0
+        if len(kl) >= 2:
+            prior = kl[:-1]
+            highs = [k["high"] for k in prior[-60:]]
+            lows = [k["low"] for k in prior[-60:]]
+            res, sup = max(highs), min(lows)
+            res20, sup20 = max([k["high"] for k in prior[-20:]]), min([k["low"] for k in prior[-20:]])
+        p["resistance"] = round(res, 3)
+        p["support"] = round(sup, 3)
+        p["resistance_20"] = round(res20, 3)
+        p["support_20"] = round(sup20, 3)
+    return positions
+
+
 def calc_boundary_proximity(positions: list[dict]) -> list[dict]:
-    """计算现价与各指标边界值(MA/BOLL轨)的接近度，用于前端颜色高亮。
+    """计算现价与各指标边界值(MA/BOLL轨/波段压力支撑)的接近度，用于前端颜色高亮。
     prox = 1 - 距离%/2.0（2% 以内视为靠近，越近越接近 1）；side: up=边界在上方(压力) / down=下方(支撑)"""
+    calc_swing_levels(positions)
     for p in positions:
         price = p.get("latest_price") or 0
         near = {}
@@ -71,6 +91,7 @@ def calc_boundary_proximity(positions: list[dict]) -> list[dict]:
                 ("MA3", p.get("ma3")), ("MA8", p.get("ma8")), ("MA20", p.get("ma20")),
                 ("MA120", p.get("ma120")), ("MA250", p.get("ma250")),
                 ("BOLL上", p.get("boll_upper")), ("BOLL下", p.get("boll_lower")),
+                ("压力位", p.get("resistance")), ("支撑位", p.get("support")),
             ]
             for label, v in checks:
                 if not v or v <= 0:
@@ -81,7 +102,7 @@ def calc_boundary_proximity(positions: list[dict]) -> list[dict]:
                     continue
                 near[label] = {
                     "prox": round(prox, 3),
-                    "side": "up" if v > price else "down",
+                    "side": "up" if v >= price else "down",
                     "dist": round(dist_pct, 2),
                 }
         p["near"] = near
@@ -111,9 +132,13 @@ def calc_position_metrics(positions: list[dict], account: dict) -> list[dict]:
 
 
 def calc_risk(positions: list[dict]) -> list[dict]:
-    """计算风控判断"""
+    """计算风控判断（仓位 + 均线 + 波段压力/支撑位）"""
+    if positions and "resistance" not in positions[0]:
+        calc_swing_levels(positions)
     for p in positions:
         notes = []
+        tech_watch = False   # 靠近边界 → 至少"中"
+        tech_break = False   # 破位/创新高 → 高危或强信号
         # High concentration
         if p.get("weight", 0) > 40:
             notes.append(f"单只标的仓位约 {p['weight']:.1f}%，超过 40% 风控线")
@@ -126,10 +151,41 @@ def calc_risk(positions: list[dict]) -> list[dict]:
         if p.get("pnl_pct", 0) < -10:
             notes.append(f"当前估算浮亏约 {p['pnl_pct']:.1f}%，禁止无条件补仓摊平")
 
+        # 波段压力/支撑位判断：60日前高/前低为强边界，20日高低点为近端边界（均不含今日K线）
+        price = p.get("latest_price") or 0
+        res, sup = p.get("resistance") or 0, p.get("support") or 0
+        res20, sup20 = p.get("resistance_20") or 0, p.get("support_20") or 0
+        if price > 0 and res > 0 and sup > 0:
+            if price >= res:
+                tech_break = True
+                notes.append(f"已放量突破 60 日前高 {res:.2f}，打开上行空间，回踩不破可持，滞涨注意止盈")
+            elif price >= res20 > 0 and (res20 - price) / price * 100 <= 1.5:
+                tech_watch = True
+                notes.append(f"贴近 20 日压力位 {res20:.2f}，上方 60 日前高 {res:.2f}，冲高乏力注意分批止盈")
+            if price <= sup:
+                tech_break = True
+                notes.append(f"已跌破 60 日抄底支撑位 {sup:.2f} 创新低，趋势恶劣，禁止摊平、优先止损")
+            elif sup20 > 0 and price <= sup20 * 1.025:
+                tech_watch = True
+                ds = (price - sup) / price * 100
+                note = f"已回落至 20 日低位 {sup20:.2f} 附近，进入超卖区"
+                if ds <= 15:
+                    note += f"，距 60 日抄底支撑位 {sup:.2f} 约 {ds:.1f}%"
+                if p.get("weight", 0) > 40:
+                    note += "；当前仓位已重，不宜补仓，等企稳再定去留"
+                else:
+                    note += "，缩量企稳可轻仓试错，跌破支撑即离场"
+                notes.append(note)
+            else:
+                ds = (price - sup) / price * 100
+                if ds <= 3:
+                    tech_watch = True
+                    notes.append(f"距下方 60 日抄底支撑位 {sup:.2f} 仅 {ds:.1f}%，缩量企稳可轻仓试错，跌破即离场")
+
         # Determine risk level
-        if p.get("weight", 0) > 40 or p.get("pnl_pct", 0) < -10:
+        if p.get("weight", 0) > 40 or p.get("pnl_pct", 0) < -10 or tech_break:
             p["risk_level"] = "高"
-        elif p.get("weight", 0) > 20 or p.get("pnl_pct", 0) < -5:
+        elif p.get("weight", 0) > 20 or p.get("pnl_pct", 0) < -5 or tech_watch:
             p["risk_level"] = "中"
         else:
             p["risk_level"] = "低"

@@ -520,6 +520,10 @@
                     
                     <!-- 技术指标合并显示 -->
                     <div class="tech-pills">
+                        {% if pos.resistance > 0 %}
+                        {{ tpill('压力位', "%.2f"|format(pos.resistance), pos.near) }}
+                        {{ tpill('支撑位', "%.2f"|format(pos.support), pos.near) }}
+                        {% endif %}
                         {% if pos.boll_upper > 0 %}
                         {{ tpill('BOLL上', "%.2f"|format(pos.boll_upper), pos.near) }}
                         {{ tpill('BOLL下', "%.2f"|format(pos.boll_lower), pos.near) }}
