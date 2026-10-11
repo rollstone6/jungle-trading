@@ -3,96 +3,161 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>央行流动性仪表板 - Jungle 研究中心</title>
+    <title>央行公开市场操作 · 流动性追踪面板 - Jungle 研究中心</title>
     <link rel="stylesheet" href="/static/styles.css">
+    <script src="/static/echarts.min.js"></script>
     <style>
-        .page { max-width: 1100px; margin: 0 auto; padding: 20px; }
-        .header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: #fff; padding: 26px; border-radius: 12px; margin-bottom: 12px; text-align: center;
+        body { background: #f1f2f6; }
+        .hero {
+            background: linear-gradient(135deg, #1a1f3c 0%, #232a52 100%);
+            color: #fff; padding: 26px 20px; text-align: center;
         }
-        .header h1 { font-size: 1.7em; margin-bottom: 6px; }
-        .nav-row { display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
-        .nav-btn {
-            display: inline-block; padding: 10px 20px; background: #fff; color: #667eea;
-            border: 2px solid #667eea; border-radius: 8px; text-decoration: none; font-weight: 600;
+        .hero h1 { font-size: 1.55em; margin: 0 0 8px; }
+        .hero .sub { font-size: 12.5px; color: #aab3d6; }
+        .wrap { max-width: 1240px; margin: 0 auto; padding: 16px 14px 40px; }
+        .src-bar {
+            background: #fff; border-left: 4px solid #10b981; border-radius: 8px;
+            padding: 10px 14px; font-size: 12.5px; color: #475569; margin-bottom: 14px;
+            box-shadow: 0 1px 4px rgba(0,0,0,.06); line-height: 1.7;
         }
-        .nav-btn:hover { background: #667eea; color: #fff; }
-        .scan-bar {
-            background: #fff; border: 2px solid #e2e8f0; border-radius: 12px; padding: 12px 16px;
-            display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;
-            margin-bottom: 16px; font-size: 13px; color: #64748b;
-        }
-        .scan-btn {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #fff;
-            border: none; border-radius: 8px; padding: 8px 18px; font-size: 13px; font-weight: 600; cursor: pointer;
-        }
-        .kpi-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin-bottom: 20px; }
+        .src-bar a { color: #2563eb; text-decoration: none; }
+        .kpi-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 14px; }
         .kpi {
-            background: #fff; border: 2px solid #e2e8f0; border-radius: 12px; padding: 16px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1); text-align: center;
+            background: #fff; border-radius: 10px; padding: 14px 10px; text-align: center;
+            box-shadow: 0 1px 4px rgba(0,0,0,.06);
         }
-        .kpi .v { font-size: 24px; font-weight: 800; color: #667eea; }
-        .kpi .l { font-size: 12px; color: #64748b; margin-top: 4px; }
-        .net-chart {
-            display: flex; align-items: flex-end; gap: 2px; height: 120px;
-            background: #fff; border: 2px solid #e2e8f0; border-radius: 12px;
-            padding: 14px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-bottom: 20px;
+        .kpi .l { font-size: 12px; color: #64748b; margin-bottom: 6px; }
+        .kpi .v { font-size: 26px; font-weight: 800; }
+        .kpi .u { font-size: 12px; color: #94a3b8; font-weight: 400; margin-left: 3px; }
+        .v.red { color: #ef4444; } .v.green { color: #16a34a; } .v.dark { color: #1e293b; }
+        .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px; }
+        .card {
+            background: #fff; border-radius: 10px; padding: 16px;
+            box-shadow: 0 1px 4px rgba(0,0,0,.06);
         }
-        .net-bar { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; height: 100%; position: relative; }
-        .net-bar .bar { width: 100%; min-height: 2px; border-radius: 2px 2px 0 0; }
-        .net-bar.pos .bar { background: #e74c3c; }
-        .net-bar.neg .bar { background: #27ae60; }
-        .net-bar .tip {
-            position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%);
-            font-size: 9px; color: #64748b; white-space: nowrap; display: none;
+        .card-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+        .card-head h3 { margin: 0; font-size: 15px; color: #1e293b; }
+        .tag { font-size: 11px; padding: 3px 10px; border-radius: 999px; color: #fff; font-weight: 600; }
+        .tag.green { background: #10b981; } .tag.red { background: #ef4444; } .tag.blue { background: #3b82f6; }
+        .note {
+            border-left: 4px solid #ccc; border-radius: 6px; padding: 9px 12px;
+            font-size: 12.5px; color: #334155; margin-bottom: 9px; line-height: 1.65;
         }
-        .net-bar:hover .tip { display: block; }
-        table.data-table {
-            width: 100%; border-collapse: collapse; background: #fff;
-            border: 2px solid #e2e8f0; border-radius: 12px; overflow: hidden;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-bottom: 20px;
+        .note b { color: #1e293b; }
+        .note.g { border-color: #10b981; background: #f0fdf4; }
+        .note.b { border-color: #3b82f6; background: #eff6ff; }
+        .note.y { border-color: #f59e0b; background: #fffbeb; }
+        .note.r { border-color: #ef4444; background: #fef2f2; }
+        .bar-line { display: flex; align-items: center; gap: 8px; margin: 5px 0; font-size: 12px; }
+        .bar-line .bl-label { width: 74px; color: #fff; background: #ef4444; border-radius: 3px;
+            padding: 2px 6px; font-size: 11px; white-space: nowrap; }
+        .bar-line .bl-track { flex: 1; background: #eef1f6; border-radius: 4px; height: 14px; position: relative; }
+        .bar-line .bl-fill { height: 100%; border-radius: 4px; background: linear-gradient(90deg,#f97316,#ef4444); }
+        .chart-box { width: 100%; height: 340px; }
+        .chart-box-sm { width: 100%; height: 260px; }
+        table.data-table { width: 100%; border-collapse: collapse; background: #fff; font-size: 12px; }
+        .data-table th { color: #475569; padding: 8px 8px; font-size: 12px; text-align: left; border-bottom: 2px solid #e2e8f0; }
+        .data-table td { padding: 7px 8px; border-bottom: 1px solid #f1f5f9; }
+        .pos-t { color: #ef4444; font-weight: 600; } .neg-t { color: #16a34a; font-weight: 600; }
+        .loading { text-align: center; padding: 30px; color: #94a3b8; font-size: 13px; }
+        .refresh-btn {
+            background: #1a1f3c; color: #fff; border: none; border-radius: 8px;
+            padding: 7px 16px; font-size: 12.5px; font-weight: 600; cursor: pointer;
         }
-        .data-table th { background: #667eea; color: #fff; padding: 10px 10px; font-size: 12px; text-align: left; }
-        .data-table td { padding: 8px 10px; font-size: 12px; border-bottom: 1px solid #f1f5f9; }
-        .data-table tr:hover { background: #f8f7ff; }
-        .pos-t { color: #e74c3c; font-weight: 600; } .neg-t { color: #27ae60; font-weight: 600; }
-        h3.sec { color: #334155; font-size: 15px; margin: 18px 0 10px; }
-        .loading { text-align: center; padding: 40px; color: #666; }
-        .src-note { font-size: 11px; color: #94a3b8; margin-top: 6px; }
+        .refresh-btn:hover { opacity: .85; }
+        .back-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+        .back-link { color: #64748b; font-size: 13px; text-decoration: none; }
+        .back-link:hover { color: #1a1f3c; }
+        @media (max-width: 900px) {
+            .kpi-row { grid-template-columns: repeat(2, 1fr); }
+            .grid2 { grid-template-columns: 1fr; }
+            .kpi .v { font-size: 21px; }
+            .chart-box { height: 280px; }
+        }
     </style>
 </head>
 <body>
-    <div class="page">
-        <div class="nav-row">
-            <a href="/research?pwd={{ pwd }}" class="nav-btn">← 研究中心</a>
-            <a href="/?pwd={{ pwd }}" class="nav-btn">返回持仓</a>
-        </div>
-        <div class="header">
-            <h1>🏦 央行公开市场操作 · 流动性仪表板</h1>
-            <p>逆回购投放/到期/净投放 · 买断式逆回购（MLF 替代）到期日历</p>
-        </div>
-        <div class="scan-bar">
-            <span id="meta">加载中...</span>
-            <button class="scan-btn" id="refresh">立即刷新</button>
-        </div>
-        <div class="kpi-row" id="kpi"></div>
-        <h3 class="sec">📊 近 30 日净投放（红=投放 绿=回笼，亿元，悬停看明细）</h3>
-        <div class="net-chart" id="chart"></div>
-        <h3 class="sec">🗓️ 买断式逆回购未来到期（公告明示到期日）</h3>
-        <table class="data-table">
-            <thead><tr><th>操作日</th><th>金额(亿)</th><th>期限</th><th>到期日</th><th>剩余天数</th></tr></thead>
-            <tbody id="bo"><tr><td colspan="5" class="loading">加载中...</td></tr></tbody>
-        </table>
-        <h3 class="sec">📋 近期逆回购公告（含零操作）</h3>
-        <table class="data-table">
-            <thead><tr><th>日期</th><th>投放(亿)</th><th>利率</th><th>到期(亿,推算)</th><th>净投放(亿)</th></tr></thead>
-            <tbody id="rr"><tr><td colspan="5" class="loading">加载中...</td></tr></tbody>
-        </table>
-        <div class="src-note">数据来源：pbc.gov.cn 官网公告 · 7天期逆回购到期按「7个自然日+周末顺延」推算（节假日未剔除）· MLF 已被买断式逆回购替代</div>
+    <div class="hero">
+        <h1>🏦 央行公开市场操作流动性追踪面板</h1>
+        <div class="sub" id="meta">加载中...</div>
     </div>
+    <div class="wrap">
+        <div class="back-row">
+            <a class="back-link" href="/research?pwd={{ pwd }}">← 研究中心 · 返回持仓</a>
+            <button class="refresh-btn" id="refresh">↻ 立即刷新</button>
+        </div>
+        <div class="src-bar">📌 数据来源：<a href="https://www.pbc.gov.cn/zhengcehuobisi/125207/125213/125431/125475/index.html" target="_blank">中国人民银行货币政策司</a>官网公告 | 逆回购到期推算采用「7天自然日+周末顺延」算法 | ⚠️ 自2024年底起，MLF已被买断式逆回购替代，央行不再新增MLF操作</div>
+
+        <div class="kpi-row" id="kpi"></div>
+
+        <div class="grid2">
+            <div class="card">
+                <div class="card-head"><h3>📊 当前状态</h3><span class="tag green" id="state-tag">评估中</span></div>
+                <div id="p-status"><div class="loading">加载中...</div></div>
+            </div>
+            <div class="card">
+                <div class="card-head"><h3>🔮 未来展望</h3><span class="tag red">关注到期</span></div>
+                <div id="p-outlook"></div>
+                <div id="p-hist" style="background:#fff7ed;border-radius:6px;padding:10px 12px;margin-top:4px">
+                    <div style="font-size:12.5px;font-weight:700;color:#9a3412;margin-bottom:4px">到期压力分布：</div>
+                    <div id="hist-bars"></div>
+                </div>
+                <div id="p-outlook2" style="margin-top:9px"></div>
+            </div>
+        </div>
+
+        <div class="card" style="margin-bottom:14px">
+            <div class="card-head"><h3>📈 净投放与上证指数走势叠加</h3></div>
+            <div class="chart-box" id="chart-net"></div>
+        </div>
+
+        <div class="card" style="margin-bottom:14px">
+            <div class="card-head"><h3>📉 逆回购投放 vs 推算到期对比</h3></div>
+            <div class="chart-box" id="chart-cmp"></div>
+        </div>
+
+        <div class="grid2">
+            <div class="card">
+                <div class="card-head"><h3>📊 分类工具操作量</h3></div>
+                <div class="chart-box-sm" id="chart-type"></div>
+            </div>
+            <div class="card">
+                <div class="card-head"><h3>📅 未来到期分布（按类型）</h3></div>
+                <div class="chart-box-sm" id="chart-future"></div>
+            </div>
+        </div>
+
+        <div class="grid2">
+            <div class="card">
+                <div class="card-head"><h3>💧 资金面环境</h3><span class="tag green" id="env-tag">信号</span></div>
+                <div id="p-env"></div>
+            </div>
+            <div class="card">
+                <div class="card-head"><h3>⚠️ 风险与机会</h3><span class="tag red">关注风险</span></div>
+                <div id="p-risk"></div>
+            </div>
+        </div>
+
+        <div class="card" style="margin-top:0">
+            <div class="card-head"><h3>📋 近期逆回购公告明细（近30日）</h3></div>
+            <table class="data-table">
+                <thead><tr><th>日期</th><th>投放(亿)</th><th>7天利率</th><th>到期(推算,亿)</th><th>净投放(亿)</th><th>上证指数</th></tr></thead>
+                <tbody id="rr"><tr><td colspan="6" class="loading">加载中...</td></tr></tbody>
+            </table>
+            <div class="card-head" style="margin-top:18px"><h3>🗓️ 买断式逆回购未来到期</h3></div>
+            <table class="data-table">
+                <thead><tr><th>操作日</th><th>金额(亿)</th><th>期限</th><th>到期日</th><th>剩余天数</th></tr></thead>
+                <tbody id="bo"><tr><td colspan="5" class="loading">加载中...</td></tr></tbody>
+            </table>
+        </div>
+        <div style="font-size:11px;color:#94a3b8;margin-top:10px">数据均为央行公告原文推算 · 节假日顺延未完全剔除 · 买断式到期日取公告明示值</div>
+    </div>
+
     <script>
         const pwd = "{{ pwd }}";
+        const fmt = n => n == null ? '-' : Number(n).toLocaleString('zh-CN', { maximumFractionDigits: 0 });
+        let D = null;
+
         async function load(refresh = false) {
             const btn = document.getElementById('refresh');
             btn.disabled = true;
@@ -100,48 +165,149 @@
                 const r = await fetch(`/api/research/pboc?pwd=${pwd}` + (refresh ? '&refresh=1' : ''));
                 const d = await r.json();
                 if (!r.ok) throw new Error(d.detail || '加载失败');
+                D = d;
                 render(d);
-                document.getElementById('meta').textContent =
-                    `更新于 ${d.fetchedAt}` + (d.parse_errors ? ` · ${d.parse_errors} 条公告解析失败` : '');
             } catch (e) {
-                document.getElementById('meta').textContent = '加载失败：' + e.message + '（央行官网可能限流，稍后重试）';
+                document.getElementById('meta').textContent = '加载失败：' + e.message + '（央行官网可能限流，稍后点右上刷新）';
             } finally { btn.disabled = false; }
         }
-        function render(d) {
-            const t = d.today || {};
-            const net30 = (d.daily || []).reduce((s, x) => s + x.net, 0);
-            document.getElementById('kpi').innerHTML = [
-                [t.amount != null ? t.amount + ' 亿' : '-', '最新投放（' + (t.date || '-') + '）'],
-                [t.rate != null ? t.rate + '%' : '-', '7天期操作利率'],
-                [(net30 >= 0 ? '+' : '') + net30.toFixed(0) + ' 亿', '近30日累计净投放'],
-                [d.upcoming_bo ? d.upcoming_bo.length : 0, '买断式待到期笔数'],
-            ].map(k => `<div class="kpi"><div class="v">${k[0]}</div><div class="l">${k[1]}</div></div>`).join('');
 
-            const maxAbs = Math.max(1, ...(d.daily || []).map(x => Math.abs(x.net)));
-            document.getElementById('chart').innerHTML = (d.daily || []).map(x => {
-                const h = Math.max(3, Math.round(Math.abs(x.net) / maxAbs * 95));
-                return `<div class="net-bar ${x.net >= 0 ? 'pos' : 'neg'}" style="height:100%">
-                    <span class="tip">${x.date.slice(5)} 净${x.net >= 0 ? '投放' : '回笼'}${Math.abs(x.net).toFixed(0)}亿</span>
-                    <div class="bar" style="height:${h}%"></div></div>`;
-            }).join('');
-
-            document.getElementById('bo').innerHTML = (d.upcoming_bo || []).map(o => `
-                <tr><td>${o.date || '-'}</td><td>${o.amount}</td><td>${o.term}</td>
-                    <td>${o.date_maturity}</td><td>${o.days_to_maturity} 天后</td></tr>`).join('')
-                || '<tr><td colspan="5" class="loading">暂无未来到期（或公告未披露）</td></tr>';
-
-            const dailyMap = {};
-            (d.daily || []).forEach(x => dailyMap[x.date] = x);
-            document.getElementById('rr').innerHTML = (d.rr_ops || []).slice(0, 10).map(o => {
-                const day = dailyMap[o.date] || {};
-                return `<tr>
-                    <td>${o.date}</td>
-                    <td class="${o.amount > 0 ? 'pos-t' : ''}">${o.amount > 0 ? o.amount : '零操作'}</td>
-                    <td>${o.rate != null ? o.rate + '%' : '-'}</td>
-                    <td>${day.maturity != null ? day.maturity : '-'}</td>
-                    <td class="${(day.net || 0) >= 0 ? 'pos-t' : 'neg-t'}">${day.net != null ? (day.net >= 0 ? '+' : '') + day.net : '-'}</td></tr>`;
-            }).join('') || '<tr><td colspan="5" class="loading">暂无公告数据</td></tr>';
+        function noteCls(tone) { return { g: 'note g', b: 'note b', y: 'note y', r: 'note r' }[tone] || 'note'; }
+        function renderPoints(el, pts) {
+            el.innerHTML = (pts || []).map(p =>
+                `<div class="${noteCls(p.tone)}"><b>${p.title}：</b>${p.text}</div>`).join('');
         }
+
+        function render(d) {
+            document.getElementById('meta').textContent =
+                `数据更新时间: ${d.fetchedAt} | 数据来源: 中国人民银行官网` + (d.parse_errors ? `（${d.parse_errors} 条解析失败）` : '');
+            const t = d.today || {}, bal = d.balance || {};
+            const net = (t.inflow || 0) - (t.maturity || 0);
+            const cls = v => v > 0 ? 'red' : (v < 0 ? 'green' : 'dark');
+            const sign = v => (v > 0 ? '+' : '') + fmt(v);
+            document.getElementById('kpi').innerHTML = [
+                ['今日投放', fmt(t.inflow), '亿', cls(t.inflow) === 'red' ? 'red' : 'dark'],
+                ['今日到期(推算)', fmt(t.maturity), '亿', 'green'],
+                ['今日净投放', sign(net), '亿', cls(net)],
+                ['存量余额', fmt(bal.total), '亿', 'dark'],
+                ['明日到期', fmt(d.tomorrow_maturity), '亿', 'green'],
+            ].map(k => `<div class="kpi"><div class="l">${k[0]}</div><div class="v ${k[3]}">${k[1]}<span class="u">${k[2]}</span></div></div>`).join('');
+
+            const p = d.points || {};
+            renderPoints(document.getElementById('p-status'), p.status);
+            const out = p.outlook || [];
+            // 前两条：大额到期(红note) + 关键观察点；历史分布图单列；政策信号移入资金面
+            renderPoints(document.getElementById('p-outlook'), out.filter(x => x.title !== '到期压力分布' && x.title !== '关键观察点'));
+            renderPoints(document.getElementById('p-outlook2'), out.filter(x => x.title === '关键观察点'));
+            renderPoints(document.getElementById('p-env'), (p.env || []));
+            renderPoints(document.getElementById('p-risk'), p.risk);
+
+            // 未来到期柱（未来3个月）
+            const fd = (d.future_dist || []).slice(0, 4);
+            const fmax = Math.max(1, ...fd.map(x => x.rr + x.bo));
+            document.getElementById('hist-bars').innerHTML = fd.map(x => {
+                const tot = x.rr + x.bo;
+                return `<div class="bar-line"><span class="bl-label">${x.month.slice(2).replace('-','/')} ${fmt(tot)}亿</span>
+                    <div class="bl-track"><div class="bl-fill" style="width:${Math.max(4, tot / fmax * 100)}%"></div></div></div>`;
+            }).join('') || '<div style="font-size:12px;color:#94a3b8">未来95天内无可推算到期</div>';
+
+            renderCharts(d);
+            renderTables(d);
+        }
+
+        function renderCharts(d) {
+            const days = (d.daily || []).map(x => x.date.slice(5));
+            const C = { net: null, cmp: null, type: null, future: null };
+            ['chart-net', 'chart-cmp', 'chart-type', 'chart-future'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) C[id.split('-')[1]] = echarts.init(el);
+            });
+            const gridDef = { left: 55, right: 55, top: 40, bottom: 60 };
+
+            // 1. 净投放叠加上证指数
+            C.net.setOption({
+                tooltip: { trigger: 'axis', axisPointer: { type: 'cross' } },
+                legend: { data: ['净投放', '累计净投放', '上证指数'], top: 4 },
+                grid: gridDef,
+                xAxis: { type: 'category', data: days, axisLabel: { rotate: 45, fontSize: 10 } },
+                yAxis: [
+                    { type: 'value', name: '金额(亿元)', splitLine: { lineStyle: { type: 'dashed' } } },
+                    { type: 'value', name: '点位', scale: true, splitLine: { show: false } },
+                ],
+                series: [
+                    { name: '净投放', type: 'bar', data: d.daily.map(x => x.net),
+                      itemStyle: { color: pr => pr.value >= 0 ? '#ef4444' : '#22c55e' } },
+                    { name: '累计净投放', type: 'line', data: d.daily.map(x => x.cum),
+                      lineStyle: { type: 'dashed', color: '#8b5cf6' }, itemStyle: { color: '#8b5cf6' }, symbol: 'circle', symbolSize: 4 },
+                    { name: '上证指数', type: 'line', yAxisIndex: 1, data: d.daily.map(x => x.index),
+                      smooth: true, lineStyle: { color: '#f59e0b', width: 2 }, itemStyle: { color: '#f59e0b' }, symbolSize: 4 },
+                ],
+            });
+
+            // 2. 投放 vs 到期
+            C.cmp.setOption({
+                tooltip: { trigger: 'axis' },
+                legend: { data: ['当日投放', '推算到期'], top: 4 },
+                grid: gridDef,
+                xAxis: { type: 'category', data: days, axisLabel: { rotate: 45, fontSize: 10 } },
+                yAxis: { type: 'value', name: '亿元', splitLine: { lineStyle: { type: 'dashed' } } },
+                series: [
+                    { name: '当日投放', type: 'bar', data: d.daily.map(x => x.inflow), itemStyle: { color: '#ef4444' } },
+                    { name: '推算到期', type: 'line', data: d.daily.map(x => x.maturity),
+                      lineStyle: { color: '#0ea5e9', width: 2 }, itemStyle: { color: '#0ea5e9' }, symbolSize: 5 },
+                ],
+            });
+
+            // 3. 分类工具
+            C.type.setOption({
+                tooltip: { trigger: 'axis' },
+                legend: { data: ['逆回购', '买断式逆回购'], top: 4 },
+                grid: { left: 50, right: 20, top: 36, bottom: 60 },
+                xAxis: { type: 'category', data: days, axisLabel: { rotate: 45, fontSize: 10 } },
+                yAxis: { type: 'value', name: '亿元' },
+                series: [
+                    { name: '逆回购', type: 'line', data: d.daily.map(x => x.rr), symbolSize: 4,
+                      lineStyle: { color: '#3b82f6' }, itemStyle: { color: '#3b82f6' },
+                      areaStyle: { color: 'rgba(59,130,246,0.08)' } },
+                    { name: '买断式逆回购', type: 'line', data: d.daily.map(x => x.bo > 0 ? x.bo : null), symbolSize: 6,
+                      lineStyle: { color: '#8b5cf6' }, itemStyle: { color: '#8b5cf6' }, connectNulls: false },
+                ],
+            });
+
+            // 4. 未来到期分布
+            const fd = d.future_dist || [];
+            C.future.setOption({
+                tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+                legend: { data: ['逆回购', '买断式逆回购'], top: 4 },
+                grid: { left: 55, right: 20, top: 36, bottom: 30 },
+                xAxis: { type: 'category', data: fd.map(x => x.month) },
+                yAxis: { type: 'value', name: '亿元' },
+                series: [
+                    { name: '逆回购', type: 'bar', stack: 't', data: fd.map(x => x.rr), itemStyle: { color: '#ef4444' } },
+                    { name: '买断式逆回购', type: 'bar', stack: 't', data: fd.map(x => x.bo), itemStyle: { color: '#8b5cf6' } },
+                ],
+            });
+            window.addEventListener('resize', () => Object.values(C).forEach(c => c && c.resize()));
+        }
+
+        function renderTables(d) {
+            const rateMap = {};
+            (d.rr_ops || []).forEach(o => { if (o.rate != null && o.term_days === 7) rateMap[o.date] = o.rate; });
+            document.getElementById('rr').innerHTML = (d.daily || []).slice().reverse().map(x =>
+                `<tr><td>${x.date}</td>
+                <td class="${x.inflow > 0 ? 'pos-t' : ''}">${x.inflow > 0 ? fmt(x.inflow) : (x.rr === 0 && x.bo === 0 ? '零操作/休市' : '0')}</td>
+                <td>${rateMap[x.date] != null ? rateMap[x.date] + '%' : '-'}</td>
+                <td>${fmt(x.maturity)}</td>
+                <td class="${x.net >= 0 ? 'pos-t' : 'neg-t'}">${x.net >= 0 ? '+' : ''}${fmt(x.net)}</td>
+                <td>${x.index != null ? x.index.toFixed(0) : '-'}</td></tr>`).join('')
+                || '<tr><td colspan="6" class="loading">暂无数据</td></tr>';
+
+            document.getElementById('bo').innerHTML = (d.upcoming_bo || []).map(o =>
+                `<tr><td>${o.date || '-'}</td><td>${fmt(o.amount)}</td><td>${o.term || '-'}</td>
+                 <td>${o.date_maturity}</td><td>${o.days_to_maturity} 天后</td></tr>`).join('')
+                || '<tr><td colspan="5" class="loading">暂无未来到期（近3个月公告内）</td></tr>';
+        }
+
         document.getElementById('refresh').addEventListener('click', () => load(true));
         load();
     </script>

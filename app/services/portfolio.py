@@ -69,7 +69,7 @@ def calc_boundary_proximity(positions: list[dict]) -> list[dict]:
         if price > 0:
             checks = [
                 ("MA3", p.get("ma3")), ("MA8", p.get("ma8")), ("MA20", p.get("ma20")),
-                ("MA60", p.get("ma60")), ("MA120", p.get("ma120")), ("MA250", p.get("ma250")),
+                ("MA120", p.get("ma120")), ("MA250", p.get("ma250")),
                 ("BOLL上", p.get("boll_upper")), ("BOLL下", p.get("boll_lower")),
             ]
             for label, v in checks:

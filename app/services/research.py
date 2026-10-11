@@ -366,34 +366,51 @@ def _decode(resp: httpx.Response) -> str:
 
 
 def _maturity(date_str: str, days: int = 7) -> str:
-    """7 个自然日后到期，遇周末顺延（简化版，节假日未剔除）"""
+    """N 个自然日后到期，遇周末顺延（简化版，节假日未剔除）"""
     d = datetime.strptime(date_str, "%Y-%m-%d") + timedelta(days=days)
     while d.weekday() >= 5:
         d += timedelta(days=1)
     return d.strftime("%Y-%m-%d")
 
 
-def _parse_rr_article(html: str) -> dict | None:
-    """解析逆回购公告：日期、量、利率；零操作也是有效数据点"""
+def _make_mat_fn(trade_days: list[str]):
+    """返回到期推算函数：顺延到 >= op+Nd 的首个交易日；无日历数据时退化为周末顺延"""
+    from bisect import bisect_left
+
+    def mat(date_str: str, days: int = 7) -> str:
+        target = (datetime.strptime(date_str, "%Y-%m-%d") + timedelta(days=days)).strftime("%Y-%m-%d")
+        if not trade_days:
+            return _maturity(date_str, days)
+        i = bisect_left(trade_days, target)
+        return trade_days[i] if i < len(trade_days) else _maturity(date_str, days)
+    return mat
+
+
+def _parse_rr_article(html: str) -> list[dict]:
+    """解析逆回购公告：支持多期限（隔夜/7天/14天/28天），零操作与"同时开展隔夜"并存"""
     text = re.sub(r"<[^>]+>", "", html)
     text = re.sub(r"\s+", "", text)
     m = re.search(r"(20\d\d)年(\d{1,2})月(\d{1,2})日", text)
     if not m:
-        return None
+        return []
     date = f"{m.group(1)}-{int(m.group(2)):02d}-{int(m.group(3)):02d}"
-    if re.search(r"逆回购操作量为零|不开展逆回购操作", text):
-        return {"date": date, "amount": 0.0, "rate": None, "term": "7天", "type": "逆回购"}
-    m2 = re.search(r"开展了(\d+(?:\.\d+)?)亿元7天期逆回购操作", text)
-    if not m2:
-        return None
-    rate = re.search(r"(?:操作利率|中标利率)[^0-9]{0,6}(\d+\.\d+)%", text) \
-        or re.search(r"7天[^0-9%]{0,12}(\d+\.\d+)%", text) \
-        or re.search(r"(\d+\.\d+)%", text)
-    return {
-        "date": date, "amount": float(m2.group(1)),
-        "rate": float(rate.group(1)) if rate else None,
-        "term": "7天", "type": "逆回购",
-    }
+    # 从公告表格按期限提取操作利率：如 "7天1.40%"
+    rates: dict[int, float] = {}
+    for rm in re.finditer(r"(\d+)天(\d\.\d{2})%", text):
+        rates.setdefault(int(rm.group(1)), float(rm.group(2)))
+    ops = []
+    if re.search(r"(?:7天期|七天期)逆回购操作量为零|不开展逆回购操作", text):
+        ops.append({"date": date, "amount": 0.0, "rate": None, "term_days": 7, "term": "7天", "type": "逆回购"})
+    for m2 in re.finditer(r"(\d+(?:\.\d+)?)亿元(?:(\d+)天期|隔夜)逆回购操作", text):
+        td = int(m2.group(2)) if m2.group(2) else 1
+        if td == 7 and any(o["term_days"] == 7 and o["amount"] == 0.0 for o in ops):
+            continue
+        ops.append({
+            "date": date, "amount": float(m2.group(1)),
+            "rate": rates.get(td) if td == 7 else None,
+            "term_days": td, "term": "隔夜" if td == 1 else f"{td}天", "type": "逆回购",
+        })
+    return ops
 
 
 def _parse_bo_article(html: str) -> list[dict]:
@@ -443,66 +460,206 @@ async def _article_links(client: httpx.AsyncClient, list_url: str, marker: str, 
     return out
 
 
+async def _fetch_bo_list(client: httpx.AsyncClient) -> list[tuple[str, str]]:
+    """买断式公告：标题无日期，从 URL 时间戳(20260923140942…)提取操作日"""
+    html = _decode(await client.get(BO_LIST, headers=UA))
+    seen, out = set(), []
+    for m in re.finditer(r'href=["\']([^"\']*125469/(\d{8})\d{12}/index\.html)["\']', html):
+        href, ds = m.group(1), m.group(2)
+        url = href if href.startswith("http") else PBC_BASE + (href if href.startswith("/") else "/" + href)
+        date = f"{ds[:4]}-{ds[4:6]}-{ds[6:8]}"
+        if url not in seen:
+            seen.add(url)
+            out.append((url, date))
+    return out[:12]
+
+
+async def _sse_index_kline(client: httpx.AsyncClient, days: int) -> dict[str, float]:
+    """上证指数收盘价 {date: close}，腾讯源"""
+    try:
+        r = await client.get(
+            "https://web.ifzq.gtimg.cn/appstock/app/fqkline/get",
+            params={"param": f"sh000001,day,,,{days},qfq"})
+        data = r.json()["data"]["sh000001"]
+        rows = data.get("qfqday") or data.get("day") or []
+        return {row[0]: float(row[2]) for row in rows}
+    except Exception:
+        return {}
+
+
 async def fetch_pboc_liquidity() -> dict:
-    """逆回购（近30条公告）+ 买断式逆回购，构建投放/到期/净投放序列"""
+    """逆回购（近40条公告，支持多期限）+ 买断式逆回购 → 投放/到期/净投放/余额/未来分布"""
     async with httpx.AsyncClient(timeout=20, follow_redirects=True) as client:
-        rr_links, bo_links = await asyncio.gather(
-            _article_links(client, RR_LIST, "125475", 30),
-            _article_links(client, BO_LIST, "125469", 10),
+        rr_links, bo_pairs = await asyncio.gather(
+            _article_links(client, RR_LIST, "125475", 40),
+            _fetch_bo_list(client),
         )
-        rr_htmls = await asyncio.gather(
-            *[client.get(u, headers=UA) for u in rr_links], return_exceptions=True)
-        bo_htmls = await asyncio.gather(
-            *[client.get(u, headers=UA) for u in bo_links], return_exceptions=True)
+        rr_htmls, bo_htmls, sse = await asyncio.gather(
+            asyncio.gather(*[client.get(u, headers=UA) for u in rr_links], return_exceptions=True),
+            asyncio.gather(*[client.get(u, headers=UA) for u, _ in bo_pairs], return_exceptions=True),
+            _sse_index_kline(client, 60),
+        )
 
     rr_ops, errors = [], 0
     for resp in rr_htmls:
         try:
-            op = _parse_rr_article(_decode(resp))
-            if op:
-                rr_ops.append(op)
+            rr_ops.extend(_parse_rr_article(_decode(resp)))
         except Exception:
             errors += 1
     rr_ops.sort(key=lambda x: x["date"], reverse=True)
 
     bo_ops = []
-    for resp in bo_htmls:
+    for (url, list_date), resp in zip(bo_pairs, bo_htmls):
         try:
-            bo_ops.extend(_parse_bo_article(_decode(resp)))
+            for o in _parse_bo_article(_decode(resp)):
+                o["date"] = o.get("date") or list_date  # 正文优先，列表页标题兜底
+                bo_ops.append(o)
         except Exception:
             errors += 1
-    bo_ops = [o for o in bo_ops if o.get("date")]
+    bo_ops = [o for o in bo_ops if o.get("date") and o.get("date_maturity")]
     bo_ops.sort(key=lambda x: x["date"], reverse=True)
 
-    # 到期序列：近30日每日到期 = 7天前操作量（遇周末顺延推算）；买断式用公告到期日
     today = datetime.now().date()
-    rr_by_date = {o["date"]: o["amount"] for o in rr_ops}
+    horizon_end = today + timedelta(days=95)
+    trade_days = sorted(sse.keys())
+    mat_fn = _make_mat_fn(trade_days)
+
+    # ---- 每日到期矩阵：逆回购按交易日历顺延（隔夜=次一交易日）；买断式用公告到期日 ----
+    mat_by_date: dict[str, float] = {}
+    for o in rr_ops:
+        mdate = mat_fn(o["date"], o.get("term_days", 7))
+        mat_by_date[mdate] = mat_by_date.get(mdate, 0.0) + o["amount"]
+    for o in bo_ops:
+        mat_by_date[o["date_maturity"]] = mat_by_date.get(o["date_maturity"], 0.0) + o["amount"]
+
+    # ---- 每日投放 ----
+    infl_rr: dict[str, float] = {}
+    infl_bo: dict[str, float] = {}
+    for o in rr_ops:
+        infl_rr[o["date"]] = infl_rr.get(o["date"], 0.0) + o["amount"]
+    for o in bo_ops:
+        infl_bo[o["date"]] = infl_bo.get(o["date"], 0.0) + o["amount"]
+
+    # ---- 近30个交易日的序列（用上证指数K线日历剔除节假日） ----
     daily = []
-    for i in range(29, -1, -1):
-        d = (today - timedelta(days=i)).strftime("%Y-%m-%d")
-        amt = rr_by_date.get(d, 0.0)
-        if datetime.strptime(d, "%Y-%m-%d").weekday() < 5:
+    cum = 0.0
+    d = today - timedelta(days=29)
+    while d <= today:
+        ds = d.strftime("%Y-%m-%d")
+        is_td = (ds in trade_days) if trade_days else d.weekday() < 5
+        if is_td or (ds == today.strftime("%Y-%m-%d") and d.weekday() < 5):
+            mat = mat_by_date.get(ds, 0.0)
+            inf = infl_rr.get(ds, 0.0) + infl_bo.get(ds, 0.0)
+            net = round(inf - mat, 1)
+            cum = round(cum + net, 1)
             daily.append({
-                "date": d, "amount": amt, "maturity": rr_by_date.get(_maturity(d), 0.0),
-                "net": round(amt - rr_by_date.get(_maturity(d), 0.0), 1),
+                "date": ds, "inflow": round(inf, 1), "maturity": round(mat, 1),
+                "net": net, "cum": cum, "index": sse.get(ds),
+                "rr": round(infl_rr.get(ds, 0.0), 1), "bo": round(infl_bo.get(ds, 0.0), 1),
             })
+        d += timedelta(days=1)
+
+    # ---- 存量余额：仍存活的逆回购 + 买断式（到期日 >= 今日） ----
+    rr_balance = sum(o["amount"] for o in rr_ops
+                     if datetime.strptime(mat_fn(o["date"], o.get("term_days", 7)), "%Y-%m-%d").date() >= today)
+    bo_balance = sum(o["amount"] for o in bo_ops
+                     if datetime.strptime(o["date_maturity"], "%Y-%m-%d").date() >= today)
+
+    # ---- 未来到期分布（按月 + 按类型） ----
+    future_month: dict[str, dict[str, float]] = {}
+    for o in rr_ops:
+        mdate = _maturity(o["date"], o.get("term_days", 7))
+        md = datetime.strptime(mdate, "%Y-%m-%d").date()
+        if today < md <= horizon_end:
+            k = mdate[:7]
+            future_month.setdefault(k, {"逆回购": 0.0, "买断式逆回购": 0.0})["逆回购"] += o["amount"]
+    for o in bo_ops:
+        md = datetime.strptime(o["date_maturity"], "%Y-%m-%d").date()
+        if today < md <= horizon_end:
+            k = o["date_maturity"][:7]
+            future_month.setdefault(k, {"逆回购": 0.0, "买断式逆回购": 0.0})["买断式逆回购"] += o["amount"]
+    future_dist = [{"month": k, "rr": round(v["逆回购"], 1), "bo": round(v["买断式逆回购"], 1)}
+                   for k, v in sorted(future_month.items())]
+
+    # ---- 未来两周单日到期 TOP（用于"下一个大额到期日"） ----
+    upcoming_days = []
+    for ds, amt in mat_by_date.items():
+        dd = datetime.strptime(ds, "%Y-%m-%d").date()
+        if today < dd <= today + timedelta(days=14) and amt > 0:
+            upcoming_days.append({"date": ds, "amount": round(amt, 1)})
+    upcoming_days.sort(key=lambda x: (-x["amount"], x["date"]))
+
+    # ---- 今日/明日 ----
+    today_s = today.strftime("%Y-%m-%d")
+    tomorrow_s = (today + timedelta(days=1)).strftime("%Y-%m-%d")
+    latest_op = rr_ops[0] if rr_ops else None
+    recent5 = [x for x in daily if x["inflow"] > 0 or x["maturity"] > 0][-5:]
+
+    # ---- 未来买断式到期明细表 ----
     upcoming_bo = [
         {**o, "days_to_maturity": (datetime.strptime(o["date_maturity"], "%Y-%m-%d").date() - today).days}
-        for o in bo_ops if o.get("date_maturity") and datetime.strptime(o["date_maturity"], "%Y-%m-%d").date() >= today
+        for o in bo_ops if datetime.strptime(o["date_maturity"], "%Y-%m-%d").date() >= today
     ]
     upcoming_bo.sort(key=lambda x: x["date_maturity"])
 
-    recent = rr_ops[0] if rr_ops else None
+    # ---- 自动要点（当前状态/展望/资金面/风险） ----
+    points = {"status": [], "outlook": [], "env": [], "risk": []}
+    if latest_op:
+        points["status"].append({
+            "tone": "g" if latest_op["amount"] > 0 else "y",
+            "title": "最新操作", "text": f"{latest_op['date']} 逆回购 {latest_op['amount']:g} 亿元"
+            + (f"，利率 {latest_op['rate']}%" if latest_op.get("rate") else "") + "。"})
+    if recent5:
+        avg5 = sum(x["inflow"] for x in recent5) / len(recent5)
+        points["status"].append({"tone": "b", "title": "操作节奏", "text":
+                                 f"近5个交易日日均投放 {avg5:,.0f} 亿元，累计净投放 "
+                                 f"{'+' if daily and daily[-1]['cum']>=0 else ''}{daily[-1]['cum']:,.0f} 亿元。"})
+    points["status"].append({"tone": "g", "title": "存量余额", "text":
+                             f"逆回购余额约 {rr_balance:,.0f} 亿元，买断式逆回购余额约 {bo_balance:,.0f} 亿元。"})
+    if upcoming_days:
+        top = upcoming_days[0]
+        points["outlook"].append({"tone": "r", "title": "下一个大额到期日", "text":
+                                  f"{top['date']} 预计到期 {top['amount']:,.0f} 亿元，为未来两周最大单日期量。"})
+    if future_dist:
+        fm = future_dist[0]
+        points["outlook"].append({"tone": "y", "title": "到期压力分布", "text":
+                                  f"{fm['month']} 合计到期约 {fm['rr'] + fm['bo']:,.0f} 亿元"
+                                  f"（逆回购 {fm['rr']:,.0f} + 买断式 {fm['bo']:,.0f}）。"})
+    points["outlook"].append({"tone": "b", "title": "关键观察点", "text":
+                              "税期高峰、政府债缴款、跨季时点前后央行是否加大投放对冲。"})
+    rate_op = next((o for o in rr_ops if o.get("rate")), None)
+    if rate_op:
+        prev_rate = next((o["rate"] for o in rr_ops[rr_ops.index(rate_op) + 1:] if o.get("rate")), None)
+        chg = "" if prev_rate in (None, rate_op["rate"]) else f"（前值 {prev_rate}%）"
+        points["env"].append({"tone": "g", "title": "政策利率", "text":
+                              f"7天期逆回购操作利率 {rate_op['rate']}%{chg}，"
+                              + ("维持不变，短期货币政策取向保持稳定。" if not chg else "出现调整，关注信号意义。")})
+    if daily and len(daily) >= 5:
+        net5 = sum(x["net"] for x in daily[-5:])
+        points["risk"].append({"tone": "r" if net5 < 0 else "g", "title": "近期资金面", "text":
+                               f"近5个交易日净{'投放' if net5>=0 else '回笼'} {abs(net5):,.0f} 亿元，"
+                               + ("流动性呵护明显。" if net5 >= 0 else "若央行不加量续作，资金面或现边际收紧。")})
+    for o in upcoming_bo[:2]:
+        points["risk"].append({"tone": "y", "title": "买断式临近到期", "text":
+                               f"{o['date_maturity']} 有 {o['amount']:,.0f} 亿元"
+                               f"{o.get('term') or ''}买断式逆回购到期，需关注续作安排。"})
+
     return {
-        "fetchedAt": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "fetchedAt": datetime.now().strftime("%Y-%m-%d %H:%M"),
         "today": {
-            "date": recent["date"] if recent else None,
-            "amount": recent["amount"] if recent else None,
-            "rate": recent["rate"] if recent else None,
+            "date": latest_op["date"] if latest_op else today_s,
+            "inflow": round(infl_rr.get(today_s, 0.0) + infl_bo.get(today_s, 0.0), 1),
+            "maturity": round(mat_by_date.get(today_s, 0.0), 1),
+            "rate": latest_op.get("rate") if latest_op else None,
         },
-        "rr_ops": rr_ops[:15],
-        "bo_ops": bo_ops[:10],
+        "tomorrow_maturity": round(mat_by_date.get(tomorrow_s, 0.0), 1),
+        "balance": {"rr": round(rr_balance, 1), "bo": round(bo_balance, 1),
+                    "total": round(rr_balance + bo_balance, 1)},
         "daily": daily,
+        "future_dist": future_dist,
+        "upcoming_days": upcoming_days[:6],
         "upcoming_bo": upcoming_bo[:8],
+        "rr_ops": rr_ops[:40],
+        "points": points,
         "parse_errors": errors,
     }
