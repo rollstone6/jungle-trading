@@ -540,22 +540,30 @@ async def fetch_pboc_liquidity() -> dict:
     for o in bo_ops:
         infl_bo[o["date"]] = infl_bo.get(o["date"], 0.0) + o["amount"]
 
-    # ---- 近30个交易日的序列（用上证指数K线日历剔除节假日） ----
+    # ---- 近30个交易日 + 未来14天（工作日，推算到期）序列，用上证指数K线日历剔除节假日 ----
     daily = []
     cum = 0.0
+    future_end = today + timedelta(days=14)
     d = today - timedelta(days=29)
-    while d <= today:
+    while d <= future_end:
         ds = d.strftime("%Y-%m-%d")
-        is_td = (ds in trade_days) if trade_days else d.weekday() < 5
+        is_future = d > today
+        if is_future:
+            is_td = d.weekday() < 5  # 未来无公告，按工作日展示推算到期
+            inf = 0.0
+        else:
+            is_td = (ds in trade_days) if trade_days else d.weekday() < 5
+            inf = infl_rr.get(ds, 0.0) + infl_bo.get(ds, 0.0)
         if is_td or (ds == today.strftime("%Y-%m-%d") and d.weekday() < 5):
             mat = mat_by_date.get(ds, 0.0)
-            inf = infl_rr.get(ds, 0.0) + infl_bo.get(ds, 0.0)
             net = round(inf - mat, 1)
             cum = round(cum + net, 1)
+
             daily.append({
                 "date": ds, "inflow": round(inf, 1), "maturity": round(mat, 1),
                 "net": net, "cum": cum, "index": sse.get(ds),
                 "rr": round(infl_rr.get(ds, 0.0), 1), "bo": round(infl_bo.get(ds, 0.0), 1),
+                "future": is_future,
             })
         d += timedelta(days=1)
 
@@ -593,7 +601,8 @@ async def fetch_pboc_liquidity() -> dict:
     today_s = today.strftime("%Y-%m-%d")
     tomorrow_s = (today + timedelta(days=1)).strftime("%Y-%m-%d")
     latest_op = rr_ops[0] if rr_ops else None
-    recent5 = [x for x in daily if x["inflow"] > 0 or x["maturity"] > 0][-5:]
+    past_daily = [x for x in daily if not x["future"]]
+    recent5 = [x for x in past_daily if x["inflow"] > 0 or x["maturity"] > 0][-5:]
 
     # ---- 未来买断式到期明细表 ----
     upcoming_bo = [
@@ -613,7 +622,7 @@ async def fetch_pboc_liquidity() -> dict:
         avg5 = sum(x["inflow"] for x in recent5) / len(recent5)
         points["status"].append({"tone": "b", "title": "操作节奏", "text":
                                  f"近5个交易日日均投放 {avg5:,.0f} 亿元，累计净投放 "
-                                 f"{'+' if daily and daily[-1]['cum']>=0 else ''}{daily[-1]['cum']:,.0f} 亿元。"})
+                                 f"{'+' if past_daily and past_daily[-1]['cum']>=0 else ''}{past_daily[-1]['cum']:,.0f} 亿元。"})
     points["status"].append({"tone": "g", "title": "存量余额", "text":
                              f"逆回购余额约 {rr_balance:,.0f} 亿元，买断式逆回购余额约 {bo_balance:,.0f} 亿元。"})
     if upcoming_days:
@@ -634,8 +643,8 @@ async def fetch_pboc_liquidity() -> dict:
         points["env"].append({"tone": "g", "title": "政策利率", "text":
                               f"7天期逆回购操作利率 {rate_op['rate']}%{chg}，"
                               + ("维持不变，短期货币政策取向保持稳定。" if not chg else "出现调整，关注信号意义。")})
-    if daily and len(daily) >= 5:
-        net5 = sum(x["net"] for x in daily[-5:])
+    if past_daily and len(past_daily) >= 5:
+        net5 = sum(x["net"] for x in past_daily[-5:])
         points["risk"].append({"tone": "r" if net5 < 0 else "g", "title": "近期资金面", "text":
                                f"近5个交易日净{'投放' if net5>=0 else '回笼'} {abs(net5):,.0f} 亿元，"
                                + ("流动性呵护明显。" if net5 >= 0 else "若央行不加量续作，资金面或现边际收紧。")})

@@ -107,13 +107,8 @@
         </div>
 
         <div class="card" style="margin-bottom:14px">
-            <div class="card-head"><h3>📈 净投放与上证指数走势叠加</h3></div>
-            <div class="chart-box" id="chart-net"></div>
-        </div>
-
-        <div class="card" style="margin-bottom:14px">
-            <div class="card-head"><h3>📉 逆回购投放 vs 推算到期对比</h3></div>
-            <div class="chart-box" id="chart-cmp"></div>
+            <div class="card-head"><h3>📈 净投放与上证指数走势叠加（含投放/到期对比，右侧为未来推算到期）</h3></div>
+            <div class="chart-box" id="chart-net" style="height:400px"></div>
         </div>
 
         <div class="grid2">
@@ -216,60 +211,70 @@
         }
 
         function renderCharts(d) {
-            const days = (d.daily || []).map(x => x.date.slice(5));
-            const C = { net: null, cmp: null, type: null, future: null };
-            ['chart-net', 'chart-cmp', 'chart-type', 'chart-future'].forEach(id => {
+            const all = d.daily || [];
+            const days = all.map(x => x.date.slice(5));
+            const C = { net: null, type: null, future: null };
+            ['chart-net', 'chart-type', 'chart-future'].forEach(id => {
                 const el = document.getElementById(id);
                 if (el) C[id.split('-')[1]] = echarts.init(el);
             });
-            const gridDef = { left: 55, right: 55, top: 40, bottom: 60 };
+            const fi = all.findIndex(x => x.future);          // 第一个未来日索引
+            const past = fi >= 0 ? all.slice(0, fi) : all;
+            const pastDays = past.map(x => x.date.slice(5));
 
-            // 1. 净投放叠加上证指数
+            // 合并图：上格 投放vs到期(未来段虚线延伸) + 上证指数；下格 净投放柱 + 累计线
+            const maturityPast = all.map(x => x.future ? null : x.maturity);
+            const maturityFuture = all.map((x, i) => (i >= (fi < 0 ? all.length : fi - 1) && x.future) || i === fi - 1 ? x.maturity : null);
+            const markAreaFuture = fi >= 0 ? [[
+                { xAxis: days[fi], itemStyle: { color: 'rgba(14,165,233,0.07)' },
+                  label: { show: true, position: 'insideTop', color: '#0369a1', fontSize: 11, formatter: '未来推算到期' } },
+                { xAxis: days[days.length - 1] },
+            ]] : [];
             C.net.setOption({
                 tooltip: { trigger: 'axis', axisPointer: { type: 'cross' } },
-                legend: { data: ['净投放', '累计净投放', '上证指数'], top: 4 },
-                grid: gridDef,
-                xAxis: { type: 'category', data: days, axisLabel: { rotate: 45, fontSize: 10 } },
+                legend: { data: ['当日投放', '推算到期', '上证指数', '净投放', '累计净投放'], top: 4 },
+                axisPointer: { link: [{ xAxisIndex: 'all' }] },
+                grid: [
+                    { left: 55, right: 55, top: 34, height: '42%' },
+                    { left: 55, right: 55, top: '58%', bottom: 58 },
+                ],
+                xAxis: [
+                    { type: 'category', data: days, gridIndex: 0, axisLabel: { rotate: 45, fontSize: 10 }, axisLine: { lineStyle: { color: '#cbd5e1' } } },
+                    { type: 'category', data: days, gridIndex: 1, axisLabel: { show: false }, axisTick: { show: false } },
+                ],
                 yAxis: [
-                    { type: 'value', name: '金额(亿元)', splitLine: { lineStyle: { type: 'dashed' } } },
-                    { type: 'value', name: '点位', scale: true, splitLine: { show: false } },
+                    { type: 'value', name: '金额(亿元)', gridIndex: 0, splitLine: { lineStyle: { type: 'dashed' } } },
+                    { type: 'value', name: '点位', gridIndex: 0, scale: true, splitLine: { show: false }, position: 'right' },
+                    { type: 'value', name: '净投放', gridIndex: 1, splitLine: { lineStyle: { type: 'dashed' } } },
                 ],
                 series: [
-                    { name: '净投放', type: 'bar', data: d.daily.map(x => x.net),
+                    { name: '当日投放', type: 'bar', xAxisIndex: 0, yAxisIndex: 0, data: all.map(x => x.future ? null : x.inflow), itemStyle: { color: '#ef4444' } },
+                    { name: '推算到期', type: 'line', xAxisIndex: 0, yAxisIndex: 0, data: maturityPast,
+                      lineStyle: { color: '#0ea5e9', width: 2 }, itemStyle: { color: '#0ea5e9' }, symbolSize: 4,
+                      markArea: { silent: true, data: markAreaFuture } },
+                    { name: '推算到期', type: 'line', xAxisIndex: 0, yAxisIndex: 0, data: maturityFuture,
+                      lineStyle: { color: '#0ea5e9', width: 2, type: 'dashed' }, itemStyle: { color: '#0ea5e9' }, symbolSize: 4 },
+                    { name: '上证指数', type: 'line', xAxisIndex: 0, yAxisIndex: 1, data: all.map(x => x.index),
+                      smooth: true, lineStyle: { color: '#f59e0b', width: 2 }, itemStyle: { color: '#f59e0b' }, symbolSize: 3 },
+                    { name: '净投放', type: 'bar', xAxisIndex: 1, yAxisIndex: 2, data: all.map(x => x.net),
                       itemStyle: { color: pr => pr.value >= 0 ? '#ef4444' : '#22c55e' } },
-                    { name: '累计净投放', type: 'line', data: d.daily.map(x => x.cum),
-                      lineStyle: { type: 'dashed', color: '#8b5cf6' }, itemStyle: { color: '#8b5cf6' }, symbol: 'circle', symbolSize: 4 },
-                    { name: '上证指数', type: 'line', yAxisIndex: 1, data: d.daily.map(x => x.index),
-                      smooth: true, lineStyle: { color: '#f59e0b', width: 2 }, itemStyle: { color: '#f59e0b' }, symbolSize: 4 },
+                    { name: '累计净投放', type: 'line', xAxisIndex: 1, yAxisIndex: 2, data: all.map(x => x.cum),
+                      lineStyle: { type: 'dashed', color: '#8b5cf6' }, itemStyle: { color: '#8b5cf6' }, symbol: 'circle', symbolSize: 3 },
                 ],
             });
 
-            // 2. 投放 vs 到期
-            C.cmp.setOption({
-                tooltip: { trigger: 'axis' },
-                legend: { data: ['当日投放', '推算到期'], top: 4 },
-                grid: gridDef,
-                xAxis: { type: 'category', data: days, axisLabel: { rotate: 45, fontSize: 10 } },
-                yAxis: { type: 'value', name: '亿元', splitLine: { lineStyle: { type: 'dashed' } } },
-                series: [
-                    { name: '当日投放', type: 'bar', data: d.daily.map(x => x.inflow), itemStyle: { color: '#ef4444' } },
-                    { name: '推算到期', type: 'line', data: d.daily.map(x => x.maturity),
-                      lineStyle: { color: '#0ea5e9', width: 2 }, itemStyle: { color: '#0ea5e9' }, symbolSize: 5 },
-                ],
-            });
-
-            // 3. 分类工具
+            // 3. 分类工具（仅过去数据）
             C.type.setOption({
                 tooltip: { trigger: 'axis' },
                 legend: { data: ['逆回购', '买断式逆回购'], top: 4 },
                 grid: { left: 50, right: 20, top: 36, bottom: 60 },
-                xAxis: { type: 'category', data: days, axisLabel: { rotate: 45, fontSize: 10 } },
+                xAxis: { type: 'category', data: pastDays, axisLabel: { rotate: 45, fontSize: 10 } },
                 yAxis: { type: 'value', name: '亿元' },
                 series: [
-                    { name: '逆回购', type: 'line', data: d.daily.map(x => x.rr), symbolSize: 4,
+                    { name: '逆回购', type: 'line', data: past.map(x => x.rr), symbolSize: 4,
                       lineStyle: { color: '#3b82f6' }, itemStyle: { color: '#3b82f6' },
                       areaStyle: { color: 'rgba(59,130,246,0.08)' } },
-                    { name: '买断式逆回购', type: 'line', data: d.daily.map(x => x.bo > 0 ? x.bo : null), symbolSize: 6,
+                    { name: '买断式逆回购', type: 'line', data: past.map(x => x.bo > 0 ? x.bo : null), symbolSize: 6,
                       lineStyle: { color: '#8b5cf6' }, itemStyle: { color: '#8b5cf6' }, connectNulls: false },
                 ],
             });
@@ -293,7 +298,7 @@
         function renderTables(d) {
             const rateMap = {};
             (d.rr_ops || []).forEach(o => { if (o.rate != null && o.term_days === 7) rateMap[o.date] = o.rate; });
-            document.getElementById('rr').innerHTML = (d.daily || []).slice().reverse().map(x =>
+            document.getElementById('rr').innerHTML = (d.daily || []).filter(x => !x.future).slice().reverse().map(x =>
                 `<tr><td>${x.date}</td>
                 <td class="${x.inflow > 0 ? 'pos-t' : ''}">${x.inflow > 0 ? fmt(x.inflow) : (x.rr === 0 && x.bo === 0 ? '零操作/休市' : '0')}</td>
                 <td>${rateMap[x.date] != null ? rateMap[x.date] + '%' : '-'}</td>
