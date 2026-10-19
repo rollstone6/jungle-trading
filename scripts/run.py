@@ -4,7 +4,7 @@ import subprocess
 import sys
 
 def main():
-    print("🚀 启动 Jungle 持仓工作台...")
+    print("🚀 启动 持仓工作台...")
     print("📍 访问地址: http://localhost:8090/?pwd=0mGecaPX3duCfVXhEb")
     print("📊 维护模式: http://localhost:8090/?pwd=0mGecaPX3duCfVXhEb&update=1")
     print()

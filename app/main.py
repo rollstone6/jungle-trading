@@ -1,4 +1,4 @@
-"""Jungle 持仓工作台 - FastAPI 主应用"""
+"""持仓工作台 - FastAPI 主应用"""
 import os
 import json
 import asyncio
