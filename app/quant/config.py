@@ -72,6 +72,8 @@ class StrategyConfig:
 
         # --- 不受时间框架影响的参数（百分比/比率类）---
         self.max_box_width = 35.0          # 允许的最大箱体震荡幅度（%）
+        self.min_box_bars = 40             # 横向箱体：箱体时间跨度至少 N 根K线（长>宽）
+        self.min_aspect_ratio = 2.5        # 横向箱体：跨度/幅度 换算后的宽高比下限（过滤高振幅的竖向箱体）
         self.pullback_limit = 0.50         # 回踩深度不超过突破波幅的 50%
         self.obv_pullback_limit = 0.50     # OBV最大允许回撤
         self.use_obv_trend_filter = True   # OBV多头锁仓过滤（OBV > MA10 且 OBV > MA30）

@@ -198,14 +198,16 @@ def print_box_report(box_bars: int, stock_name: str, symbol: str,
         print("=" * 50)
         return
 
-    print("  【箱体状态】✅ 处于箱体震荡中")
+    print("  【箱体状态】✅ 处于横向箱体震荡中（长>宽）")
     print("  【箱体趋势】{}".format(box_info['trend']))
     print()
     print("  ┌─────────────────────────────────────────┐")
     print("  │  箱体上沿：{:>8.2f} 元                    │".format(box_info['box_high']))
     print("  │  箱体下沿：{:>8.2f} 元                    │".format(box_info['box_low']))
     print("  │  箱体中轴：{:>8.2f} 元                    │".format(box_info['box_mid']))
-    print("  │  箱体宽度：{:>7.2f}%                      │".format(box_info['box_width']))
+    print("  │  箱体振幅：{:>7.2f}%                      │".format(box_info['box_width']))
+    print("  │  时间跨度：{:>7} 根K线  宽高比 {}    │".format(
+        box_info.get('box_span_bars', '-'), box_info.get('aspect_ratio', '-')))
     print("  └─────────────────────────────────────────┘")
     print()
     print("  【当前价格】{:.2f} 元".format(box_info['current_price']))

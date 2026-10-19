@@ -178,10 +178,11 @@
             <div class="kpi-grid" id="box-kpi"><div class="loading">加载中...</div></div>
             <table class="data-table">
                 <thead><tr>
-                    <th>名称</th><th>代码</th><th>箱体上沿</th><th>箱体下沿</th><th>宽度%</th>
+                    <th>名称</th><th>代码</th><th>箱体上沿</th><th>箱体下沿</th><th>振幅%</th>
+                    <th>跨度(日)</th><th>宽高比</th>
                     <th>当前位置%</th><th>评分</th><th>趋势</th><th>操作建议</th>
                 </tr></thead>
-                <tbody id="box-body"><tr><td colspan="9" class="loading">加载中...</td></tr></tbody>
+                <tbody id="box-body"><tr><td colspan="11" class="loading">加载中...</td></tr></tbody>
             </table>
         </div>
 
@@ -325,7 +326,7 @@
             try {
                 const d = await fetchJSON(`/api/quant/box?pwd=${pwd}` + (refresh ? '&refresh=1' : ''));
                 document.getElementById('box-kpi').innerHTML = `
-                    <div class="kpi-card box"><div class="v">${d.total}</div><div class="l">处于箱体（最近 ${d.boxBars} 根日K）</div></div>
+                    <div class="kpi-card box"><div class="v">${d.total}</div><div class="l">横向箱体（跨度>振幅，长>宽）</div></div>
                     <div class="kpi-card"><div class="v">${d.failures ? d.failures.length : 0}</div><div class="l">取数失败</div></div>`;
                 document.getElementById('box-body').innerHTML = d.stocks.length ? d.stocks.map(s => `
                     <tr>
@@ -334,11 +335,13 @@
                         <td class="mono">${s.box_high}</td>
                         <td class="mono">${s.box_low}</td>
                         <td class="mono">${s.box_width}%</td>
+                        <td class="mono">${s.box_span_bars || '-'}</td>
+                        <td class="mono" style="color:${(s.aspect_ratio||0) >= 2 ? '#10b981' : '#f59e0b'};font-weight:600">${s.aspect_ratio != null ? s.aspect_ratio + ':1' : '-'}</td>
                         <td class="mono">${s.price_position}%</td>
                         <td>${esc(s.quality_text)}</td>
                         <td>${esc(s.trend)}</td>
                         <td style="font-size:12px">${esc(s.action_hint)}</td>
-                    </tr>`).join('') : '<tr><td colspan="9" class="loading">股票池中没有处于箱体的股票</td></tr>';
+                    </tr>`).join('') : '<tr><td colspan="11" class="loading">股票池中没有横向箱体（长>宽）的股票</td></tr>';
                 meta.textContent = `数据日期 ${d.asOf} · 更新于 ${d.fetchedAt}`;
             } catch (e) {
                 meta.textContent = '加载失败：' + e.message;

@@ -20,14 +20,55 @@ class BoxDetector:
     def __init__(self, config=None):
         if config is None:
             config = StrategyConfig(signal_timeframe="1d")
-        self.box_bars = config.box_bars          # 箱体周期（K线根数）
-        self.max_box_width = config.max_box_width  # 35%
+        self.box_bars = config.box_bars          # 箱体周期（K线根数，搜索上限）
+        self.max_box_width = config.max_box_width  # 振幅上限%（横向箱体须足够扁平）
+        self.min_box_bars = getattr(config, "min_box_bars", 40)
+        self.min_aspect_ratio = getattr(config, "min_aspect_ratio", 1.0)
         # 触及上下沿的阈值（距离上下沿 2% 以内算触及）
         self.touch_threshold = 0.02
 
+    def _find_horizontal_box(self, df):
+        """
+        在最近 box_bars 根K线内，寻找以最新一根K线结束、
+        振幅不超过 max_box_width% 的最长时间平台（横向箱体）。
+
+        横向箱体定义（长 > 宽）：
+        - 长 = 时间跨度（K线根数），必须 >= min_box_bars
+        - 宽 = 价格振幅%（上沿 vs 下沿），必须 <= max_box_width
+        - 宽高比 = 跨度 / 振幅%，必须 >= min_aspect_ratio
+
+        返回 (start_idx, end_idx)（df 的整数位置），找不到返回 None。
+        """
+        n = len(df)
+        start_limit = max(0, n - self.box_bars)
+        highs = df['high'].values
+        lows = df['low'].values
+
+        # end 固定在最新一根；start 从后往前推，枚举所有以最新K线结束的低振幅窗口。
+        # 在所有满足"跨度>=min_box_bars 且 宽高比>=min_aspect_ratio"的窗口里，
+        # 取宽高比最大（最横向、最扁平）的那个作为当前箱体。
+        best = None
+        best_aspect = -1.0
+        end = n - 1
+        cur_high = highs[end]
+        cur_low = lows[end]
+        for start in range(end, start_limit - 1, -1):
+            cur_high = max(cur_high, highs[start])
+            cur_low = min(cur_low, lows[start])
+            width_pct = (cur_high - cur_low) / cur_low * 100
+            if width_pct > self.max_box_width:
+                break
+            span = end - start + 1
+            if span >= self.min_box_bars and width_pct > 0:
+                aspect = span / width_pct
+                if aspect >= self.min_aspect_ratio and aspect > best_aspect:
+                    best_aspect = aspect
+                    best = (start, end)
+        return best
+
     def detect_box(self, df):
         """
-        检测箱体并返回箱体信息
+        检测箱体并返回箱体信息（只识别横向箱体：时间跨度 > 价格振幅）
         
         参数:
             df: DataFrame，包含 date, open, high, low, close, volume 列
@@ -39,6 +80,9 @@ class BoxDetector:
                 - box_low: float, 箱体下沿
                 - box_width: float, 箱体宽度%
                 - box_mid: float, 箱体中轴
+                - box_span_bars: int, 箱体时间跨度（K线根数）
+                - aspect_ratio: float, 宽高比（跨度/振幅%）
+                - shape: str, 箱体形态（横向/竖向）
                 - current_price: float, 当前价格
                 - price_position: float, 价格位置%
                 - price_hint: str, 价格位置提示
@@ -53,28 +97,30 @@ class BoxDetector:
                 - trend: str, 箱体趋势
                 - action_hint: str, 操作建议
         """
-        if df is None or len(df) < self.box_bars + 1:
+        if df is None or len(df) < self.min_box_bars + 1:
             return {'has_box': False, 'error': '数据不足'}
 
-        # 取最近 box_bars 根K线的数据作为箱体切片
-        box_data = df.iloc[-self.box_bars:]
-        
+        # 寻找横向箱体（以最新K线结束的最长低振幅平台）
+        found = self._find_horizontal_box(df)
+        if found is None:
+            return {
+                'has_box': False,
+                'error': '近期无横向箱体（振幅>{}% 或 跨度<{}根，竖向/整理失败）'.format(
+                    self.max_box_width, self.min_box_bars
+                )
+            }
+
+        start_idx, end_idx = found
+        box_data = df.iloc[start_idx:end_idx + 1]
+
         # 计算箱体参数
         box_high = box_data['high'].max()
         box_low = box_data['low'].min()
         box_width = (box_high - box_low) / box_low * 100
         box_mid = (box_high + box_low) / 2
-
-        # 判断是否有效箱体
-        if box_width > self.max_box_width:
-            msg = '箱体宽度 {:.1f}% 超过阈值 {}%'.format(
-                box_width, self.max_box_width
-            )
-            return {
-                'has_box': False,
-                'box_width': round(box_width, 2),
-                'error': msg
-            }
+        box_span = end_idx - start_idx + 1
+        aspect_ratio = round(box_span / box_width, 2) if box_width > 0 else 999.0
+        shape = "横向（长>宽）" if aspect_ratio >= self.min_aspect_ratio else "竖向"
 
         # 当前价格
         current_price = df.iloc[-1]['close']
@@ -164,6 +210,9 @@ class BoxDetector:
             'box_low': round(box_low, 2),
             'box_width': round(box_width, 2),
             'box_mid': round(box_mid, 2),
+            'box_span_bars': box_span,
+            'aspect_ratio': aspect_ratio,
+            'shape': shape,
             'current_price': round(current_price, 2),
             'price_position': round(price_position, 1),
             'price_hint': price_hint,

@@ -305,7 +305,7 @@ def scan_box(refresh: bool = False) -> dict:
             if info:
                 box_stocks.append(info)
 
-    box_stocks.sort(key=lambda r: r["quality_score"], reverse=True)
+    box_stocks.sort(key=lambda r: (r.get("aspect_ratio", 0), r["quality_score"]), reverse=True)
     payload = _native({
         "asOf": _today(),
         "fetchedAt": _now(),
