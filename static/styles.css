@@ -9,6 +9,10 @@
   --cyan: #0e8aa8;
   --green: #0b8f62;
   --red: #d92d20;
+  --accent: #667eea;
+  --accent-2: #764ba2;
+  --accent-rgb: 102, 126, 234;
+  --accent-grad: linear-gradient(135deg, #667eea, #764ba2);
   --amber: #b76e00;
   --shadow: 0 12px 32px rgba(25, 40, 70, 0.08);
 }
@@ -1392,13 +1396,33 @@ li {
 
 .tech-pills {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 6px 8px;
   align-items: center;
-  padding: 2px 0;
+  padding: 2px 0 6px;
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(23, 100, 216, 0.25) transparent;
+  -webkit-overflow-scrolling: touch;
+  scroll-snap-type: x proximity;
+  mask-image: linear-gradient(90deg, #000 0, #000 calc(100% - 18px), transparent 100%);
+  -webkit-mask-image: linear-gradient(90deg, #000 0, #000 calc(100% - 18px), transparent 100%);
+}
+.tech-pills::-webkit-scrollbar {
+  height: 4px;
+}
+.tech-pills::-webkit-scrollbar-track {
+  background: transparent;
+}
+.tech-pills::-webkit-scrollbar-thumb {
+  background: rgba(23, 100, 216, 0.22);
+  border-radius: 4px;
 }
 
 .tech-pills span {
+  flex-shrink: 0;
   padding: 4px 7px;
   border: 1px solid rgba(23, 100, 216, 0.14);
   border-radius: 7px;
@@ -1433,6 +1457,36 @@ li {
   background: #fff7f6;
   color: #9f241a;
 }
+
+/* 行首警示 & MACD 信息色。双重类名提升特异性，压过 nth-child 中性底色 */
+/* KDJ 超买 / 放量：琥珀警示 */
+.tech-pills span.high.high {
+  border-color: rgba(217, 119, 6, 0.45);
+  background: #fef3c7;
+  color: #92400e;
+  font-weight: 900;
+}
+/* KDJ 超卖：蓝紫警示 */
+.tech-pills span.low.low {
+  border-color: rgba(79, 70, 229, 0.4);
+  background: #e0e7ff;
+  color: #3730a3;
+  font-weight: 900;
+}
+/* MACD 正值：A股红涨语义 */
+.tech-pills span.up.up {
+  border-color: rgba(217, 45, 32, 0.35);
+  background: #fee2e2;
+  color: #9f241a;
+}
+.tech-pills span.up b { color: #dc2626; }
+/* MACD 负值：A股绿跌语义 */
+.tech-pills span.down.down {
+  border-color: rgba(11, 143, 98, 0.35);
+  background: #d1fae5;
+  color: #065f46;
+}
+.tech-pills span.down b { color: #0b8f62; }
 
 .kline-card {
   margin-top: 10px;
@@ -1560,6 +1614,14 @@ li {
 
 .kline-tip span {
   font-weight: 800;
+}
+
+.kline-tip .k-chip-hint {
+  flex: 1 0 100%;
+  text-align: right;
+  color: #6b7280;
+  font-weight: 600;
+  font-size: 9px;
 }
 
 .kline-hint {
@@ -1710,6 +1772,23 @@ a:hover {
 .risk-list li {
   margin: 4px 0;
 }
+
+.risk-list li.tone-bull { color: #dc2626; }
+.risk-list li.tone-bear { color: #16a34a; }
+.risk-list li.tone-neutral { color: #6b7280; }
+.risk-list .tone-tag {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  padding: 2px 6px;
+  margin-right: 6px;
+  border-radius: 999px;
+  vertical-align: 1px;
+}
+.risk-list li.tone-bull .tone-tag { background: rgba(220, 38, 38, 0.12); color: #dc2626; }
+.risk-list li.tone-bear .tone-tag { background: rgba(22, 163, 74, 0.12); color: #16a34a; }
+.risk-list li.tone-neutral .tone-tag { background: rgba(107, 114, 128, 0.12); color: #6b7280; }
 
 pre {
   margin: 0;
@@ -2238,3 +2317,236 @@ pre {
     min-width: 620px;
   }
 }
+
+/* ============================================================
+   Impeccable polish 层（2026-10-22）—— 跨页统一打磨
+   原则：Operate 模式，克制、一致性、状态完整；不改视觉世界
+   ============================================================ */
+
+/* 数据表格局部横向滚动：手机上表格内部滑，页面不溢出 */
+.table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(23, 100, 216, 0.25) transparent;
+  border-radius: 8px;
+}
+.table-scroll > table {
+  min-width: 100%;
+}
+.table-scroll::-webkit-scrollbar { height: 5px; }
+.table-scroll::-webkit-scrollbar-track { background: transparent; }
+.table-scroll::-webkit-scrollbar-thumb {
+  background: rgba(23, 100, 216, 0.22);
+  border-radius: 5px;
+}
+.table-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(23, 100, 216, 0.4);
+}
+
+/* 表头/数字列：等宽数字，跳动不晃版 */
+.table-scroll th,
+.table-scroll td { white-space: nowrap; }
+.table-scroll td { font-variant-numeric: tabular-nums; }
+
+/* grid 子项允许收缩，杜绝整页横向撑爆 */
+.position-list > *, .kpi-grid > *, .grid > * { min-width: 0; }
+
+/* 键盘焦点：全站统一可见环（品牌蓝，2px偏移环） */
+:focus-visible {
+  outline: 2px solid var(--blue, #1764d8);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* 文本选区：主题色而非浏览器默认蓝 */
+::selection {
+  background: rgba(23, 100, 216, 0.16);
+  color: var(--text, #121826);
+}
+
+/* 页面级滚动条细化（Chrome/Safari） */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: rgba(102, 118, 142, 0.35);
+  border-radius: 8px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(102, 118, 142, 0.55);
+  background-clip: padding-box;
+  border: 2px solid transparent;
+}
+
+/* 按钮三态：按压反馈 + 禁用降权（各页 .scan-btn/.nav-btn/返回按钮通用） */
+button:not(:disabled):active,
+.btn:not(:disabled):active,
+a.btn:not(:disabled):active { transform: translateY(1px); }
+button:disabled, .btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: none !important;
+  box-shadow: none !important;
+}
+.scan-btn:not(:disabled):active { transform: translateY(1px); }
+.scan-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+/* 加载/空状态：全站统一语气（灰字+呼吸点），替代散落的"加载中..." */
+.loading, .empty-state {
+  padding: 18px 12px;
+  text-align: center;
+  color: var(--muted, #667085);
+  font-size: 13px;
+}
+.loading::after {
+  content: "";
+  display: inline-block;
+  width: 1em;
+  text-align: left;
+  animation: jt-ellipsis 1.2s steps(3, end) infinite;
+}
+@keyframes jt-ellipsis {
+  from { content: ""; }
+  to   { content: "..."; }
+}
+
+/* 下划线偏移：链接文字不再压线 */
+a { text-underline-offset: 2px; }
+
+/* 输入类控件 hover 一致性 */
+select:hover, input:hover, textarea:hover { border-color: rgba(23, 100, 216, 0.45); }
+
+/* 成本未录入降级态（P0-1 数据可信度） */
+.cost-banner {
+  margin: 0 0 14px;
+  padding: 9px 14px;
+  border-radius: 8px;
+  background: rgba(245, 158, 11, 0.10);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  color: #92400e;
+  font-size: 13px;
+}
+.cost-missing { font-style: normal; color: #b45309; font-weight: 600; }
+.pnl-unknown { color: var(--muted, #667085); }
+.cost-fix-link { color: #92400e; font-weight: 600; text-decoration: underline; margin-left: 4px; }
+.cost-fix-link:hover { color: #78350f; }
+
+/* 内联 SVG 图标系统（P0-2：替代 emoji，随文字色、垂直居中） */
+svg.ic {
+  width: 1em;
+  height: 1em;
+  display: inline-block;
+  vertical-align: -0.125em;
+  margin-right: 0.3em;
+  flex-shrink: 0;
+}
+h1 svg.ic, h2 svg.ic, h3 svg.ic { width: 1.05em; height: 1.05em; }
+.icon svg.ic { width: 26px; height: 26px; margin: 0; }
+
+/* 数据源错误横幅（P0-3 降级UI） */
+.err-banner {
+  margin: 0 0 14px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  background: rgba(217, 45, 32, 0.07);
+  border: 1px solid rgba(217, 45, 32, 0.30);
+  color: #b42318;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.err-banner button {
+  margin-left: auto;
+  padding: 4px 14px;
+  border: 1px solid rgba(217, 45, 32, 0.4);
+  border-radius: 6px;
+  background: #fff;
+  color: #b42318;
+  font-size: 12px;
+  cursor: pointer;
+}
+.err-banner button:hover { background: rgba(217, 45, 32, 0.06); }
+
+/* 补齐缺失 hover 态（P1-5） */
+.tab-btn:hover { border-color: var(--accent, #667eea); color: var(--accent, #667eea); }
+.etf-tab:hover { color: var(--accent, #667eea); }
+.link-btn:hover { opacity: 0.85; text-decoration: underline; }
+.scan-btn:hover { filter: brightness(1.06); }
+
+/* 待处理事项 alert 带（P1-6 注意力入口，peak-end 收尾） */
+.alert-band {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 14px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: rgba(217, 45, 32, 0.06);
+  border: 1px solid rgba(217, 45, 32, 0.32);
+  color: #b42318;
+  font-size: 13px;
+  text-decoration: none;
+  line-height: 1.4;
+}
+.alert-band:hover { background: rgba(217, 45, 32, 0.10); }
+.alert-band .alert-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--red, #d92d20);
+  flex-shrink: 0;
+  animation: jt-pulse 1.6s ease-in-out infinite;
+}
+@keyframes jt-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(217, 45, 32, 0.35); }
+  50% { box-shadow: 0 0 0 5px rgba(217, 45, 32, 0); }
+}
+.alert-band .alert-sep { opacity: 0.5; }
+.alert-band .alert-go { margin-left: auto; font-weight: 600; white-space: nowrap; }
+
+/* 移动端快捷导航（P1-6：导航不再沉在 3000px 之后） */
+.mobile-quicknav {
+  display: none;
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  gap: 8px;
+  margin: 0 -4px 12px;
+  padding: 8px 4px;
+  overflow-x: auto;
+  background: rgba(238, 243, 248, 0.92);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  scrollbar-width: none;
+}
+.mobile-quicknav::-webkit-scrollbar { display: none; }
+.mobile-quicknav a {
+  flex-shrink: 0;
+  padding: 7px 14px;
+  border-radius: 999px;
+  background: #fff;
+  border: 1px solid var(--line, #d9e2ec);
+  color: var(--text, #121826);
+  font-size: 12.5px;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.mobile-quicknav a:active { background: rgba(var(--accent-rgb, 102, 126, 234), 0.12); }
+@media (max-width: 768px) {
+  .mobile-quicknav { display: flex; }
+}
+
+/* 风控净结论行（P2：多空并列给单一行动倾向） */
+.net-verdict {
+  margin: 2px 0 6px;
+  font-size: 12.5px;
+  font-weight: 700;
+  padding: 5px 10px;
+  border-radius: 7px;
+}
+.net-verdict.tone-bull { color: var(--red, #d92d20); background: rgba(217,45,32,0.07); }
+.net-verdict.tone-bear { color: var(--green, #0b8f62); background: rgba(11,143,98,0.08); }
+.net-verdict.tone-neutral { color: #4b5563; background: rgba(107,114,128,0.09); }
