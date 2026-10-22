@@ -19,6 +19,7 @@ from app.services.market import (
 from app.services import etf_flow
 from app.services.portfolio import (
     get_account, get_all_positions, calc_position_metrics, calc_boundary_proximity,
+    build_tech_pills,
     calc_risk, get_summary
 )
 from app.services.reports import get_available_dates, get_report
@@ -102,7 +103,7 @@ async def startup():
             ("300291", "百纳千成", "影视传媒", 100, 0),
             ("300394", "天孚通信", "光模块/CPO", 100, 0),
             ("300505", "川金诺", "磷化工", 100, 0),
-            ("300999", "大普微", "芯片/存储", 100, 0),
+            ("301666", "大普微-UW", "芯片/存储", 100, 0),
         ]
         for code, name, sector, qty, cost in defaults:
             conn.execute(
@@ -224,8 +225,17 @@ async def index(request: Request, pwd: str = check_password):
     # Calculate metrics
     positions = calc_position_metrics(positions, account)
     positions = calc_boundary_proximity(positions)
+    positions = build_tech_pills(positions)
     positions = calc_risk(positions)
+    # 注意力入口：高风险置顶，其余按仓位从大到小
+    _lv = {"高": 0, "中": 1, "低": 2}
+    positions.sort(key=lambda p: (_lv.get(p.get("risk_level", "低"), 3), -p.get("weight", 0)))
     summary = get_summary(positions, account)
+    alerts = [
+        {"code": p["code"], "name": p["name"], "text": p["badge"],
+         "detail": p["risk_notes"][0]["text"] if p.get("risk_notes") else ""}
+        for p in positions if p.get("risk_level") == "高"
+    ]
 
     # Get report info
     available_dates = get_available_dates()
@@ -239,6 +249,7 @@ async def index(request: Request, pwd: str = check_password):
             "request": request,
             "summary": summary,
             "positions": positions,
+            "risk_alerts": alerts,
             "quote_time": quote_time or "暂无",
             "available_dates": ",".join(available_dates),
             "current_date": current_date,

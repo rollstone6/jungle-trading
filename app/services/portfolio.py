@@ -109,6 +109,73 @@ def calc_boundary_proximity(positions: list[dict]) -> list[dict]:
     return positions
 
 
+def build_tech_pills(positions: list[dict]) -> list[dict]:
+    """把所有技术指标合并为一行 pills，需要关注(有颜色警示)的排在行首。
+    警示判定：边界接近(距现价2%内) > KDJ超买/超卖 > 量比>=1.8放量。
+    MACD 正负红绿属信息色，不算警示，按原位排后面。"""
+    for p in positions:
+        near = p.get("near") or {}
+        pills = []
+
+        # --- 均线 / BOLL / 波段压力支撑（接近现价则辉光+置顶） ---
+        bounds = [
+            ("MA3", p.get("ma3")), ("MA8", p.get("ma8")), ("MA20", p.get("ma20")),
+            ("MA120", p.get("ma120")), ("MA250", p.get("ma250")),
+            ("压力位", p.get("resistance")), ("支撑位", p.get("support")),
+            ("BOLL上", p.get("boll_upper")), ("BOLL下", p.get("boll_lower")),
+        ]
+        for label, v in bounds:
+            if not v or v <= 0:
+                continue
+            g = near.get(label)
+            pills.append({
+                "label": label, "val": "%.2f" % v, "alert": bool(g),
+                "prio": 0 if g else 3, "prox": g["prox"] if g else 0,
+                "cls": ("near-" + g["side"]) if g else "", "glow": g, "title": "",
+            })
+
+        # --- KDJ（>80/<20 等极值视为警示） ---
+        if p.get("kdj_k", 0) > 0:
+            for label, v, hi, lo, unit in [
+                ("K", p.get("kdj_k"), 80, 20, "超买"), ("D", p.get("kdj_d"), 80, 20, "超买"),
+                ("J", p.get("kdj_j"), 100, 0, "超买/超卖"),
+            ]:
+                if not v:
+                    continue
+                if v > hi:
+                    cls, alert, title = "high", True, "超买"
+                elif v < lo:
+                    cls, alert, title = "low", True, "超卖"
+                else:
+                    cls, alert, title = "", False, ""
+                pills.append({
+                    "label": label, "val": "%.1f" % v, "alert": alert,
+                    "prio": 1 if alert else 4, "prox": 0, "cls": cls, "glow": None, "title": title,
+                })
+
+        # --- MACD（正红负绿，信息色，不置顶） ---
+        if p.get("macd_dif", 0) != 0:
+            for label, v in [("DIF", p["macd_dif"]), ("DEA", p["macd_dea"]), ("MACD", p["macd_hist"])]:
+                pills.append({
+                    "label": label, "val": "%.3f" % v, "alert": False, "prio": 5, "prox": 0,
+                    "cls": "up" if v > 0 else "down", "glow": None, "title": "",
+                })
+
+        # --- 量比（>=1.8 放量警示） ---
+        if p.get("volume_ratio", 0) > 0:
+            vr = p["volume_ratio"]
+            alert = vr >= 1.8
+            pills.append({
+                "label": "量比", "val": "%.2f" % vr, "alert": alert,
+                "prio": 2 if alert else 6, "prox": 0, "cls": "high" if alert else "",
+                "glow": None, "title": "放量" if alert else "",
+            })
+
+        pills.sort(key=lambda x: (0 if x["alert"] else 1, x["prio"], -x["prox"]))
+        p["tech_pills"] = pills
+    return positions
+
+
 def calc_position_metrics(positions: list[dict], account: dict) -> list[dict]:
     """计算每个持仓的市值、盈亏、仓位占比"""
     principal = account["principal"]
@@ -118,11 +185,18 @@ def calc_position_metrics(positions: list[dict], account: dict) -> list[dict]:
     for p in positions:
         market_value = p["quantity"] * p["latest_price"]
         total_market_value += market_value
-        pnl = market_value - (p["quantity"] * p["cost_price"])
-        pnl_pct = (pnl / (p["quantity"] * p["cost_price"]) * 100) if p["cost_price"] > 0 else 0
         p["market_value"] = round(market_value, 2)
-        p["pnl"] = round(pnl, 2)
-        p["pnl_pct"] = round(pnl_pct, 2)
+        if p["cost_price"] and p["cost_price"] > 0:
+            pnl = market_value - (p["quantity"] * p["cost_price"])
+            pnl_pct = pnl / (p["quantity"] * p["cost_price"]) * 100
+            p["cost_missing"] = False
+            p["pnl"] = round(pnl, 2)
+            p["pnl_pct"] = round(pnl_pct, 2)
+        else:
+            # 成本未录入：盈亏不可信，降级为 None（模板显示 —），绝不显示假数字
+            p["cost_missing"] = True
+            p["pnl"] = None
+            p["pnl_pct"] = None
 
     # Calculate position weight
     for p in positions:
@@ -132,24 +206,29 @@ def calc_position_metrics(positions: list[dict], account: dict) -> list[dict]:
 
 
 def calc_risk(positions: list[dict]) -> list[dict]:
-    """计算风控判断（仓位 + 均线 + 波段压力/支撑位）"""
+    """计算风控判断（仓位 + 均线 + 波段压力/支撑位）
+
+    每条 note 带 tone 标签: bull(看多/红) bear(看空/绿) neutral(中立/灰)
+    """
     if positions and "resistance" not in positions[0]:
         calc_swing_levels(positions)
     for p in positions:
         notes = []
+        def add_note(text: str, tone: str):
+            notes.append({"text": text, "tone": tone})
         tech_watch = False   # 靠近边界 → 至少"中"
         tech_break = False   # 破位/创新高 → 高危或强信号
         # High concentration
         if p.get("weight", 0) > 40:
-            notes.append(f"单只标的仓位约 {p['weight']:.1f}%，超过 40% 风控线")
+            add_note(f"单只标的仓位约 {p['weight']:.1f}%，超过 40% 风控线", "neutral")
 
         # Below MA20
         if p["ma20"] > 0 and p["latest_price"] < p["ma20"]:
-            notes.append(f"现价低于 20 日线 {p['ma20']}，趋势需要防守")
+            add_note(f"现价低于 20 日线 {p['ma20']}，趋势需要防守", "bear")
 
         # Large loss
-        if p.get("pnl_pct", 0) < -10:
-            notes.append(f"当前估算浮亏约 {p['pnl_pct']:.1f}%，禁止无条件补仓摊平")
+        if (p.get("pnl_pct") or 0) < -10:
+            add_note(f"当前估算浮亏约 {p['pnl_pct']:.1f}%，禁止无条件补仓摊平", "bear")
 
         # 波段压力/支撑位判断：60日前高/前低为强边界，20日高低点为近端边界（均不含今日K线）
         price = p.get("latest_price") or 0
@@ -158,13 +237,13 @@ def calc_risk(positions: list[dict]) -> list[dict]:
         if price > 0 and res > 0 and sup > 0:
             if price >= res:
                 tech_break = True
-                notes.append(f"已放量突破 60 日前高 {res:.2f}，打开上行空间，回踩不破可持，滞涨注意止盈")
+                add_note(f"已放量突破 60 日前高 {res:.2f}，打开上行空间，回踩不破可持，滞涨注意止盈", "bull")
             elif price >= res20 > 0 and (res20 - price) / price * 100 <= 1.5:
                 tech_watch = True
-                notes.append(f"贴近 20 日压力位 {res20:.2f}，上方 60 日前高 {res:.2f}，冲高乏力注意分批止盈")
+                add_note(f"贴近 20 日压力位 {res20:.2f}，上方 60 日前高 {res:.2f}，冲高乏力注意分批止盈", "bear")
             if price <= sup:
                 tech_break = True
-                notes.append(f"已跌破 60 日抄底支撑位 {sup:.2f} 创新低，趋势恶劣，禁止摊平、优先止损")
+                add_note(f"已跌破 60 日抄底支撑位 {sup:.2f} 创新低，趋势恶劣，禁止摊平、优先止损", "bear")
             elif sup20 > 0 and price <= sup20 * 1.025:
                 tech_watch = True
                 ds = (price - sup) / price * 100
@@ -173,19 +252,20 @@ def calc_risk(positions: list[dict]) -> list[dict]:
                     note += f"，距 60 日抄底支撑位 {sup:.2f} 约 {ds:.1f}%"
                 if p.get("weight", 0) > 40:
                     note += "；当前仓位已重，不宜补仓，等企稳再定去留"
+                    add_note(note, "neutral")
                 else:
                     note += "，缩量企稳可轻仓试错，跌破支撑即离场"
-                notes.append(note)
+                    add_note(note, "bull")
             else:
                 ds = (price - sup) / price * 100
                 if ds <= 3:
                     tech_watch = True
-                    notes.append(f"距下方 60 日抄底支撑位 {sup:.2f} 仅 {ds:.1f}%，缩量企稳可轻仓试错，跌破即离场")
+                    add_note(f"距下方 60 日抄底支撑位 {sup:.2f} 仅 {ds:.1f}%，缩量企稳可轻仓试错，跌破即离场", "bull")
 
         # Determine risk level
-        if p.get("weight", 0) > 40 or p.get("pnl_pct", 0) < -10 or tech_break:
+        if p.get("weight", 0) > 40 or (p.get("pnl_pct") or 0) < -10 or tech_break:
             p["risk_level"] = "高"
-        elif p.get("weight", 0) > 20 or p.get("pnl_pct", 0) < -5 or tech_watch:
+        elif p.get("weight", 0) > 20 or (p.get("pnl_pct") or 0) < -5 or tech_watch:
             p["risk_level"] = "中"
         else:
             p["risk_level"] = "低"
@@ -197,6 +277,22 @@ def calc_risk(positions: list[dict]) -> list[dict]:
             p["badge"] = "观察 · 风险中"
         else:
             p["badge"] = "持有 · 风险低"
+
+        # 净结论：多空并列时给出单一行动倾向（高焦虑时刻不让人自己挑句子）
+        tones = {n["tone"] for n in notes}
+        if not notes:
+            p["net_verdict"] = None
+        elif "bull" in tones and "bear" in tones:
+            key = ""
+            if sup20 > 0:
+                key = f"，守 {sup20:.2f} / 破位看 {sup:.2f}"
+            p["net_verdict"] = {"text": f"多空信号并存：观望等确认{key}", "tone": "neutral"}
+        elif "bear" in tones:
+            p["net_verdict"] = {"text": "净倾向：防守（优先控回撤）", "tone": "bear"}
+        elif "bull" in tones:
+            p["net_verdict"] = {"text": "净倾向：可进攻（按试错纪律执行）", "tone": "bull"}
+        else:
+            p["net_verdict"] = {"text": "净倾向：维持现状", "tone": "neutral"}
 
         p["risk_notes"] = notes
 
@@ -216,4 +312,5 @@ def get_summary(positions: list[dict], account: dict) -> dict:
         "total_market_value": round(total_market_value, 2),
         "total_pnl": round(total_pnl, 2),
         "total_pnl_pct": round(total_pnl_pct, 2),
+        "cost_incomplete": any(p.get("cost_missing") for p in positions),
     }
