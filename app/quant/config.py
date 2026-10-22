@@ -266,5 +266,5 @@ STOCK_LIST = [
     {"symbol": "300291", "name": "百纳千成"},
     {"symbol": "300394", "name": "天孚通信"},
     {"symbol": "300505", "name": "川金诺"},
-    {"symbol": "300999", "name": "大普微"},
+    {"symbol": "301666", "name": "大普微-UW"},
 ]

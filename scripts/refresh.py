@@ -59,6 +59,14 @@ async def refresh_all():
         # 如果K线数据少于60天或最后一天不是今天，更新K线
         today = datetime.now().strftime("%m-%d")
         need_kline_update = len(kline_data) < 60 or (kline_data and kline_data[-1].get("date") != today)
+
+        # 一致性校验：K线末根收盘与实时价偏离>25% 说明缓存是错挂/过期数据
+        # （如换仓后残留旧股票K线、停牌复牌等），强制重拉
+        lp = q.get("latest_price", 0)
+        kp = kline_data[-1].get("close", 0) if kline_data else 0
+        if lp > 0 and kp > 0 and abs(kp - lp) / lp > 0.25:
+            print(f"  ⚠ {code} K线与实时价偏离过大({kp:.2f} vs {lp:.2f})，强制重拉")
+            need_kline_update = True
         
         if need_kline_update:
             klines = await fetch_kline_baidu(code, 250)
