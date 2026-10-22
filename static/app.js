@@ -406,6 +406,42 @@ function klineGeometry(el, state) {
   return { width, height, pad, plotW, plotH, visible, start };
 }
 
+// 筹码分布（成本分布直方图）：把每根K线的量按三角权重摊到 [low, high] 的价格区间上
+function calcChipDistribution(points, binCount) {
+  const empty = { dist: [], max: 0, lo: 0, hi: 0, width: 0, peakPrice: 0, avgCost: 0 };
+  if (!points || points.length < 5) return empty;
+  let lo = Infinity, hi = -Infinity;
+  for (const p of points) {
+    if (p.low > 0) lo = Math.min(lo, p.low);
+    if (p.high > 0) hi = Math.max(hi, p.high);
+  }
+  if (!(hi > lo) || !isFinite(lo) || !isFinite(hi)) return empty;
+  const binW = (hi - lo) / binCount;
+  const dist = new Array(binCount).fill(0);
+  for (const p of points) {
+    if (!p.volume || !(p.high > p.low)) continue;
+    const center = (p.low + p.high + p.close) / 3; // 日内成交重心近似
+    const half = Math.max((p.high - p.low) / 2, 1e-6);
+    const i0 = clamp(Math.floor((p.low - lo) / binW), 0, binCount - 1);
+    const i1 = clamp(Math.floor((p.high - lo) / binW), 0, binCount - 1);
+    for (let i = i0; i <= i1; i++) {
+      const bp = lo + (i + 0.5) * binW;
+      const w = Math.max(0, 1 - Math.abs(bp - center) / half);
+      dist[i] += p.volume * (w + 0.12); // 底部0.12保证区间边缘也有分布
+    }
+  }
+  const max = Math.max(...dist);
+  if (!(max > 0)) return empty;
+  let peakPrice = 0, peakVal = -1, sumV = 0, sumVC = 0;
+  for (let i = 0; i < binCount; i++) {
+    const price = lo + (i + 0.5) * binW;
+    sumV += dist[i];
+    sumVC += dist[i] * price;
+    if (dist[i] > peakVal) { peakVal = dist[i]; peakPrice = price; }
+  }
+  return { dist, max, lo, hi, width: binW, peakPrice, avgCost: sumV ? sumVC / sumV : 0 };
+}
+
 function renderKlineChart(el) {
   const state = ensureKlineState(el);
   const points = state.points;
@@ -438,6 +474,26 @@ function renderKlineChart(el) {
       return `<line x1="${pad.left}" y1="${y.toFixed(1)}" x2="${width - pad.right}" y2="${y.toFixed(1)}" class="k-grid"/><text x="4" y="${(y + 4).toFixed(1)}" class="k-axis">${value.toFixed(2)}</text>`;
     })
     .join("");
+
+  // 筹码峰层：用全部可见+历史数据算分布，灰度横条铺在K线背后，与当前视窗价格区间对齐
+  const chips = calcChipDistribution(points, 40);
+  let chipLayer = "";
+  if (chips.max > 0) {
+    const maxBarW = plotW * 0.62;
+    chipLayer = chips.dist
+      .map((v, i) => {
+        if (v <= 0) return "";
+        const price = chips.lo + (i + 0.5) * chips.width;
+        if (price < minY || price > maxY) return "";
+        const yTop = priceY(price + chips.width / 2, minY, maxY, pad.top, plotH);
+        const yBot = priceY(price - chips.width / 2, minY, maxY, pad.top, plotH);
+        const w = (v / chips.max) * maxBarW;
+        const g = Math.round(232 - (v / chips.max) * 148); // 密度越高灰度越深
+        const isPeak = price >= chips.peakPrice - chips.width && price <= chips.peakPrice + chips.width;
+        return `<rect x="${pad.left}" y="${yTop.toFixed(1)}" width="${w.toFixed(1)}" height="${Math.max(1, yBot - yTop - 0.6).toFixed(1)}" fill="rgb(${g},${g},${g})" opacity="${isPeak ? 0.75 : 0.5}"/>`;
+      })
+      .join("");
+  }
 
   const candles = view
     .map((item, index) => {
@@ -476,10 +532,12 @@ function renderKlineChart(el) {
       <span>收 ${fmtPrice(selected.close)}</span>
       <span>高 ${fmtPrice(selected.high)}</span>
       <span>低 ${fmtPrice(selected.low)}</span>
+      ${chips.max > 0 ? `<span class="k-chip-hint">峰 ${chips.peakPrice.toFixed(2)} · 均 ${chips.avgCost.toFixed(2)}</span>` : ""}
     </div>
-    <svg viewBox="0 0 ${width} ${height}" role="img" aria-label="近期K线图">
+    <svg viewBox="0 0 ${width} ${height}" role="img" aria-label="近期K线图（含筹码分布）">
       <rect x="0" y="0" width="${width}" height="${height}" class="k-bg"/>
       ${grid}
+      ${chipLayer}
       ${candles}
       <line x1="${pad.left}" y1="${lastY.toFixed(1)}" x2="${width - pad.right}" y2="${lastY.toFixed(1)}" class="k-last"/>
       <text x="${width - pad.right - 4}" y="${(lastY - 5).toFixed(1)}" text-anchor="end" class="k-last-label">${last.close.toFixed(2)}</text>
@@ -650,7 +708,7 @@ function renderETFTab() {
             return;
         }
         const now = new Date();
-        timeEl.textContent = `更新于 ${now.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}（3分钟缓存）`;
+        timeEl.textContent = `更新于 ${now.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })} · 盘中实时（3分钟缓存）`;
         const totalInflow = items.filter(x => x.main_net_inflow > 0).reduce((s, x) => s + x.main_net_inflow, 0);
         const top = items[0];
         summaryEl.innerHTML = `
@@ -756,7 +814,7 @@ async function loadPositionRegime() {
 
         // 更新时间
         if (data.fetchedAt) {
-            timeEl.textContent = `更新于 ${data.fetchedAt.slice(5, 16)}`;
+            timeEl.textContent = `更新于 ${data.fetchedAt.slice(11, 16)}`;
         }
 
         // 1) 面板：每只持仓一个彩色 chip
@@ -764,7 +822,7 @@ async function loadPositionRegime() {
             const s = byCode[code];
             if (!s) return `<div class="regime-chip neutral"><div class="rc-top"><span class="rc-name">${code}</span><span class="rc-label">计算中</span></div></div>`;
             const al = alertByCode[code];
-            const alertHtml = al ? `<div class="rc-alert">⚡ ${al.text || '带宽张开预警'}</div>` : '';
+            const alertHtml = al ? `<div class="rc-alert"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 2L3 14h7l-1 8 10-12h-7l1-8Z"/></svg> ${al.text || '带宽张开预警'}</div>` : '';
             return `
                 <div class="regime-chip ${s.regime}" title="日线 ${s.label_daily || s.label} / 30分钟 ${s.label_30m}；轨外${(s.outside_ratio*100).toFixed(0)}% 带宽分位${(s.bandwidth_pct*100).toFixed(0)}%">
                     <div class="rc-top">
