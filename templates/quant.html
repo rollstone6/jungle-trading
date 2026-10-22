@@ -4,12 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>量化信号中心 - 持仓工作台</title>
-    <link rel="stylesheet" href="/static/styles.css">
+    <link rel="stylesheet" href="/static/styles.css?v=20261022e">
     <style>
         .quant-container { max-width: 1280px; margin: 0 auto; padding: 20px; }
 
         .quant-header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 100%);
             color: white; padding: 30px; border-radius: 12px;
             margin-bottom: 12px; text-align: center;
         }
@@ -17,18 +17,18 @@
         .nav-row { display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
         .nav-btn {
             display: inline-block; padding: 10px 20px; background: white;
-            color: #667eea; border: 2px solid #667eea; border-radius: 8px;
+            color: var(--accent); border: 2px solid var(--accent); border-radius: 8px;
             text-decoration: none; font-weight: 600; transition: all 0.3s;
         }
-        .nav-btn:hover { background: #667eea; color: white; }
+        .nav-btn:hover { background: var(--accent); color: white; }
 
         .tab-row { display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
         .tab-btn {
-            padding: 10px 22px; border-radius: 8px; border: 2px solid #667eea;
-            background: white; color: #667eea; font-weight: 600; cursor: pointer;
+            padding: 10px 22px; border-radius: 8px; border: 2px solid var(--accent);
+            background: white; color: var(--accent); font-weight: 600; cursor: pointer;
             transition: all 0.2s; font-size: 14px;
         }
-        .tab-btn.active { background: #667eea; color: white; }
+        .tab-btn.active { background: var(--accent); color: white; }
         .tab-btn:disabled { opacity: 0.6; cursor: not-allowed; }
 
         .panel { display: none; }
@@ -42,11 +42,11 @@
             font-size: 14px; color: #64748b;
         }
         .scan-btn {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 100%);
             color: #fff; border: none; border-radius: 8px; padding: 10px 22px;
             font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s;
         }
-        .scan-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+        .scan-btn:disabled { /* 统一走全局 0.45 */ }
         .sel {
             padding: 8px 12px; border: 2px solid #e2e8f0; border-radius: 8px;
             font-size: 14px; color: #334155; background: white;
@@ -61,7 +61,7 @@
         .kpi-card .l { font-size: 13px; color: #64748b; margin-top: 4px; }
         .kpi-card.pass .v { color: #10b981; }
         .kpi-card.box .v { color: #f59e0b; }
-        .kpi-card.score .v { color: #667eea; }
+        .kpi-card.score .v { color: var(--accent); }
 
         .data-table {
             width: 100%; border-collapse: collapse; background: white;
@@ -69,7 +69,7 @@
             box-shadow: 0 2px 8px rgba(0,0,0,0.1);
         }
         .data-table th {
-            background: #667eea; color: #fff; padding: 11px 12px;
+            background: var(--accent); color: #fff; padding: 11px 12px;
             font-size: 13px; text-align: left; white-space: nowrap;
         }
         .data-table td { padding: 9px 12px; font-size: 13px; border-bottom: 1px solid #f1f5f9; }
@@ -86,7 +86,7 @@
         .mono { font-variant-numeric: tabular-nums; }
         .loading { text-align: center; padding: 40px; color: #666; }
         .link-btn {
-            color: #667eea; cursor: pointer; text-decoration: underline;
+            color: var(--accent); cursor: pointer; text-decoration: underline;
             font-size: 13px; white-space: nowrap;
         }
 
@@ -110,21 +110,21 @@
     <div class="quant-container">
         <div class="nav-row">
             <a href="/?pwd={{ pwd }}" class="nav-btn">← 返回持仓</a>
-            <a href="/backtest?pwd={{ pwd }}" class="nav-btn">🧪 量化回测实验室</a>
-            <a href="/regime?pwd={{ pwd }}" class="nav-btn">📊 走势分类扫描</a>
-            <a href="/research?pwd={{ pwd }}" class="nav-btn">🔬 研究中心</a>
+            <a href="/backtest?pwd={{ pwd }}" class="nav-btn"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 2v6L4.5 18a2 2 0 0 0 1.8 3h11.4a2 2 0 0 0 1.8-3L14 8V2 M8.5 2h7 M7 15h10"/></svg> 量化回测实验室</a>
+            <a href="/regime?pwd={{ pwd }}" class="nav-btn"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v18h18 M7 15l3-4 3 2 4-6"/></svg> 走势分类扫描</a>
+            <a href="/research?pwd={{ pwd }}" class="nav-btn"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 18h8 M3 22h18 M14 22a1 1 0 0 0 0-2 2 2 0 0 1 2-2h1a2 2 0 0 1 2 2v0a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2Z M9 8a3 3 0 0 1 3 3v3l-3 3-3-3V9a1 1 0 0 1 1-1h2Z M12 3v2"/></svg> 研究中心</a>
         </div>
 
         <div class="quant-header">
-            <h1>📡 量化信号中心</h1>
+            <h1><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.9 16.1C1 12.2 1 5.8 4.9 1.9 M7.8 4.7c3.4-3.4 8.6-3.4 12 0 M16.1 19.1c3.9-3.9 3.9-10.3 0-14.2 M19.1 16.1c3.4-3.4 3.4-8.6 0-12 M12 12m-1 0a1 1 0 1 0 2 0a1 1 0 1 0-2 0"/></svg> 量化信号中心</h1>
             <p>策略信号 · 趋势过滤 · 箱体检测 · 筹码分布 —— app/quant 模块全能力Web化，与持仓/回测共用同一股票池</p>
         </div>
 
         <div class="tab-row" id="tab-row">
-            <button class="tab-btn active" data-tab="signals">🎯 策略信号</button>
-            <button class="tab-btn" data-tab="trend">📈 趋势过滤</button>
-            <button class="tab-btn" data-tab="box">📦 箱体检测</button>
-            <button class="tab-btn" data-tab="chip">🧱 筹码分布</button>
+            <button class="tab-btn active" data-tab="signals" type="button"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20Z M12 18a6 6 0 1 0 0-12 6 6 0 0 0 0 12Z M12 14a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z"/></svg> 策略信号</button>
+            <button class="tab-btn" data-tab="trend" type="button"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 17l6-6 4 4 7-7 M14 8h7v7"/></svg> 趋势过滤</button>
+            <button class="tab-btn" data-tab="box" type="button"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 8a2 2 0 0 0-1-1.7l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.7l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z M3.3 7l8.7 5 8.7-5 M12 22V12"/></svg> 箱体检测</button>
+            <button class="tab-btn" data-tab="chip" type="button"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 8h20 M2 16h20 M2 4v16 M22 4v16 M7 4v4 M17 8v4 M7 16v4 M12 4v4"/></svg> 筹码分布</button>
         </div>
 
         <!-- ===== 策略信号 ===== -->
@@ -132,17 +132,19 @@
             <div class="scan-bar">
                 <span>
                     策略：
-                    <select class="sel" id="signal-strategy"></select>
+                    <select class="sel" id="signal-strategy" aria-label="策略信号扫描模式"></select>
                     <span id="signal-meta" style="margin-left:12px">加载中...</span>
                 </span>
-                <button class="scan-btn" id="signal-refresh">重新扫描</button>
+                <button class="scan-btn" id="signal-refresh" type="button">重新扫描</button>
             </div>
-            <table class="data-table">
+            <div class="table-scroll">
+<table class="data-table">
                 <thead><tr>
                     <th>日期</th><th>名称</th><th>代码</th><th>收盘价</th><th>评分</th><th>信号细节</th><th>止损 / 止盈</th>
                 </tr></thead>
                 <tbody id="signal-body"><tr><td colspan="7" class="loading">加载中...</td></tr></tbody>
             </table>
+</div>
         </div>
 
         <!-- ===== 趋势过滤 ===== -->
@@ -150,33 +152,36 @@
             <div class="scan-bar">
                 <span>
                     模式：
-                    <select class="sel" id="trend-mode">
+                    <select class="sel" id="trend-mode" aria-label="趋势过滤模式">
                         <option value="strong">强趋势（均线多头+新高）</option>
                         <option value="oversold">超卖（低于MA20）</option>
                         <option value="loose">宽松（仅检查数据量）</option>
                     </select>
                     <span id="trend-meta" style="margin-left:12px">加载中...</span>
                 </span>
-                <button class="scan-btn" id="trend-refresh">重新扫描</button>
+                <button class="scan-btn" id="trend-refresh" type="button">重新扫描</button>
             </div>
             <div class="kpi-grid" id="trend-kpi"><div class="loading">加载中...</div></div>
-            <table class="data-table">
+            <div class="table-scroll">
+<table class="data-table">
                 <thead><tr>
                     <th>通过</th><th>名称</th><th>代码</th><th>收盘</th>
                     <th>①均线多头</th><th>②MA20向上</th><th>③20日新高</th><th>④量能</th><th>未通过原因</th>
                 </tr></thead>
                 <tbody id="trend-body"><tr><td colspan="9" class="loading">加载中...</td></tr></tbody>
             </table>
+</div>
         </div>
 
         <!-- ===== 箱体检测 ===== -->
         <div class="panel" id="panel-box">
             <div class="scan-bar">
                 <span id="box-meta">加载中...</span>
-                <button class="scan-btn" id="box-refresh">重新扫描</button>
+                <button class="scan-btn" id="box-refresh" type="button">重新扫描</button>
             </div>
             <div class="kpi-grid" id="box-kpi"><div class="loading">加载中...</div></div>
-            <table class="data-table">
+            <div class="table-scroll">
+<table class="data-table">
                 <thead><tr>
                     <th>名称</th><th>代码</th><th>箱体上沿</th><th>箱体下沿</th><th>振幅%</th>
                     <th>跨度(日)</th><th>宽高比</th>
@@ -184,27 +189,30 @@
                 </tr></thead>
                 <tbody id="box-body"><tr><td colspan="11" class="loading">加载中...</td></tr></tbody>
             </table>
+</div>
         </div>
 
         <!-- ===== 筹码分布 ===== -->
         <div class="panel" id="panel-chip">
             <div class="scan-bar">
                 <span id="chip-meta">加载中...</span>
-                <button class="scan-btn" id="chip-refresh">重新扫描</button>
+                <button class="scan-btn" id="chip-refresh" type="button">重新扫描</button>
             </div>
             <div class="kpi-grid" id="chip-kpi"><div class="loading">加载中...</div></div>
-            <table class="data-table">
+            <div class="table-scroll">
+<table class="data-table">
                 <thead><tr>
                     <th>#</th><th>名称</th><th>代码</th><th>现价</th><th>峰值价</th>
                     <th>90%集中</th><th>70%集中</th><th>主峰占比</th><th>评分</th><th>分布</th>
                 </tr></thead>
                 <tbody id="chip-body"><tr><td colspan="10" class="loading">加载中...</td></tr></tbody>
             </table>
+</div>
             <div class="detail-box" id="chip-detail">
                 <h3 id="chip-detail-title">筹码分布</h3>
                 <div class="sub" id="chip-detail-sub"></div>
                 <div class="detail-grid" id="chip-detail-metrics"></div>
-                <canvas id="chip-canvas"></canvas>
+                <canvas id="chip-canvas" role="img" aria-label="数据图表"></canvas>
             </div>
         </div>
     </div>
@@ -390,7 +398,7 @@
         window.showChipDetail = async function(symbol, name) {
             const box = document.getElementById('chip-detail');
             box.style.display = 'block';
-            document.getElementById('chip-detail-title').textContent = `🧱 ${name}（${symbol}）筹码分布`;
+            document.getElementById('chip-detail-title').textContent = `<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 8h20 M2 16h20 M2 4v16 M22 4v16 M7 4v4 M17 8v4 M7 16v4 M12 4v4"/></svg> ${name}（${symbol}）筹码分布`;
             document.getElementById('chip-detail-sub').textContent = '计算中...';
             document.getElementById('chip-detail-metrics').innerHTML = '';
             box.scrollIntoView({ behavior: 'smooth' });
@@ -431,7 +439,7 @@
             // 分布柱状
             const barW = Math.max(2, (w - padL - padR) / dist.length - 1);
             dist.forEach(p => {
-                ctx.fillStyle = Math.abs(p.price - peakPrice) < (pMax - pMin) * 0.03 ? '#f59e0b' : '#667eea';
+                ctx.fillStyle = Math.abs(p.price - peakPrice) < (pMax - pMin) * 0.03 ? '#f59e0b' : 'var(--accent)';
                 ctx.fillRect(x(p.price) - barW / 2, y(p.ratio), barW, h - padB - y(p.ratio));
             });
             // 峰值价竖线

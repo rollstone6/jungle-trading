@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>量化回测 - 持仓工作台</title>
-    <link rel="stylesheet" href="/static/styles.css">
+    <link rel="stylesheet" href="/static/styles.css?v=20261022e">
     <style>
         .backtest-container {
             max-width: 1200px;
@@ -13,7 +13,7 @@
         }
         
         .backtest-header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 100%);
             color: white;
             padding: 30px;
             border-radius: 12px;
@@ -58,7 +58,7 @@
         .form-group select:focus,
         .form-group input:focus {
             outline: none;
-            border-color: #667eea;
+            border-color: var(--accent);
         }
         
         .strategy-cards {
@@ -78,18 +78,18 @@
         }
         
         .strategy-card:hover {
-            border-color: #667eea;
+            border-color: var(--accent);
             transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
+            box-shadow: 0 4px 12px rgba(var(--accent-rgb), 0.2);
         }
         
         .strategy-card.selected {
-            border-color: #667eea;
-            background: linear-gradient(135deg, #667eea15 0%, #764ba215 100%);
+            border-color: var(--accent);
+            background: linear-gradient(135deg, var(--accent)15 0%, var(--accent-2)15 100%);
         }
         
         .strategy-card h3 {
-            color: #667eea;
+            color: var(--accent);
             margin-bottom: 10px;
             font-size: 1.2em;
         }
@@ -102,7 +102,7 @@
         
         .strategy-card .engine-badge {
             display: inline-block;
-            background: #667eea;
+            background: var(--accent);
             color: white;
             padding: 4px 12px;
             border-radius: 12px;
@@ -127,7 +127,7 @@
             font-size: 14px;
         }
         .regime-badge.ranging { background: #10b981; }
-        .regime-badge.trending { background: #667eea; }
+        .regime-badge.trending { background: var(--accent); }
         .regime-badge.squeeze { background: #f59e0b; }
         .regime-badge.neutral { background: #94a3b8; }
         .regime-metrics {
@@ -143,11 +143,11 @@
             padding: 5px 10px;
             font-size: 12px;
         }
-        .regime-metrics b { color: #667eea; }
+        .regime-metrics b { color: var(--accent); }
         .regime-note { color: #64748b; margin: 6px 0 10px; line-height: 1.6; }
         .regime-chips { display: flex; flex-wrap: wrap; gap: 8px; }
         .regime-chip {
-            background: linear-gradient(135deg, #667eea, #764ba2);
+            background: linear-gradient(135deg, var(--accent), var(--accent-2));
             color: #fff;
             border: none;
             border-radius: 16px;
@@ -156,12 +156,12 @@
             cursor: pointer;
             transition: all 0.2s;
         }
-        .regime-chip:hover { transform: translateY(-2px); box-shadow: 0 4px 10px rgba(102,126,234,0.4); }
+        .regime-chip:hover { transform: translateY(-2px); box-shadow: 0 4px 10px rgba(var(--accent-rgb),0.4); }
 
         .run-button {
             width: 100%;
             padding: 16px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 100%);
             color: white;
             border: none;
             border-radius: 8px;
@@ -228,8 +228,8 @@
             display: inline-block;
             padding: 12px 24px;
             background: white;
-            color: #667eea;
-            border: 2px solid #667eea;
+            color: var(--accent);
+            border: 2px solid var(--accent);
             border-radius: 8px;
             text-decoration: none;
             font-weight: 600;
@@ -238,7 +238,7 @@
         }
         
         .back-button:hover {
-            background: #667eea;
+            background: var(--accent);
             color: white;
         }
         
@@ -250,7 +250,7 @@
         
         .loading-spinner {
             border: 4px solid #f3f3f3;
-            border-top: 4px solid #667eea;
+            border-top: 4px solid var(--accent);
             border-radius: 50%;
             width: 40px;
             height: 40px;
@@ -277,11 +277,11 @@
     <div class="backtest-container">
         <div class="nav-row" style="display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap;">
             <a href="/?pwd={{ pwd }}" class="back-button" style="margin-bottom:0;">← 返回持仓</a>
-            <a href="/regime?pwd={{ pwd }}" class="back-button" style="margin-bottom:0;">📊 走势分类扫描</a>
+            <a href="/regime?pwd={{ pwd }}" class="back-button" style="margin-bottom:0;"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v18h18 M7 15l3-4 3 2 4-6"/></svg> 走势分类扫描</a>
         </div>
         
         <div class="backtest-header">
-            <h1>🧪 量化回测实验室</h1>
+            <h1><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 2v6L4.5 18a2 2 0 0 0 1.8 3h11.4a2 2 0 0 0 1.8-3L14 8V2 M8.5 2h7 M7 15h10"/></svg> 量化回测实验室</h1>
             <p>使用历史数据验证交易策略</p>
         </div>
         
@@ -289,15 +289,15 @@
         <div class="backtest-form">
             <div class="form-group">
                 <label>选择股票</label>
-                <select id="stock-select">
+                <select id="stock-select" aria-label="选择回测股票">
                     <option value="">请选择...</option>
-                    <optgroup label="📈 当前持仓">
+                    <optgroup label="<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 17l6-6 4 4 7-7 M14 8h7v7"/></svg> 当前持仓">
                         {% for pos in positions %}
                         <option value="{{ pos.code }}">{{ pos.name }} ({{ pos.code }})</option>
                         {% endfor %}
                     </optgroup>
                     {% if quant_pool %}
-                    <optgroup label="🧪 量化股票池（与 app/quant 策略共用）">
+                    <optgroup label="<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 2v6L4.5 18a2 2 0 0 0 1.8 3h11.4a2 2 0 0 0 1.8-3L14 8V2 M8.5 2h7 M7 15h10"/></svg> 量化股票池（与 app/quant 策略共用）">
                         {% for s in quant_pool %}
                         <option value="{{ s.symbol }}">{{ s.name }} ({{ s.symbol }})</option>
                         {% endfor %}
@@ -308,7 +308,7 @@
             
             <div class="form-group">
                 <label>K线周期</label>
-                <select id="period-select">
+                <select id="period-select" aria-label="回测周期">
                     <option value="1d">日线（约 1.5 年历史）</option>
                     <option value="60m">60 分钟（约 1 年）</option>
                     <option value="30m">30 分钟（约半年）</option>
@@ -339,7 +339,7 @@
                 <small style="color: #999; font-size: 12px;">默认 0.001（千一）；万一填 0.0001</small>
             </div>
             
-            <button class="run-button" id="run-backtest">开始回测</button>
+            <button class="run-button" id="run-backtest" type="button">开始回测</button>
         </div>
         
         <!-- 加载状态 -->

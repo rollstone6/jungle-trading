@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>央行公开市场操作 · 流动性追踪面板 - 持仓工作台</title>
-    <link rel="stylesheet" href="/static/styles.css">
+    <link rel="stylesheet" href="/static/styles.css?v=20261022e">
     <script src="/static/echarts.min.js"></script>
     <style>
         body { background: #f1f2f6; }
@@ -28,7 +28,7 @@
         }
         .kpi .l { font-size: 12px; color: #64748b; margin-bottom: 6px; }
         .kpi .v { font-size: 26px; font-weight: 800; }
-        .kpi .u { font-size: 12px; color: #94a3b8; font-weight: 400; margin-left: 3px; }
+        .kpi .u { font-size: 12px; color: #64748b; font-weight: 400; margin-left: 3px; }
         .v.red { color: #ef4444; } .v.green { color: #16a34a; } .v.dark { color: #1e293b; }
         .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px; }
         .card {
@@ -59,7 +59,7 @@
         .data-table th { color: #475569; padding: 8px 8px; font-size: 12px; text-align: left; border-bottom: 2px solid #e2e8f0; }
         .data-table td { padding: 7px 8px; border-bottom: 1px solid #f1f5f9; }
         .pos-t { color: #ef4444; font-weight: 600; } .neg-t { color: #16a34a; font-weight: 600; }
-        .loading { text-align: center; padding: 30px; color: #94a3b8; font-size: 13px; }
+        .loading { text-align: center; padding: 30px; color: #64748b; font-size: 13px; }
         .refresh-btn {
             background: #1a1f3c; color: #fff; border: none; border-radius: 8px;
             padding: 7px 16px; font-size: 12.5px; font-weight: 600; cursor: pointer;
@@ -78,25 +78,25 @@
 </head>
 <body>
     <div class="hero">
-        <h1>🏦 央行公开市场操作流动性追踪面板</h1>
+        <h1><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 21h18 M4 10h16 M6 10v8 M10 10v8 M14 10v8 M18 10v8 M12 3l9 5H3l9-5Z"/></svg> 央行公开市场操作流动性追踪面板</h1>
         <div class="sub" id="meta">加载中...</div>
     </div>
     <div class="wrap">
         <div class="back-row">
             <a class="back-link" href="/research?pwd={{ pwd }}">← 研究中心 · 返回持仓</a>
-            <button class="refresh-btn" id="refresh">↻ 立即刷新</button>
+            <button class="refresh-btn" id="refresh" type="button">↻ 立即刷新</button>
         </div>
-        <div class="src-bar">📌 数据来源：<a href="https://www.pbc.gov.cn/zhengcehuobisi/125207/125213/125431/125475/index.html" target="_blank">中国人民银行货币政策司</a>官网公告 | 逆回购到期推算采用「7天自然日+周末顺延」算法 | ⚠️ 自2024年底起，MLF已被买断式逆回购替代，央行不再新增MLF操作</div>
+        <div class="src-bar"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 17v5 M9 3h6l1 7 2 2H6l2-2 1-7Z"/></svg> 数据来源：<a href="https://www.pbc.gov.cn/zhengcehuobisi/125207/125213/125431/125475/index.html" target="_blank">中国人民银行货币政策司</a>官网公告 | 逆回购到期推算采用「7天自然日+周末顺延」算法 | <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l9.5 17H2.5L12 3Z M12 10v4 M12 17.5v.5"></path></svg> 自2024年底起，MLF已被买断式逆回购替代，央行不再新增MLF操作</div>
 
         <div class="kpi-row" id="kpi"></div>
 
         <div class="grid2">
             <div class="card">
-                <div class="card-head"><h3>📊 当前状态</h3><span class="tag green" id="state-tag">评估中</span></div>
+                <div class="card-head"><h3><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v18h18 M7 15l3-4 3 2 4-6"/></svg> 当前状态</h3><span class="tag green" id="state-tag">评估中</span></div>
                 <div id="p-status"><div class="loading">加载中...</div></div>
             </div>
             <div class="card">
-                <div class="card-head"><h3>🔮 未来展望</h3><span class="tag red">关注到期</span></div>
+                <div class="card-head"><h3><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2a8 8 0 0 1 8 8c0 4-3 6-5 7H7c-2-1-5-3-5-7a8 8 0 0 1 8-8Z M8 22h8 M10 17v5M14 17v5"/></svg> 未来展望</h3><span class="tag red">关注到期</span></div>
                 <div id="p-outlook"></div>
                 <div id="p-hist" style="background:#fff7ed;border-radius:6px;padding:10px 12px;margin-top:4px">
                     <div style="font-size:12.5px;font-weight:700;color:#9a3412;margin-bottom:4px">到期压力分布：</div>
@@ -107,45 +107,49 @@
         </div>
 
         <div class="card" style="margin-bottom:14px">
-            <div class="card-head"><h3>📈 净投放与上证指数走势叠加（含投放/到期对比，右侧为未来推算到期）</h3></div>
+            <div class="card-head"><h3><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 17l6-6 4 4 7-7 M14 8h7v7"/></svg> 净投放与上证指数走势叠加（含投放/到期对比，右侧为未来推算到期）</h3></div>
             <div class="chart-box" id="chart-net" style="height:400px"></div>
         </div>
 
         <div class="grid2">
             <div class="card">
-                <div class="card-head"><h3>📊 分类工具操作量</h3></div>
+                <div class="card-head"><h3><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v18h18 M7 15l3-4 3 2 4-6"/></svg> 分类工具操作量</h3></div>
                 <div class="chart-box-sm" id="chart-type"></div>
             </div>
             <div class="card">
-                <div class="card-head"><h3>📅 未来到期分布（按类型）</h3></div>
+                <div class="card-head"><h3><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z M8 2v4 M16 2v4 M3 10h18"/></svg> 未来到期分布（按类型）</h3></div>
                 <div class="chart-box-sm" id="chart-future"></div>
             </div>
         </div>
 
         <div class="grid2">
             <div class="card">
-                <div class="card-head"><h3>💧 资金面环境</h3><span class="tag green" id="env-tag">信号</span></div>
+                <div class="card-head"><h3><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.7l5.7 5.7a8 8 0 1 1-11.4 0Z"/></svg> 资金面环境</h3><span class="tag green" id="env-tag">信号</span></div>
                 <div id="p-env"></div>
             </div>
             <div class="card">
-                <div class="card-head"><h3>⚠️ 风险与机会</h3><span class="tag red">关注风险</span></div>
+                <div class="card-head"><h3><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l9.5 17H2.5L12 3Z M12 10v4 M12 17.5v.5"></path></svg> 风险与机会</h3><span class="tag red">关注风险</span></div>
                 <div id="p-risk"></div>
             </div>
         </div>
 
         <div class="card" style="margin-top:0">
-            <div class="card-head"><h3>📋 近期逆回购公告明细（近30日）</h3></div>
-            <table class="data-table">
+            <div class="card-head"><h3><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 4a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V9a1 1 0 0 0-1-1h-3 M9 3h6v3H9Z M9 13h6 M9 17h6"/></svg> 近期逆回购公告明细（近30日）</h3></div>
+            <div class="table-scroll">
+<table class="data-table">
                 <thead><tr><th>日期</th><th>投放(亿)</th><th>7天利率</th><th>到期(推算,亿)</th><th>净投放(亿)</th><th>上证指数</th></tr></thead>
                 <tbody id="rr"><tr><td colspan="6" class="loading">加载中...</td></tr></tbody>
             </table>
-            <div class="card-head" style="margin-top:18px"><h3>🗓️ 买断式逆回购未来到期</h3></div>
-            <table class="data-table">
+</div>
+            <div class="card-head" style="margin-top:18px"><h3><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z M8 2v4 M16 2v4 M3 10h18 M8 14h2 M14 14h2 M8 17h2 M14 17h2"/></svg>️ 买断式逆回购未来到期</h3></div>
+            <div class="table-scroll">
+<table class="data-table">
                 <thead><tr><th>操作日</th><th>金额(亿)</th><th>期限</th><th>到期日</th><th>剩余天数</th></tr></thead>
                 <tbody id="bo"><tr><td colspan="5" class="loading">加载中...</td></tr></tbody>
             </table>
+</div>
         </div>
-        <div style="font-size:11px;color:#94a3b8;margin-top:10px">数据均为央行公告原文推算 · 节假日顺延未完全剔除 · 买断式到期日取公告明示值</div>
+        <div style="font-size:11px;color:#64748b;margin-top:10px">数据均为央行公告原文推算 · 节假日顺延未完全剔除 · 买断式到期日取公告明示值</div>
     </div>
 
     <script>
@@ -204,7 +208,7 @@
                 const tot = x.rr + x.bo;
                 return `<div class="bar-line"><span class="bl-label">${x.month.slice(2).replace('-','/')} ${fmt(tot)}亿</span>
                     <div class="bl-track"><div class="bl-fill" style="width:${Math.max(4, tot / fmax * 100)}%"></div></div></div>`;
-            }).join('') || '<div style="font-size:12px;color:#94a3b8">未来95天内无可推算到期</div>';
+            }).join('') || '<div style="font-size:12px;color:#64748b">未来95天内无可推算到期</div>';
 
             renderCharts(d);
             renderTables(d);
