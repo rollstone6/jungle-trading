@@ -8,6 +8,7 @@
 import asyncio
 import json
 import re
+import time
 from datetime import datetime, timedelta
 
 import httpx
@@ -293,24 +294,89 @@ MONEY_FLOW_PATH = (
 )
 
 
+SINA_FLOW_URL = (
+    "https://vip.stock.finance.sina.com.cn/quotes_service/api/json_v2.php/"
+    "MoneyFlow.ssl_bkzj_ssggzj?page={page}&num=100&sort={sort}&asc=0&bankuai=&shichang="
+)
+
+
+async def _sina_flow_fetch(client: httpx.AsyncClient) -> list[dict]:
+    """新浪个股资金流排行（push2 被封锁时的替代源）。
+    抓两个切片：净流入 TOP（netamount 降序 2 页）+ 跌幅榜（changeratio 升序 1 页，
+    背离信号=跌但净流入为正的票多在这两头），合并去重成统一行结构。"""
+    rows, seen = [], set()
+    for sort in ("netamount", "changeratio"):
+        pages = (1, 2) if sort == "netamount" else (1,)
+        for page in pages:
+            try:
+                resp = await client.get(
+                    SINA_FLOW_URL.format(page=page, sort=sort),
+                    headers={**UA, "Referer": "https://vip.stock.finance.sina.com.cn/"},
+                )
+                data = json.loads(resp.text)
+            except Exception:
+                data = None
+            if not isinstance(data, list):
+                continue
+            for r in data:
+                sym = str(r.get("symbol") or "")
+                if not sym or sym in seen:
+                    continue
+                seen.add(sym)
+                # 只保留 A 股股票（东财原口径无 ETF/基金）：60/00/30/68 开头
+                if not sym[2:4] in ("60", "00", "30", "68"):
+                    continue
+                try:
+                    amount = float(r.get("amount") or 0)
+                    net = float(r.get("netamount") or 0)
+                    r0 = float(r.get("r0_net") or 0)
+                    r3 = float(r.get("r3_net") or 0)
+                    chg = float(r.get("changeratio") or 0) * 100
+                except (TypeError, ValueError):
+                    continue
+                rows.append({
+                    "f12": sym[2:], "f14": r.get("name", ""), "f2": r.get("trade"),
+                    "f3": round(chg, 2),
+                    "f62": net, "f115": amount,
+                    "f128": r0,                      # 超大单净额
+                    "f136": net - r0 - r3,           # 近似大单+中单（新浪排行无r1/r2拆分）
+                    "_sina": True,
+                })
+    return rows
+
+
+# 东财 push2 熔断器：连续全主机失败后冷却期内直接走新浪，避免每请求空等 5 次超时
+_PUSH2_COOLDOWN = 15 * 60
+_push2_breaker_until = 0.0
+
+
 async def fetch_money_flow() -> dict:
     """全市场资金流 + 价资背离信号（跌>1% 且主力净流入占比>1.5% 且成交额>5000万）"""
+    global _push2_breaker_until
     headers = {**UA, "Referer": "https://data.eastmoney.com/"}
     rows = []
     last_err = ""
     async with httpx.AsyncClient(timeout=15, follow_redirects=True) as client:
-        for host in PUSH2_HOSTS:
-            try:
-                data = (await client.get(f"https://{host}{MONEY_FLOW_PATH}", headers=headers)).json()
-                rows = (data.get("data") or {}).get("diff") or []
-                if rows:
-                    break
-                last_err = f"{host} 返回空"
-            except Exception as e:
-                last_err = f"{host}: {str(e)[:60]}"
+        if time.time() >= _push2_breaker_until:
+            host_ok = False
+            for host in PUSH2_HOSTS:
+                try:
+                    data = (await client.get(f"https://{host}{MONEY_FLOW_PATH}", headers=headers)).json()
+                    rows = (data.get("data") or {}).get("diff") or []
+                    if rows:
+                        host_ok = True
+                        break
+                    last_err = f"{host} 返回空"
+                except Exception as e:
+                    last_err = f"{host}: {str(e)[:60]}"
+            if not host_ok:
+                _push2_breaker_until = time.time() + _PUSH2_COOLDOWN
+        if not rows:
+            rows = await _sina_flow_fetch(client)
     if not rows:
-        raise RuntimeError(f"东财资金流接口不可用（{last_err}），可能触发限流，请稍后重试")
+        raise RuntimeError(f"资金流接口不可用（东财: {last_err}；新浪备选也失败），请稍后重试")
     signals, inflow_top = [], []
+    src = "新浪财经" if rows and rows[0].get("_sina") else "东方财富"
     for r in rows:
         code, name = str(r.get("f12") or ""), str(r.get("f14") or "")
         try:
@@ -341,6 +407,7 @@ async def fetch_money_flow() -> dict:
     inflow_top.sort(key=lambda x: x["main_inflow_wan"], reverse=True)
     return {
         "fetchedAt": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "source": src,
         "universe": len(rows),
         "signal_count": len(signals),
         "signals": signals[:50],
