@@ -9,7 +9,7 @@ async def fetch_realtime_tencent(codes: list[str]) -> dict:
     """腾讯财经实时行情 - 优先使用"""
     code_map = {}
     for c in codes:
-        prefix = "sh" if c.startswith("6") else "sz"
+        prefix = "sh" if c.startswith(("6", "5", "9")) else "sz"
         code_map[f"{prefix}{c}"] = c
 
     if not code_map:
@@ -66,7 +66,7 @@ async def fetch_kline_sina_minute(code: str, scale: int = 60, datalen: int = 102
     """
     if scale not in (60, 30, 15):
         return []
-    prefix = "sh" if code.startswith("6") else "sz"
+    prefix = "sh" if code.startswith(("6", "5", "9")) else "sz"
     url = (
         "https://quotes.sina.cn/cn/api/jsonp_v2.php/var%20_=/CN_MarketDataService.getKLineData"
         f"?symbol={prefix}{code}&scale={scale}&ma=no&datalen={datalen}"
@@ -96,8 +96,8 @@ async def fetch_kline_sina_minute(code: str, scale: int = 60, datalen: int = 102
 
 async def fetch_kline_baidu(code: str, days: int = 120) -> list[dict]:
     """百度股市通日K线"""
-    prefix = "sh" if code.startswith("6") else "sz"
-    market = "SH" if code.startswith("6") else "SZ"
+    prefix = "sh" if code.startswith(("6", "5", "9")) else "sz"
+    market = "SH" if code.startswith(("6", "5", "9")) else "SZ"
     url = f"https://finance.pae.baidu.com/vapi/v1/getquotation?srcid=5353&pointType=string&group=quotation_kline_ab&query={code}&code={code}&market_type=stock&newFormat=1&finClientType=pc&ktype=day&start_time=&end_time=&count={days}"
 
     async with httpx.AsyncClient(timeout=15) as client:
@@ -133,7 +133,7 @@ async def fetch_kline_tencent(code: str, days: int = 120, full_date: bool = Fals
     full_date=True 时保留完整 YYYY-MM-DD 日期（跨年的长周期数据回测用），
     默认仍归一化为 MM-DD（持仓缓存格式）。
     """
-    prefix = "sh" if code.startswith("6") else "sz"
+    prefix = "sh" if code.startswith(("6", "5", "9")) else "sz"
     url = f"https://web.ifzq.gtimg.cn/appstock/app/fqkline/get?param={prefix}{code},day,,,{days},qfq"
 
     async with httpx.AsyncClient(timeout=15) as client:
@@ -166,7 +166,7 @@ async def fetch_kline_tencent(code: str, days: int = 120, full_date: bool = Fals
 async def fetch_news_eastmoney(code: str, count: int = 3) -> list[dict]:
     """东方财富公告"""
     # Determine stock type
-    if code.startswith("6"):
+    if code.startswith(("6", "5", "9")):
         stock_type = "SH"
     elif code.startswith("0") or code.startswith("3"):
         stock_type = "SZ"

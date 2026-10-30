@@ -94,7 +94,7 @@ def fetch_tushare(symbol: str, start_date: str, timeframe: str = "1d") -> pd.Dat
     """数据源0: Tushare Pro（优先级最高）。"""
     tf_cfg = _get_tf_config(timeframe)
 
-    if symbol.startswith("6"):
+    if symbol.startswith(("6", "5", "9")):
         ts_code = f"{symbol}.SH"
     else:
         ts_code = f"{symbol}.SZ"
@@ -174,7 +174,7 @@ def fetch_sina(symbol: str, start_date: str, timeframe: str = "1d") -> pd.DataFr
     if timeframe != "1d":
         raise ValueError("新浪财经仅支持日线数据")
 
-    if symbol.startswith("6"):
+    if symbol.startswith(("6", "5", "9")):
         full_symbol = f"sh{symbol}"
     else:
         full_symbol = f"sz{symbol}"
@@ -209,7 +209,7 @@ def fetch_sina_minute(symbol: str, start_date: str = "20240101",
     if scale is None:
         raise ValueError(f"新浪财经分钟仅支持 60m/30m/15m，收到: {timeframe}")
 
-    prefix = "sh" if symbol.startswith("6") else "sz"
+    prefix = "sh" if symbol.startswith(("6", "5", "9")) else "sz"
     url = (
         "https://quotes.sina.cn/cn/api/jsonp_v2.php/var%20_=/CN_MarketDataService.getKLineData"
         f"?symbol={prefix}{symbol}&scale={scale}&ma=no&datalen=1023"
@@ -247,7 +247,7 @@ def fetch_tencent(symbol: str, start_date: str, timeframe: str = "1d") -> pd.Dat
     """数据源3: 腾讯财经（直接 HTTP 请求）。"""
     tf_cfg = _get_tf_config(timeframe)
 
-    if symbol.startswith("6") or symbol.startswith("5"):
+    if symbol.startswith(("6", "5", "9")) or symbol.startswith("5"):
         market = "sh"
     else:
         market = "sz"
@@ -318,7 +318,7 @@ def fetch_copper_futures(start_date: str = "20240101") -> pd.DataFrame:
 
 def fetch_fund_flow(symbol: str = "600183") -> pd.DataFrame:
     """获取个股主力资金流向数据。"""
-    market = "sh" if symbol.startswith("6") else "sz"
+    market = "sh" if symbol.startswith(("6", "5", "9")) else "sz"
     with _AK_LOCK:
         df = ak.stock_individual_fund_flow(stock=symbol, market=market)
     df = df.rename(
@@ -339,7 +339,7 @@ def fetch_margin_trading(symbol: str = "600183") -> pd.DataFrame:
     end_date = datetime.now()
 
     with _AK_LOCK:
-        if symbol.startswith("6"):
+        if symbol.startswith(("6", "5", "9")):
             df = ak.stock_margin_detail_sse(date=end_date.strftime("%Y%m%d"))
             code_col = "标的证券代码"
         else:
