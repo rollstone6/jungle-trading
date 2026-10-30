@@ -6,7 +6,7 @@ from datetime import datetime
 from pathlib import Path
 
 from fastapi import FastAPI, Request, HTTPException, Depends
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
@@ -97,13 +97,16 @@ async def startup():
     conn = get_db()
     count = conn.execute("SELECT COUNT(*) FROM positions").fetchone()[0]
     if count == 0:
-        # 与 app/quant/config.py 的 STOCK_LIST 保持一致（2026-10-10 持仓）
+        # 与 app/quant/config.py 的 STOCK_LIST 保持一致（2026-10-23 西南+中信合并持仓）
         defaults = [
-            ("603678", "火炬电子", "军工电子/电容", 100, 0),
-            ("300291", "百纳千成", "影视传媒", 100, 0),
-            ("300394", "天孚通信", "光模块/CPO", 100, 0),
-            ("300505", "川金诺", "磷化工", 100, 0),
-            ("301666", "大普微-UW", "芯片/存储", 100, 0),
+            ("000592", "平潭发展", "林业/综合", 100, 43.840),
+            ("300291", "百纳千成", "影视传媒", 500, 12.070),
+            ("300394", "天孚通信", "光模块/CPO", 100, 346.982),
+            ("300505", "川金诺", "磷化工", 1200, 22.867),
+            ("300251", "光线传媒", "影视传媒", 0, 0),
+            ("513310", "中韩芯片", "QDII-ETF/半导体", 100, 5.179),
+            ("600580", "卧龙电驱", "电机/机电", 100, 80.062),
+            ("603678", "火炬电子", "军工电子/电容", 300, 53.871),
         ]
         for code, name, sector, qty, cost in defaults:
             conn.execute(
@@ -416,10 +419,8 @@ REGIME_CACHE_FILE = BASE_DIR / "data" / "regime_scan.json"
 
 @app.get("/regime", response_class=HTMLResponse)
 async def regime_page(request: Request, pwd: str = check_password):
-    """全池走势分类扫描页"""
-    return templates.TemplateResponse(
-        request, "regime.html", {"request": request, "pwd": pwd}
-    )
+    """走势分类已并入首页面板（302 兼容旧链接/收藏）"""
+    return RedirectResponse(url=f"/?pwd={pwd}#position-regime")
 
 
 @app.get("/api/regime/latest")

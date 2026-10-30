@@ -4,16 +4,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>央行公开市场操作 · 流动性追踪面板 - 持仓工作台</title>
-    <link rel="stylesheet" href="/static/styles.css?v=20261022e">
+    <link rel="stylesheet" href="/static/styles.css?v=20261030g">
     <script src="/static/echarts.min.js"></script>
     <style>
         body { background: #f1f2f6; }
         .hero {
             background: linear-gradient(135deg, #1a1f3c 0%, #232a52 100%);
-            color: #fff; padding: 26px 20px; text-align: center;
+            color: #fff; padding: 12px 18px; text-align: center;
         }
-        .hero h1 { font-size: 1.55em; margin: 0 0 8px; }
-        .hero .sub { font-size: 12.5px; color: #aab3d6; }
+        .hero h1 { font-size: 16px; margin: 0; display: inline; }
+        .hero .sub { font-size: 12px; color: #aab3d6; display: inline; margin-left: 12px; }
         .wrap { max-width: 1240px; margin: 0 auto; padding: 16px 14px 40px; }
         .src-bar {
             background: #fff; border-left: 4px solid #10b981; border-radius: 8px;
@@ -83,7 +83,12 @@
     </div>
     <div class="wrap">
         <div class="back-row">
-            <a class="back-link" href="/research?pwd={{ pwd }}">← 研究中心 · 返回持仓</a>
+            <nav class="mobile-quicknav" aria-label="页面快捷导航" style="margin-bottom:0;flex:1">
+                <a href="/?pwd={{ pwd }}">持仓</a>
+                <a href="/quant?pwd={{ pwd }}">信号中心</a>
+                <a href="/backtest?pwd={{ pwd }}">回测</a>
+                <a href="/research?pwd={{ pwd }}" class="on">研究中心</a>
+            </nav>
             <button class="refresh-btn" id="refresh" type="button">↻ 立即刷新</button>
         </div>
         <div class="src-bar"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 17v5 M9 3h6l1 7 2 2H6l2-2 1-7Z"/></svg> 数据来源：<a href="https://www.pbc.gov.cn/zhengcehuobisi/125207/125213/125431/125475/index.html" target="_blank">中国人民银行货币政策司</a>官网公告 | 逆回购到期推算采用「7天自然日+周末顺延」算法 | <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l9.5 17H2.5L12 3Z M12 10v4 M12 17.5v.5"></path></svg> 自2024年底起，MLF已被买断式逆回购替代，央行不再新增MLF操作</div>
@@ -179,7 +184,7 @@
 
         function render(d) {
             document.getElementById('meta').textContent =
-                `数据更新时间: ${d.fetchedAt} | 数据来源: 中国人民银行官网` + (d.parse_errors ? `（${d.parse_errors} 条解析失败）` : '');
+                `数据更新时间: ${d.fetchedAt} | 数据来源: 中国人民银行官网` + (d.stale ? ` | ⚠ 刷新失败，展示缓存（${d.error || ''}）` : '') + (d.parse_errors ? `（${d.parse_errors} 条解析失败）` : '');
             const t = d.today || {}, bal = d.balance || {};
             const net = (t.inflow || 0) - (t.maturity || 0);
             const cls = v => v > 0 ? 'red' : (v < 0 ? 'green' : 'dark');

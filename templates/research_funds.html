@@ -4,20 +4,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>基金经理跟踪 - 持仓工作台</title>
-    <link rel="stylesheet" href="/static/styles.css?v=20261022e">
+    <link rel="stylesheet" href="/static/styles.css?v=20261030g">
     <style>
         .page { max-width: 1000px; margin: 0 auto; padding: 20px; }
         .header {
             background: linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 100%);
-            color: #fff; padding: 26px; border-radius: 12px; margin-bottom: 12px; text-align: center;
+            color: #fff; padding: 12px 18px; border-radius: 12px; margin-bottom: 12px;
+            display: flex; align-items: baseline; justify-content: center; gap: 12px; flex-wrap: wrap;
         }
-        .header h1 { font-size: 1.7em; margin-bottom: 6px; }
-        .nav-row { display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
-        .nav-btn {
-            display: inline-block; padding: 10px 20px; background: #fff; color: var(--accent);
-            border: 2px solid var(--accent); border-radius: 8px; text-decoration: none; font-weight: 600;
-        }
-        .nav-btn:hover { background: var(--accent); color: #fff; }
+        .header h1 { font-size: 16px; margin: 0; }
+        .header p { display: none; }
         .kpi-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 20px; }
         .kpi {
             background: #fff; border: 2px solid #e2e8f0; border-radius: 12px; padding: 16px;
@@ -118,15 +114,17 @@
 </head>
 <body>
     <div class="page">
-        <div class="nav-row">
-            <a href="/research?pwd={{ pwd }}" class="nav-btn">← 研究中心</a>
-            <a href="/?pwd={{ pwd }}" class="nav-btn">返回持仓</a>
-        </div>
         <div class="header">
             <h1><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20Z M8.5 8l3.5 4.5L15.5 8 M12 12.5V17 M9 14.5h6 M9 16.5h6"/></svg> 长跑型基金经理跟踪</h1>
             <p>朱少醒 · 郑希 · 杨金金 · 贾成东 —— 核心 A 份额基金净值（天天基金）</p>
             <p style="font-size:11px;opacity:0.8;margin-top:6px">点击基金行查看持仓详情和季度变化</p>
         </div>
+        <nav class="mobile-quicknav" aria-label="页面快捷导航">
+            <a href="/?pwd={{ pwd }}">持仓</a>
+            <a href="/quant?pwd={{ pwd }}">信号中心</a>
+            <a href="/backtest?pwd={{ pwd }}">回测</a>
+            <a href="/research?pwd={{ pwd }}" class="on">研究中心</a>
+        </nav>
         <div class="scan-bar">
             <span id="meta">加载中...</span>
             <button class="scan-btn" id="refresh" type="button">立即刷新</button>
@@ -153,7 +151,7 @@
                 const d = await r.json();
                 if (!r.ok) throw new Error(d.detail || '加载失败');
                 render(d);
-                document.getElementById('meta').textContent = `更新于 ${d.fetchedAt} · 净值通常交易日 18:00-20:00 确认`;
+                document.getElementById('meta').textContent = d.stale ? `⚠ 刷新失败，展示 ${d.fetchedAt} 的缓存数据` : `更新于 ${d.fetchedAt} · 净值通常交易日 18:00-20:00 确认`;
             } catch (e) {
                 document.getElementById('meta').textContent = '加载失败：' + e.message;
             } finally { btn.disabled = false; }

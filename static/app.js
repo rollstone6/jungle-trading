@@ -665,11 +665,52 @@ function bindKlineInteraction(el) {
 function bindKlineCharts() {
   const charts = [...document.querySelectorAll(".mini-kline")];
   if (!charts.length) return;
-  charts.forEach((chart) => {
+  const KEY = "jungle-kl…nd-v1";
+  let expanded = {};
+  try { expanded = JSON.parse(localStorage.getItem(KEY) || "{}"); } catch (e) { expanded = {}; }
+  const save = () => { try { localStorage.setItem(KEY, JSON.stringify(expanded)); } catch (e) {} };
+
+  const bindOne = (chart) => {
+    chart._klineInteractBound = true;
     bindKlineInteraction(chart);
-    renderKlineChart(chart);
+  };
+
+  charts.forEach((chart) => {
+    const card = chart.closest(".kline-card");
+    const toggle = card && card.querySelector(".kline-toggle");
+    const code = card ? card.id.replace(/^kcard-/, "") : "";
+    const chev = toggle && toggle.querySelector(".kchev");
+
+    // 默认收缩：只有用户展开过（localStorage 记忆）才渲染
+    const open = (isExpanded) => {
+      if (isExpanded) {
+        card.classList.remove("collapsed");
+        if (chev) chev.textContent = "▾ 收起";
+        if (toggle) toggle.setAttribute("aria-expanded", "true");
+        if (!chart._klineInteractBound) bindOne(chart);
+        renderKlineChart(chart);
+      } else {
+        card.classList.add("collapsed");
+        if (chev) chev.textContent = "▸ 展开";
+        if (toggle) toggle.setAttribute("aria-expanded", "false");
+      }
+    };
+
+    if (toggle) {
+      toggle.addEventListener("click", () => {
+        expanded[code] = !card.classList.contains("collapsed") ? false : true;
+        save();
+        open(expanded[code]);
+      });
+    }
+    open(!!expanded[code]);
   });
-  window.addEventListener("resize", () => charts.forEach(renderKlineChart));
+  window.addEventListener("resize", () =>
+    charts.forEach((c) => {
+      const card = c.closest(".kline-card");
+      if (!card || !card.classList.contains("collapsed")) renderKlineChart(c);
+    })
+  );
 }
 
 bindKlineCharts();
@@ -798,14 +839,17 @@ loadETFFlow();
 // === 持仓走势分类（日线+30分钟双周期共振） ===
 const REGIME_LABELS = { squeeze: '挤压待变', trending: '趋势型', ranging: '区间型', neutral: '中性' };
 
-async function loadPositionRegime() {
+async function loadPositionRegime(refresh = false) {
     const cards = Array.from(document.querySelectorAll('.position-card[data-code]'));
     if (!cards.length) return;
     const posCodes = cards.map(c => c.dataset.code);
     const listEl = document.getElementById('regime-panel-list');
     const timeEl = document.getElementById('regime-panel-time');
+    const countEl = document.getElementById('regime-countbar');
+    const alertEl = document.getElementById('regime-alerts');
+    const poolEl = document.getElementById('regime-pool');
     try {
-        const response = await fetch(apiUrl('/api/regime/latest'));
+        const response = await fetch(apiUrl('/api/regime/latest') + (refresh ? '&refresh=1' : ''));
         const data = await response.json();
         const byCode = {};
         (data.stocks || []).forEach(s => { byCode[s.code] = s; });
@@ -817,11 +861,39 @@ async function loadPositionRegime() {
             timeEl.textContent = `更新于 ${data.fetchedAt.slice(11, 16)}`;
         }
 
-        // 1) 面板：每只持仓一个彩色 chip
-        const chips = posCodes.map(code => {
-            const s = byCode[code];
-            if (!s) return `<div class="regime-chip neutral"><div class="rc-top"><span class="rc-name">${code}</span><span class="rc-label">计算中</span></div></div>`;
-            const al = alertByCode[code];
+        // 0) 计数条：全池四分类统计 + 操作按钮
+        const c = data.counts || {};
+        const ORDER = { squeeze: 0, trending: 1, ranging: 2, neutral: 3 };
+        const LABELS = { squeeze: '挤压待变', trending: '趋势型', ranging: '区间型', neutral: '中性' };
+        if (countEl) {
+            countEl.innerHTML = Object.keys(LABELS).map(k =>
+                `<span class="rc-cnt ${k}">${LABELS[k]} ${c[k] || 0}</span>`).join('') +
+                `<span class="rc-actions">
+                    <button type="button" class="regime-mini-btn" id="regime-rescan-btn">重新扫描</button>
+                    <button type="button" class="regime-mini-btn" id="regime-pool-btn">股票池</button>
+                </span>`;
+            document.getElementById('regime-rescan-btn').addEventListener('click', (e) => {
+                e.currentTarget.disabled = true;
+                e.currentTarget.textContent = '扫描中...';
+                loadPositionRegime(true);
+            });
+            document.getElementById('regime-pool-btn').addEventListener('click', () => {
+                if (!poolEl) return;
+                const show = poolEl.hidden;
+                poolEl.hidden = !show;
+                if (show && !poolEl.dataset.rendered) renderPool();
+            });
+        }
+
+        // 0.5) 带宽张开预警（全池）
+        if (alertEl) {
+            alertEl.innerHTML = (data.alerts || []).map(a =>
+                `<div class="ra-row ${a.type === 'squeeze_break_up' ? 'up' : 'down'}">${a.name}（${a.code}）：${a.text}</div>`
+            ).join('');
+        }
+
+        // chip 渲染器（持仓与股票池共用）
+        function chipHtml(s, al) {
             const alertHtml = al ? `<div class="rc-alert"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 2L3 14h7l-1 8 10-12h-7l1-8Z"/></svg> ${al.text || '带宽张开预警'}</div>` : '';
             return `
                 <div class="regime-chip ${s.regime}" title="日线 ${s.label_daily || s.label} / 30分钟 ${s.label_30m}；轨外${(s.outside_ratio*100).toFixed(0)}% 带宽分位${(s.bandwidth_pct*100).toFixed(0)}%">
@@ -833,9 +905,26 @@ async function loadPositionRegime() {
                     <div class="rc-evidence">轨外${(s.outside_ratio*100).toFixed(0)}% · 带宽分位${(s.bandwidth_pct*100).toFixed(0)}% · 偏离MA20 ${s.ma_dev_pct > 0 ? '+' : ''}${s.ma_dev_pct.toFixed(1)}%</div>
                     ${alertHtml}
                 </div>`;
-        });
-        listEl.innerHTML = chips.join('');
+        }
 
+        // 1) 面板：持仓 chip（按分类排序）+ 更新时间
+        const posChips = posCodes.map(code => {
+            const s = byCode[code];
+            if (!s) return `<div class="regime-chip neutral"><div class="rc-top"><span class="rc-name">${code}</span><span class="rc-label">计算中</span></div></div>`;
+            return chipHtml(s, alertByCode[code]);
+        });
+        listEl.innerHTML = posChips.join('');
+
+        // 1.5) 股票池其余票（默认折叠，点开渲染）
+        function renderPool() {
+            if (!poolEl) return;
+            const others = (data.stocks || []).filter(s => !posCodes.includes(s.code))
+                .sort((a, b) => (ORDER[a.regime] ?? 9) - (ORDER[b.regime] ?? 9));
+            if (!others.length) { poolEl.hidden = true; return; }
+            poolEl.classList.add('regime-panel-list');
+            poolEl.innerHTML = others.map(s => chipHtml(s, alertByCode[s.code])).join('');
+            poolEl.dataset.rendered = '1';
+        }
         // 2) 卡片徽章：升级为双周期结果 + 子标签显示分周期
         cards.forEach(card => {
             const s = byCode[card.dataset.code];
@@ -857,8 +946,9 @@ async function loadPositionRegime() {
             if (sub) sub.textContent = `日K ${s.label_daily || '-'} / 30分 ${s.label_30m}`;
         });
     } catch (err) {
-        console.error('加载持仓走势分类失败:', err);
+        console.error('加载走势分类失败:', err);
         listEl.innerHTML = '<div class="etf-loading">加载失败，稍后自动重试</div>';
+        if (countEl) countEl.innerHTML = '<span style="font-size:12px;color:#ef4444">扫描数据未就绪 · <button type="button" class="regime-mini-btn" onclick="loadPositionRegime(true)">重试</button></span>';
         // 回退：保留 SSR 渲染的日线徽章
         document.querySelectorAll('.regime-badge[data-fallback]').forEach(b => {
             if (!b.textContent.trim()) b.textContent = b.dataset.fallback;

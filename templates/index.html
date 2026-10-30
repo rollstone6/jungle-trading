@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>持仓工作台</title>
-    <link rel="stylesheet" href="/static/styles.css?v=20261022e">
+    <link rel="stylesheet" href="/static/styles.css?v=20261030g">
     <!-- ===== 量化回测实验室 UI 风格覆盖层 ===== -->
     <style>
         /* 容器 */
@@ -14,27 +14,30 @@
             padding: 20px;
         }
 
-        /* Hero 渐变顶栏 */
+        /* Hero 渐变顶栏（紧凑单行，全站统一规格） */
         .topbar {
             position: static;
-            flex-direction: column;
-            align-items: center;
-            gap: 8px;
-            padding: 40px 24px;
+            display: flex;
+            flex-direction: row;
+            align-items: baseline;
+            justify-content: center;
+            gap: 12px;
+            padding: 12px 18px;
             background: linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 100%);
             border: none;
-            border-radius: 16px;
+            border-radius: 12px;
             box-shadow: 0 4px 12px rgba(var(--accent-rgb), 0.3);
             backdrop-filter: none;
         }
         .topbar h1 {
             color: #fff;
             margin: 0;
-            font-size: 20px;
+            font-size: 16px;
         }
         .topbar .subtitle {
             color: rgba(255, 255, 255, 0.9);
             margin: 0;
+            font-size: 12px;
         }
 
         /* 账户概览·紧凑单行条 */
@@ -219,9 +222,29 @@
             background: #f8f7ff;
             border: 1px solid #e9e6ff;
             border-radius: 12px;
-            padding: 10px 12px;
+            padding: 0;
             margin-top: 12px;
+            overflow: hidden;
         }
+        .kline-card.collapsed .mini-kline { display: none; }
+        .kline-toggle {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 9px 12px;
+            font: inherit;
+        }
+        .kline-toggle .kchev {
+            font-size: 11px;
+            color: var(--accent);
+            font-weight: 600;
+        }
+        .kline-card:not(.collapsed) .kline-toggle { border-bottom: 1px solid #e9e6ff; }
+        .kline-card:not(.collapsed) .mini-kline { padding: 8px 12px 10px; min-height: 0; }
 
         /* 消息链接 */
         .news-list a {
@@ -270,6 +293,65 @@
             grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
             gap: 10px;
         }
+        /* 走势分类·精简合并版：计数条 + 预警 + 股票池折叠 */
+        .regime-countbar {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-bottom: 10px;
+            font-size: 12px;
+            color: #64748b;
+        }
+        .regime-countbar .rc-cnt {
+            padding: 2px 10px;
+            border-radius: 12px;
+            color: #fff;
+            font-weight: 600;
+        }
+        .regime-countbar .rc-cnt.squeeze { background: linear-gradient(135deg, #f59e0b, #ef4444); }
+        .regime-countbar .rc-cnt.trending { background: linear-gradient(135deg, #10b981, #0ea5e9); }
+        .regime-countbar .rc-cnt.ranging { background: linear-gradient(135deg, #3b82f6, #6366f1); }
+        .regime-countbar .rc-cnt.neutral { background: linear-gradient(135deg, #64748b, #94a3b8); }
+        .regime-countbar .rc-actions { margin-left: auto; display: flex; gap: 6px; }
+        .regime-mini-btn {
+            border: 1px solid #d8dce6;
+            background: #fff;
+            color: #475569;
+            font-size: 12px;
+            border-radius: 14px;
+            padding: 3px 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .regime-mini-btn:hover { border-color: var(--accent); color: var(--accent); }
+        .regime-mini-btn:active { transform: scale(0.97); }
+        .regime-mini-btn:disabled { opacity: 0.45; cursor: wait; }
+        .regime-mini-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+        .regime-alerts { margin-bottom: 10px; }
+        .regime-alerts .ra-row {
+            font-size: 12px;
+            padding: 5px 10px;
+            border-radius: 8px;
+            background: #fff7ed;
+            border: 1px solid rgba(245, 158, 11, 0.35);
+            margin-bottom: 4px;
+            color: #334155;
+        }
+        .regime-alerts .ra-row.up { border-color: rgba(217, 45, 32, 0.3); background: #fef2f2; }
+        .regime-alerts .ra-row.down { border-color: rgba(11, 143, 98, 0.3); background: #ecfdf5; }
+        .regime-pool-toggle {
+            grid-column: 1 / -1;
+            text-align: center;
+            font-size: 12px;
+            color: var(--accent);
+            background: #f8f7ff;
+            border: 1px dashed rgba(102, 126, 234, 0.35);
+            border-radius: 8px;
+            padding: 6px;
+            cursor: pointer;
+        }
+        .regime-pool-toggle:hover { background: #f0eeff; }
         .regime-chip {
             border-radius: 10px;
             padding: 10px 12px;
@@ -470,10 +552,10 @@
             <p class="subtitle">数据驱动 · 理性决策</p>
         </header>
 
-        <!-- 移动端 sticky 快捷导航（桌面隐藏，页尾大按钮保留） -->
+        <!-- 快捷导航（桌面+移动端均显示） -->
         <nav class="mobile-quicknav" aria-label="页面快捷导航">
+            <a href="/?pwd={{ pwd }}" class="on">持仓</a>
             <a href="/quant?pwd={{ pwd }}">信号中心</a>
-            <a href="/regime?pwd={{ pwd }}">走势分类</a>
             <a href="/backtest?pwd={{ pwd }}">回测</a>
             <a href="/research?pwd={{ pwd }}">研究中心</a>
         </nav>
@@ -588,10 +670,11 @@
                     </div>
                     
                     {% if pos.kline %}
-                    <div class="kline-card">
-                        <div class="kline-head">
+                    <div class="kline-card collapsed" id="kcard-{{ pos.code }}">
+                        <button class="kline-head kline-toggle" type="button" aria-expanded="false" aria-controls="kcard-{{ pos.code }}">
                             <strong>日K</strong>
-                        </div>
+                            <span class="kchev">▸ 展开</span>
+                        </button>
                         <div class="mini-kline" data-kline='{{ pos.kline|tojson }}'></div>
                     </div>
                     {% endif %}
@@ -621,15 +704,18 @@
                 {% endfor %}
             </div>
 
-            <!-- 持仓走势分类（日线+30分钟双周期共振） -->
+            <!-- 走势分类扫描（日线+30分钟双周期共振 · 股票池+持仓合并） -->
             <div class="regime-panel" id="position-regime">
                 <div class="regime-panel-header">
-                    <h3><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20Z M16.2 7.8l-2.9 6.3-6.3 2.9 2.9-6.3 6.3-2.9Z"/></svg> 持仓走势分类 <small>日线 + 30分钟双周期共振</small></h3>
+                    <h3><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20Z M16.2 7.8l-2.9 6.3-6.3 2.9 2.9-6.3 6.3-2.9Z"/></svg> 走势分类 <small>双周期共振 · 股票池+持仓</small></h3>
                     <span class="regime-panel-time" id="regime-panel-time">加载中...</span>
                 </div>
+                <div class="regime-countbar" id="regime-countbar"></div>
+                <div class="regime-alerts" id="regime-alerts"></div>
                 <div class="regime-panel-list" id="regime-panel-list">
                     <div class="etf-loading">正在计算分类...</div>
                 </div>
+                <div class="regime-pool" id="regime-pool" hidden></div>
             </div>
         </section>
 
@@ -671,35 +757,8 @@
         </section>
         {% endif %}
         
-        <!-- 回测入口 -->
-        <section class="backtest-entry">
-            <a href="/backtest?pwd={{ pwd }}" class="backtest-link">
-                <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 2v6L4.5 18a2 2 0 0 0 1.8 3h11.4a2 2 0 0 0 1.8-3L14 8V2 M8.5 2h7 M7 15h10"/></svg> 量化回测实验室 →
-            </a>
-        </section>
-
-        <!-- 走势分类入口 -->
-        <section class="backtest-entry">
-            <a href="/regime?pwd={{ pwd }}" class="backtest-link" style="background: linear-gradient(135deg, #f59e0b 0%, #ef4444 100%);">
-                <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v18h18 M7 15l3-4 3 2 4-6"/></svg> 走势分类扫描 →
-            </a>
-        </section>
-
-        <!-- 研究中心入口 -->
-        <section class="backtest-entry">
-            <a href="/research?pwd={{ pwd }}" class="backtest-link" style="background: linear-gradient(135deg, #0ea5e9 0%, #6366f1 100%);">
-                <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 18h8 M3 22h18 M14 22a1 1 0 0 0 0-2 2 2 0 0 1 2-2h1a2 2 0 0 1 2 2v0a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2Z M9 8a3 3 0 0 1 3 3v3l-3 3-3-3V9a1 1 0 0 1 1-1h2Z M12 3v2"/></svg> 研究中心（基金 · 排行榜 · 资金流 · 央行流动性）→
-            </a>
-        </section>
-
-        <!-- 量化信号中心入口 -->
-        <section class="backtest-entry">
-            <a href="/quant?pwd={{ pwd }}" class="backtest-link" style="background: linear-gradient(135deg, var(--accent-2) 0%, var(--accent) 100%);">
-                <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.9 16.1C1 12.2 1 5.8 4.9 1.9 M7.8 4.7c3.4-3.4 8.6-3.4 12 0 M16.1 19.1c3.9-3.9 3.9-10.3 0-14.2 M19.1 16.1c3.4-3.4 3.4-8.6 0-12 M12 12m-1 0a1 1 0 1 0 2 0a1 1 0 1 0-2 0"/></svg> 量化信号中心（策略信号 · 趋势过滤 · 箱体 · 筹码）→
-            </a>
-        </section>
     </div>
 
-    <script src="/static/app.js?v=20261022e"></script>
+    <script src="/static/app.js?v=20261030f"></script>
 </body>
 </html>

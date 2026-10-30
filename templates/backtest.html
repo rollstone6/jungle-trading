@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>量化回测 - 持仓工作台</title>
-    <link rel="stylesheet" href="/static/styles.css?v=20261022e">
+    <link rel="stylesheet" href="/static/styles.css?v=20261030g">
     <style>
         .backtest-container {
             max-width: 1200px;
@@ -15,16 +15,20 @@
         .backtest-header {
             background: linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 100%);
             color: white;
-            padding: 30px;
+            padding: 12px 18px;
             border-radius: 12px;
-            margin-bottom: 30px;
-            text-align: center;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: baseline;
+            justify-content: center;
+            gap: 12px;
+            flex-wrap: wrap;
         }
-        
         .backtest-header h1 {
-            font-size: 2em;
-            margin-bottom: 10px;
+            font-size: 16px;
+            margin: 0;
         }
+        .backtest-header p { display: none; }
         
         .backtest-form {
             background: white;
@@ -63,53 +67,87 @@
         
         .strategy-cards {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 20px;
-            margin-bottom: 30px;
+            grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+            gap: 10px;
         }
-        
         .strategy-card {
-            background: white;
-            border: 2px solid #e0e0e0;
-            border-radius: 12px;
-            padding: 20px;
-            cursor: pointer;
-            transition: all 0.3s;
-        }
-        
-        .strategy-card:hover {
-            border-color: var(--accent);
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(var(--accent-rgb), 0.2);
-        }
-        
-        .strategy-card.selected {
-            border-color: var(--accent);
-            background: linear-gradient(135deg, var(--accent)15 0%, var(--accent-2)15 100%);
-        }
-        
-        .strategy-card h3 {
-            color: var(--accent);
-            margin-bottom: 10px;
-            font-size: 1.2em;
-        }
-        
-        .strategy-card p {
-            color: #666;
-            font-size: 14px;
-            line-height: 1.6;
-        }
-        
-        .strategy-card .engine-badge {
-            display: inline-block;
-            background: var(--accent);
-            color: white;
-            padding: 4px 12px;
-            border-radius: 12px;
-            font-size: 12px;
-            margin-top: 10px;
-        }
-        
+                position: relative;
+                background: #fff;
+                border: 1.5px solid #e2e2ee;
+                border-radius: 10px;
+                padding: 11px 13px;
+                cursor: pointer;
+                transition: border-color .2s, box-shadow .2s, background .2s;
+            }
+            .strategy-card:hover {
+                border-color: var(--accent);
+                box-shadow: 0 2px 8px rgba(102, 126, 234, 0.15);
+            }
+            .strategy-card.selected {
+                border-color: var(--accent);
+                background: linear-gradient(135deg, rgba(102, 126, 234, 0.07), rgba(118, 75, 162, 0.07));
+                box-shadow: 0 0 0 1px var(--accent) inset;
+            }
+            .strategy-card .sc-head {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                margin-bottom: 4px;
+            }
+            .strategy-card h3 {
+                color: #1e293b;
+                font-size: 13.5px;
+                font-weight: 700;
+                margin: 0;
+                flex: 1;
+                min-width: 0;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+            .strategy-card.selected h3 { color: var(--accent); }
+            .strategy-card p {
+                color: #64748b;
+                font-size: 12px;
+                line-height: 1.5;
+                margin: 0;
+                display: -webkit-box;
+                -webkit-line-clamp: 2;
+                -webkit-box-orient: vertical;
+                overflow: hidden;
+            }
+            .strategy-card .sc-params {
+                margin-top: 6px;
+                font-size: 11px;
+                color: #94a3b8;
+                font-family: ui-monospace, Menlo, monospace;
+            }
+            .strategy-card .engine-badge {
+                flex: none;
+                background: rgba(102, 126, 234, 0.12);
+                color: var(--accent);
+                padding: 2px 8px;
+                border-radius: 10px;
+                font-size: 10.5px;
+                font-weight: 600;
+            }
+            .strategy-card .engine-badge.vnpy { background: rgba(245, 158, 11, 0.13); color: #b45309; }
+            .strategy-card .sc-check {
+                position: absolute;
+                top: -7px;
+                right: -7px;
+                width: 18px;
+                height: 18px;
+                border-radius: 50%;
+                background: linear-gradient(135deg, var(--accent), var(--accent-2));
+                color: #fff;
+                font-size: 11px;
+                line-height: 18px;
+                text-align: center;
+                display: none;
+                box-shadow: 0 1px 4px rgba(102, 126, 234, 0.4);
+            }
+            .strategy-card.selected .sc-check { display: block; }
         .regime-card {
             background: #f8f7ff;
             border: 1px solid #e9e6ff;
@@ -224,24 +262,6 @@
             color: #ef4444;
         }
         
-        .back-button {
-            display: inline-block;
-            padding: 12px 24px;
-            background: white;
-            color: var(--accent);
-            border: 2px solid var(--accent);
-            border-radius: 8px;
-            text-decoration: none;
-            font-weight: 600;
-            transition: all 0.3s;
-            margin-bottom: 20px;
-        }
-        
-        .back-button:hover {
-            background: var(--accent);
-            color: white;
-        }
-        
         .loading {
             text-align: center;
             padding: 40px;
@@ -275,15 +295,17 @@
 </head>
 <body>
     <div class="backtest-container">
-        <div class="nav-row" style="display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap;">
-            <a href="/?pwd={{ pwd }}" class="back-button" style="margin-bottom:0;">← 返回持仓</a>
-            <a href="/regime?pwd={{ pwd }}" class="back-button" style="margin-bottom:0;"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v18h18 M7 15l3-4 3 2 4-6"/></svg> 走势分类扫描</a>
-        </div>
-        
         <div class="backtest-header">
             <h1><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 2v6L4.5 18a2 2 0 0 0 1.8 3h11.4a2 2 0 0 0 1.8-3L14 8V2 M8.5 2h7 M7 15h10"/></svg> 量化回测实验室</h1>
             <p>使用历史数据验证交易策略</p>
         </div>
+
+        <nav class="mobile-quicknav" aria-label="页面快捷导航">
+            <a href="/?pwd={{ pwd }}">持仓</a>
+            <a href="/quant?pwd={{ pwd }}">信号中心</a>
+            <a href="/backtest?pwd={{ pwd }}" class="on">回测</a>
+            <a href="/research?pwd={{ pwd }}">研究中心</a>
+        </nav>
         
         <!-- 回测表单 -->
         <div class="backtest-form">
@@ -322,7 +344,7 @@
             </div>
 
             <div class="form-group">
-                <label>选择策略</label>
+                <label>选择策略 <small id="strategy-picked" style="color:#94a3b8; font-weight:400;"></small></label>
                 <div class="strategy-cards" id="strategy-cards">
                     <!-- 动态加载 -->
                 </div>
@@ -373,13 +395,20 @@
                 const strategies = await response.json();
                 
                 const container = document.getElementById('strategy-cards');
-                container.innerHTML = strategies.map(s => `
-                    <div class="strategy-card" data-name="${s.name}" data-engine="${s.name.startsWith('vnpy') ? 'vnpy' : 'backtrader'}">
-                        <h3>${s.display_name}</h3>
+                const fmtParams = p => Object.entries(p || {}).map(([k, v]) => `${k}=${v}`).join(' ');
+                container.innerHTML = strategies.map(s => {
+                    const vnpy = s.name.startsWith('vnpy');
+                    return `
+                    <div class="strategy-card" data-name="${s.name}" data-engine="${vnpy ? 'vnpy' : 'backtrader'}">
+                        <span class="sc-check">✓</span>
+                        <div class="sc-head">
+                            <h3>${s.display_name}</h3>
+                            <span class="engine-badge ${vnpy ? 'vnpy' : ''}">${vnpy ? 'vnpy' : 'Backtrader'}</span>
+                        </div>
                         <p>${s.description}</p>
-                        <span class="engine-badge">${s.name.startsWith('vnpy') ? 'vnpy' : 'Backtrader'}</span>
-                    </div>
-                `).join('');
+                        <div class="sc-params">${fmtParams(s.params)}</div>
+                    </div>`;
+                }).join('');
                 
                 // 绑定点击事件
                 document.querySelectorAll('.strategy-card').forEach(card => {
@@ -388,6 +417,8 @@
                         this.classList.add('selected');
                         selectedStrategy = this.dataset.name;
                         selectedEngine = this.dataset.engine;
+                        const pk = document.getElementById('strategy-picked');
+                        if (pk) pk.textContent = '· 已选：' + this.querySelector('h3').textContent;
                     });
                 });
             } catch (error) {

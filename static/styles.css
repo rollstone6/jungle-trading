@@ -2459,6 +2459,7 @@ h1 svg.ic, h2 svg.ic, h3 svg.ic { width: 1.05em; height: 1.05em; }
   gap: 6px;
   flex-wrap: wrap;
 }
+.err-banner[hidden] { display: none; }  /* display:flex 会覆盖 hidden 属性，必须显式恢复 */
 .err-banner button {
   margin-left: auto;
   padding: 4px 14px;
@@ -2508,7 +2509,7 @@ h1 svg.ic, h2 svg.ic, h3 svg.ic { width: 1.05em; height: 1.05em; }
 
 /* 移动端快捷导航（P1-6：导航不再沉在 3000px 之后） */
 .mobile-quicknav {
-  display: none;
+  display: flex;
   position: sticky;
   top: 0;
   z-index: 40;
@@ -2535,6 +2536,11 @@ h1 svg.ic, h2 svg.ic, h3 svg.ic { width: 1.05em; height: 1.05em; }
   white-space: nowrap;
 }
 .mobile-quicknav a:active { background: rgba(var(--accent-rgb, 102, 126, 234), 0.12); }
+.mobile-quicknav a.on {
+  background: linear-gradient(135deg, var(--accent, #667eea), var(--accent-2, #764ba2));
+  color: #fff;
+  border-color: transparent;
+}
 @media (max-width: 768px) {
   .mobile-quicknav { display: flex; }
 }
