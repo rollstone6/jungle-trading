@@ -22,12 +22,14 @@ from app.quant.data.fetcher import load_real_data
 from app.quant.strategies.breakout import BreakoutPullbackEngine
 from app.quant.strategies.mean_reversion import MeanReversionEngine
 from app.quant.strategies.accumulation import AccumulationEngine
+from app.quant.strategies.chip_single_peak import ChipSinglePeakEngine
 
 #: 策略注册表
 STRATEGY_REGISTRY: dict[str, type[StrategyBase]] = {
     "breakout": BreakoutPullbackEngine,
     "mean_reversion": MeanReversionEngine,
     "accumulation": AccumulationEngine,
+    "chip_single_peak": ChipSinglePeakEngine,
 }
 
 

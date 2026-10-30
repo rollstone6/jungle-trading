@@ -22,11 +22,14 @@ sys.path.insert(0, "/root/workspace/jungle-trading")
 from app.services.market import fetch_kline_sina_minute, fetch_kline_tencent  # noqa: E402
 
 POOL = {
-    "603678": "火炬电子",
     "300291": "百纳千成",
     "300394": "天孚通信",
     "300505": "川金诺",
-    "301666": "大普微-UW",
+    "300251": "光线传媒",
+    "513310": "中韩芯片",
+    "600580": "卧龙电驱",
+    "603678": "火炬电子",
+    "000592": "平潭发展",
 }
 
 CHASE_MAX = 1.02      # 入场不得超支撑区上沿2%

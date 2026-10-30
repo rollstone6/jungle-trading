@@ -232,6 +232,21 @@ class StrategyConfig:
         self.enable_chip_filter = True     # 吸筹策略中启用筹码过滤
         self.chip_score_bonus = 10         # 筹码集中度在吸筹评分中的加分权重
 
+        # ================================================================
+        # 筹码单峰密集策略（ChipSinglePeakEngine，博主5条件）
+        # 逻辑位置：strategies/chip_single_peak.py + utils/chip_peaks.py
+        # ================================================================
+        self.chip_strategy_conc90_max = 12.0      # ①90%集中度 < 12%
+        self.chip_strategy_peak_ratio_min = 18.0  # ②主峰占比 > 18%
+        self.chip_strategy_second_peak_max = 0.5  # ③次峰/主峰 < 0.5
+        self.chip_strategy_turnover60_min = 0.80  # ④60日累计换手 > 80%
+        self.chip_strategy_amplitude60_max = 0.30 # ⑤60日振幅 < 30%
+        self.chip_need_breakout = False    # ⑥确认：收盘突破主峰1%才买（默认关=形态成立即买）
+        self.chip_hold_bars = 40           # 最大持仓天数（蓄势票给足时间）
+        self.chip_stop_loss_pct = 0.06     # 硬止损 6%（主峰下沿附近）
+        self.chip_take_profit_pct = 0.25   # 止盈 25%
+        self.chip_trailing_stop_pct = 0.10 # 移动止损 10%
+
     def __repr__(self):
         return (
             f"Config(\n"
@@ -262,9 +277,12 @@ STOCK_LIST_LEAD_LAG = [
 
 # 统一股票池（所有策略共用，去重合并）
 STOCK_LIST = [
-    {"symbol": "603678", "name": "火炬电子"},
+    {"symbol": "000592", "name": "平潭发展"},
     {"symbol": "300291", "name": "百纳千成"},
     {"symbol": "300394", "name": "天孚通信"},
     {"symbol": "300505", "name": "川金诺"},
-    {"symbol": "301666", "name": "大普微-UW"},
+    {"symbol": "300251", "name": "光线传媒"},
+    {"symbol": "513310", "name": "中韩芯片"},
+    {"symbol": "600580", "name": "卧龙电驱"},
+    {"symbol": "603678", "name": "火炬电子"},
 ]
