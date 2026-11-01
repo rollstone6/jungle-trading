@@ -255,12 +255,27 @@
         }
         
         .metric-card .value.positive {
-            color: #10b981;
+            color: var(--red);
         }
         
         .metric-card .value.negative {
-            color: #ef4444;
+            color: var(--green);
         }
+
+        /* 多策略对比表 */
+        .cmp-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; margin-bottom: 20px; }
+        .cmp-table { border-collapse: collapse; width: 100%; min-width: 560px; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+        .cmp-table th, .cmp-table td { padding: 10px 14px; font-size: 13.5px; text-align: right; border-bottom: 1px solid #f1f5f9; font-variant-numeric: tabular-nums; }
+        .cmp-table th { background: #f8fafc; color: #64748b; font-weight: 600; text-align: right; white-space: nowrap; }
+        .cmp-table th:first-child, .cmp-table td:first-child { text-align: left; color: #475569; position: sticky; left: 0; background: #fbfcfe; }
+        .cmp-table td.best { font-weight: 700; }
+        .cmp-table td.pos { color: var(--red); }
+        .cmp-table td.neg { color: var(--green); }
+        .cmp-table .eng-tag { font-size: 10px; padding: 1px 6px; border-radius: 999px; margin-left: 6px; vertical-align: 1px; }
+        .cmp-table .eng-tag.backtrader { background: rgba(124, 58, 237, 0.1); color: #7c3aed; }
+        .cmp-table .eng-tag.vnpy { background: rgba(245, 158, 11, 0.13); color: #b45309; }
+        .cmp-table .eng-tag.zipline { background: rgba(14, 165, 233, 0.12); color: #0369a1; }
+        .run-progress { font-size: 13px; color: #64748b; margin-top: 10px; }
         
         .loading {
             text-align: center;
@@ -344,10 +359,13 @@
             </div>
 
             <div class="form-group">
-                <label>选择策略 <small id="strategy-picked" style="color:#94a3b8; font-weight:400;"></small></label>
+                <label>选择策略 <small style="color:#94a3b8; font-weight:400;">（可多选，同时回测对比）
+                    <button type="button" id="pick-all" style="border:none;background:none;color:var(--accent);font-size:12px;cursor:pointer;padding:0 2px;">全选</button>/<button type="button" id="pick-none" style="border:none;background:none;color:#94a3b8;font-size:12px;cursor:pointer;padding:0 2px;">清空</button>
+                </small></label>
                 <div class="strategy-cards" id="strategy-cards">
                     <!-- 动态加载 -->
                 </div>
+                <small id="strategy-picked" style="color:#94a3b8;"></small>
             </div>
             
             <div class="form-group">
@@ -367,7 +385,7 @@
         <!-- 加载状态 -->
         <div class="loading" id="loading" style="display: none;">
             <div class="loading-spinner"></div>
-            <p>正在运行回测，请稍候...</p>
+            <p id="loading-text">正在运行回测，请稍候...</p>
         </div>
         
         <!-- 错误信息 -->
@@ -377,6 +395,7 @@
         <div class="results-section" id="results-section">
             <h2 style="margin-bottom: 12px;">回测结果</h2>
             <p id="period-info" style="color: #64748b; font-size: 14px; margin: 0 0 20px;"></p>
+            <div id="compare-wrap"></div>
             <div class="results-grid" id="results-grid">
                 <!-- 动态加载 -->
             </div>
@@ -385,8 +404,28 @@
     
     <script>
         const pwd = "{{ pwd }}";
-        let selectedStrategy = null;
-        let selectedEngine = null;
+        // 多选：Map<cardName, {name, display, engine}>，保持勾选顺序
+        const picked = new Map();
+
+        function updatePickedLabel() {
+            const pk = document.getElementById('strategy-picked');
+            pk.textContent = picked.size
+                ? `已选 ${picked.size} 个：` + [...picked.values()].map(v => v.display).join('、')
+                : '';
+        }
+
+        function toggleCard(card, forceOn = null) {
+            const name = card.dataset.name;
+            const on = forceOn !== null ? forceOn : !picked.has(name);
+            if (on) {
+                picked.set(name, { name, display: card.querySelector('h3').textContent, engine: card.dataset.engine });
+                card.classList.add('selected');
+            } else {
+                picked.delete(name);
+                card.classList.remove('selected');
+            }
+            updatePickedLabel();
+        }
         
         // 加载策略列表
         async function loadStrategies() {
@@ -410,23 +449,24 @@
                     </div>`;
                 }).join('');
                 
-                // 绑定点击事件
+                // 点击=多选切换（再次点击取消）
                 document.querySelectorAll('.strategy-card').forEach(card => {
-                    card.addEventListener('click', function() {
-                        document.querySelectorAll('.strategy-card').forEach(c => c.classList.remove('selected'));
-                        this.classList.add('selected');
-                        selectedStrategy = this.dataset.name;
-                        selectedEngine = this.dataset.engine;
-                        const pk = document.getElementById('strategy-picked');
-                        if (pk) pk.textContent = '· 已选：' + this.querySelector('h3').textContent;
-                    });
+                    card.addEventListener('click', () => toggleCard(card));
+                });
+                document.getElementById('pick-all').addEventListener('click', () => {
+                    document.querySelectorAll('.strategy-card').forEach(c => toggleCard(c, true));
+                });
+                document.getElementById('pick-none').addEventListener('click', () => {
+                    picked.clear();
+                    document.querySelectorAll('.strategy-card').forEach(c => c.classList.remove('selected'));
+                    updatePickedLabel();
                 });
             } catch (error) {
                 console.error('加载策略失败:', error);
             }
         }
         
-        // 运行回测
+        // 运行回测：勾选的每个策略串行执行，最后统一渲染对比
         async function runBacktest() {
             const code = document.getElementById('stock-select').value;
             const period = document.getElementById('period-select').value;
@@ -437,79 +477,129 @@
                 showError('请选择股票');
                 return;
             }
-            
-            if (!selectedStrategy) {
-                showError('请选择策略');
+            if (!picked.size) {
+                showError('请至少选择一个策略');
                 return;
             }
             
-            // 显示加载状态
             document.getElementById('loading').style.display = 'block';
             document.getElementById('results-section').classList.remove('show');
             document.getElementById('error-message').style.display = 'none';
-            document.getElementById('run-backtest').disabled = true;
-            
+            const btn = document.getElementById('run-backtest');
+            btn.disabled = true;
+            const loadText = document.getElementById('loading-text');
+
+            const items = [...picked.values()];
+            const results = [];
             try {
-                const response = await fetch(`/api/backtest/run?pwd=${pwd}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        code: code,
-                        strategy: selectedStrategy,
-                        initial_cash: initialCash,
-                        engine: selectedEngine,
-                        period: period,
-                        commission: commission
-                    })
-                });
-                
-                const result = await response.json();
-                
-                if (result.success) {
-                    displayResults(result);
+                for (let i = 0; i < items.length; i++) {
+                    const it = items[i];
+                    loadText.textContent = `正在回测（${i + 1}/${items.length}）：${it.display} ...`;
+                    const body = { code, initial_cash: initialCash, engine: it.engine, period, commission };
+                    if (it.engine !== 'zipline') body.strategy = it.name;
+                    const response = await fetch(`/api/backtest/run?pwd=${pwd}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(body)
+                    });
+                    const result = await response.json();
+                    results.push({ ...it, result });
+                }
+                const failed = results.filter(r => !r.result.success);
+                if (failed.length === results.length) {
+                    showError(failed[0].result.error || '回测失败');
                 } else {
-                    showError(result.error || '回测失败');
+                    displayResults(results, period);
+                    if (failed.length) {
+                        showError(`${failed.map(f => f.display).join('、')} 回测失败（${failed[0].result.error || '未知错误'}），其余策略已展示`);
+                    }
                 }
             } catch (error) {
                 showError('网络错误: ' + error.message);
             } finally {
                 document.getElementById('loading').style.display = 'none';
-                document.getElementById('run-backtest').disabled = false;
+                btn.disabled = false;
             }
+        }
+
+        // 指标行定义: 取数 + 最优方向(用于高亮) + 格式化
+        const CMP_ROWS = [
+            { key: 'total_return', label: '总收益率', max: true, fmt: v => `${v >= 0 ? '+' : ''}${v}%`, cls: v => v >= 0 ? 'pos' : 'neg' },
+            { key: 'annual_return', label: '年化收益', max: true, fmt: v => `${v >= 0 ? '+' : ''}${v}%`, cls: v => v >= 0 ? 'pos' : 'neg' },
+            { key: 'final_value', label: '最终价值', max: true, fmt: v => `¥${Number(v).toLocaleString()}` },
+            { key: 'sharpe_ratio', label: '夏普比率', max: true, fmt: v => v },
+            { key: 'max_drawdown', label: '最大回撤%', max: false, fmt: v => `${v}%`, cls: () => 'neg' },
+            { key: 'win_rate', label: '胜率', max: true, fmt: v => `${v}%` },
+            { key: 'total_trades', label: '交易次数', max: null, fmt: v => v },
+        ];
+
+        function renderCompare(results, period) {
+            const ok = results.filter(r => r.result.success);
+            if (ok.length < 2) { document.getElementById('compare-wrap').innerHTML = ''; return; }
+            const periodLabels = { '1d': '日线', '60m': '60分钟', '30m': '30分钟', '15m': '15分钟' };
+            let html = `<div class="cmp-wrap"><table class="cmp-table"><thead><tr><th>指标</th>`;
+            html += ok.map(r => `<th>${r.display}<span class="eng-tag ${r.engine}">${r.engine === 'backtrader' ? 'BT' : r.engine}</span></th>`).join('');
+            html += `</tr></thead><tbody>`;
+            for (const row of CMP_ROWS) {
+                const vals = ok.map(r => Number(r.result[row.key]) || 0);
+                let bestIdx = -1;
+                if (row.max === true) bestIdx = vals.indexOf(Math.max(...vals));
+                if (row.max === false) bestIdx = vals.indexOf(Math.max(...vals.map(v => -Math.abs(v))));  // 回撤越小越好
+                html += `<tr><td>${row.label}</td>`;
+                html += ok.map((r, i) => {
+                    const v = r.result[row.key];
+                    const cls = [row.cls ? row.cls(Number(v) || 0) : '', i === bestIdx && ok.length > 1 ? 'best' : ''].filter(Boolean).join(' ');
+                    const star = i === bestIdx && ok.length > 1 ? ' ★' : '';
+                    return `<td class="${cls}">${row.fmt(v)}${star}</td>`;
+                }).join('');
+                html += `</tr>`;
+            }
+            html += `</tbody></table></div>`;
+            html += `<p style="color:#94a3b8;font-size:12px;margin:0 0 16px;">同一只股票、同周期（${periodLabels[period] || period}）、同资金与手续费口径；★ 为该指标最优策略。</p>`;
+            document.getElementById('compare-wrap').innerHTML = html;
         }
         
         // 显示结果
-        function displayResults(result) {
+        function displayResults(results, period) {
             // 回测周期（个别引擎未返回时隐藏）
+            const first = (results.find(r => r.result.success) || results[0]).result;
             const periodLabels = { '1d': '日线', '60m': '60分钟', '30m': '30分钟', '15m': '15分钟' };
             const periodEl = document.getElementById('period-info');
-            if (result.start_date && result.end_date) {
+            if (first.start_date && first.end_date) {
                 const label = periodLabels[document.getElementById('period-select').value] || '';
+                const multi = results.length > 1 ? ` · ${results.length} 个策略对比` : '';
                 periodEl.textContent =
-                    `${label} · 回测区间：${result.start_date} ~ ${result.end_date} · ${result.total_days} 根K线`;
+                    `${label} · 回测区间：${first.start_date} ~ ${first.end_date} · ${first.total_days} 根K线${multi}`;
                 periodEl.style.display = 'block';
             } else {
                 periodEl.style.display = 'none';
             }
 
-            const metrics = [
-                { label: '初始资金', value: `¥${result.initial_cash.toLocaleString()}` },
-                { label: '最终价值', value: `¥${result.final_value.toLocaleString()}` },
-                { label: '总收益率', value: `${result.total_return}%`, className: result.total_return >= 0 ? 'positive' : 'negative' },
-                { label: '年化收益', value: `${result.annual_return || 0}%`, className: (result.annual_return || 0) >= 0 ? 'positive' : 'negative' },
-                { label: '夏普比率', value: result.sharpe_ratio || 0 },
-                { label: '最大回撤', value: `${result.max_drawdown}%`, className: 'negative' },
-                { label: '交易次数', value: result.total_trades || 0 },
-                { label: '胜率', value: `${result.win_rate}%` },
-            ];
-            
+            renderCompare(results, period);
+
+            // 单策略时保留原 KPI 卡片；多策略时每个策略一张小卡组
             const container = document.getElementById('results-grid');
-            container.innerHTML = metrics.map(m => `
+            container.innerHTML = results.filter(r => r.result.success).map(r => {
+                const result = r.result;
+                const metrics = [
+                    { label: '初始资金', value: `¥${result.initial_cash.toLocaleString()}` },
+                    { label: '最终价值', value: `¥${result.final_value.toLocaleString()}` },
+                    { label: '总收益率', value: `${result.total_return}%`, className: result.total_return >= 0 ? 'positive' : 'negative' },
+                    { label: '年化收益', value: `${result.annual_return || 0}%`, className: (result.annual_return || 0) >= 0 ? 'positive' : 'negative' },
+                    { label: '夏普比率', value: result.sharpe_ratio || 0 },
+                    { label: '最大回撤', value: `${result.max_drawdown}%`, className: 'negative' },
+                    { label: '交易次数', value: result.total_trades || 0 },
+                    { label: '胜率', value: `${result.win_rate}%` },
+                ];
+                const head = results.length > 1
+                    ? `<div style="width:100%;font-weight:700;font-size:14px;color:#334155;margin-bottom:4px;">${r.display}</div>` : '';
+                return head + metrics.map(m => `
                 <div class="metric-card">
                     <div class="label">${m.label}</div>
                     <div class="value ${m.className || ''}">${m.value}</div>
                 </div>
             `).join('');
+            }).join('');
             
             document.getElementById('results-section').classList.add('show');
         }
@@ -577,12 +667,12 @@
                 <p class="regime-note">${info.note}</p>
                 <div class="regime-chips">${chips}</div>
             `;
-            // 点击推荐策略 chip -> 选中对应策略卡
+            // 点击推荐策略 chip -> 加入多选（已选则不取消，滚动定位）
             card.querySelectorAll('.regime-chip').forEach(chip => {
                 chip.addEventListener('click', () => {
                     const target = document.querySelector(`.strategy-card[data-name="${chip.dataset.strategy}"]`);
                     if (target) {
-                        target.click();
+                        if (!picked.has(chip.dataset.strategy)) toggleCard(target, true);
                         target.scrollIntoView({ behavior: 'smooth', block: 'center' });
                     } else {
                         showError('策略列表还没加载完，稍后再点');
