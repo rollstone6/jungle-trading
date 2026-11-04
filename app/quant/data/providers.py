@@ -44,6 +44,18 @@ if TUSHARE_TOKEN:
 else:
     ts_pro = None
 
+# ======================================================================
+# 复权口径单一真源：全站行情/回测统一使用 ADJUST 指定的口径。
+#   "qfq" = 前复权（末根价格≈实时价，默认）；"hfq" = 后复权（首根=发行价基准）。
+# 约定：
+#   - Tushare daily 返回未复权价，必须经 _apply_adj_factor 用 adj_factor 自行复权；
+#   - AKShare/新浪/腾讯源在 fetch 函数内传 adjust=ADJUST 向接口请求对应口径；
+#   - 分钟线无复权概念（除权发生在日级），各源分钟数据视为未复权，口径标记为 "raw"；
+#   - 缓存 key 与回测结果都会带 adjust 字段，防止混口径数据互相污染。
+# ======================================================================
+ADJUST = "qfq"
+VALID_ADJUSTS = ("qfq", "hfq")
+
 # 时间框架映射表
 _TIMEFRAME_MAP = {
     "1d": {"eastmoney": "daily", "tushare": "daily", "tencent": "day"},
@@ -90,8 +102,38 @@ def _get_tf_config(timeframe: str) -> dict:
     return _TIMEFRAME_MAP[timeframe]
 
 
+def _apply_adj_factor(df: pd.DataFrame, ts_code: str, start_date: str,
+                      end_date: str, adjust: str = ADJUST) -> pd.DataFrame:
+    """Tushare daily 返回的是未复权价，用 adj_factor 接口自行复权。
+
+    前复权:  px_qfq = px * adj / adj_latest   （锚定最新因子，末根≈现价）
+    后复权:  px_hfq = px * adj                （锚定发行基准）
+    复权只作用于 OHLC，成交量不换算。因子缺失日按最近有效值前向填充。
+    """
+    if ts_pro is None:
+        raise RuntimeError("Tushare 未配置 token，无法获取 adj_factor")
+    adj = ts_pro.adj_factor(ts_code=ts_code, start_date=start_date, end_date=end_date)
+    if adj is None or adj.empty:
+        raise RuntimeError("Tushare adj_factor 返回为空")
+    adj = adj.rename(columns={"trade_date": "date"})
+    adj["date"] = pd.to_datetime(adj["date"])
+    merged = df.merge(adj[["date", "adj_factor"]], on="date", how="left")
+    merged["adj_factor"] = merged["adj_factor"].ffill().bfill()
+    if merged["adj_factor"].isna().any():
+        raise RuntimeError("adj_factor 对齐失败（存在无法填充的缺失）")
+    factor = (merged["adj_factor"] / merged["adj_factor"].iloc[-1]
+              if adjust == "qfq" else merged["adj_factor"])
+    for col in ("open", "high", "low", "close"):
+        merged[col] = merged[col] * factor
+    return merged[["date", "open", "high", "low", "close", "volume"]]
+
+
 def fetch_tushare(symbol: str, start_date: str, timeframe: str = "1d") -> pd.DataFrame:
-    """数据源0: Tushare Pro（优先级最高）。"""
+    """数据源0: Tushare Pro（优先级最高）。
+
+    daily 为未复权价，日线统一经 _apply_adj_factor 用 adj_factor 自行复权到 ADJUST 口径；
+    stk_mins 分钟线无复权口径（视为未复权）。
+    """
     tf_cfg = _get_tf_config(timeframe)
 
     if symbol.startswith(("6", "5", "9")):
@@ -101,13 +143,20 @@ def fetch_tushare(symbol: str, start_date: str, timeframe: str = "1d") -> pd.Dat
 
     try:
         if timeframe == "1d":
+            end_date = pd.Timestamp.now().strftime("%Y%m%d")
             df = ts_pro.daily(ts_code=ts_code, start_date=start_date)
-        else:
-            df = ts_pro.stk_mins(
-                ts_code=ts_code,
-                freq=tf_cfg["tushare"],
-                start_date=start_date,
-            )
+            if df is None or df.empty:
+                raise ValueError("Tushare 返回数据为空")
+            df = df.rename(columns={"trade_date": "date"})
+            df["date"] = pd.to_datetime(df["date"])
+            df = df.sort_values("date").reset_index(drop=True)
+            df = df[["date", "open", "high", "low", "close", "volume"]]
+            return _apply_adj_factor(df, ts_code, start_date, end_date)
+        df = ts_pro.stk_mins(
+            ts_code=ts_code,
+            freq=tf_cfg["tushare"],
+            start_date=start_date,
+        )
         if df is None or df.empty:
             raise ValueError("Tushare 返回数据为空")
         df = df.rename(
@@ -140,7 +189,7 @@ def fetch_eastmoney(symbol: str, start_date: str, timeframe: str = "1d") -> pd.D
                 symbol=symbol,
                 period="daily",
                 start_date=start_date,
-                adjust="qfq",
+                adjust=ADJUST,
             )
     else:
         start_fmt = (
@@ -151,7 +200,7 @@ def fetch_eastmoney(symbol: str, start_date: str, timeframe: str = "1d") -> pd.D
                 symbol=symbol,
                 start_date=start_fmt,
                 period=tf_cfg["eastmoney"],
-                adjust="qfq",
+                adjust=ADJUST,
             )
     df = df.rename(
         columns={
@@ -180,7 +229,7 @@ def fetch_sina(symbol: str, start_date: str, timeframe: str = "1d") -> pd.DataFr
         full_symbol = f"sz{symbol}"
 
     with _AK_LOCK:
-        df = ak.stock_zh_a_daily(symbol=full_symbol, adjust="qfq")
+        df = ak.stock_zh_a_daily(symbol=full_symbol, adjust=ADJUST)
     df = df.rename(
         columns={
             "date": "date",
