@@ -123,6 +123,19 @@ def run_backtest(
     return result
 
 
+def format_metrics(metrics: dict) -> str:
+    """指标 → 控制台文本（by_exit_reason 渲染成表格）。"""
+    scalar = {k: v for k, v in metrics.items() if k != "by_exit_reason"}
+    lines = [pd.Series(scalar).to_string()]
+    rows = metrics.get("by_exit_reason") or []
+    if rows:
+        lines.append("\n— 按退出原因拆解 —")
+        lines.append(
+            pd.DataFrame(rows).to_string(index=False)
+        )
+    return "\n".join(lines)
+
+
 def _save_result(result: dict[str, object], output_dir: str | Path):
     directory = Path(output_dir)
     directory.mkdir(parents=True, exist_ok=True)
@@ -140,8 +153,27 @@ def _save_result(result: dict[str, object], output_dir: str | Path):
         )
     metrics = result.get("metrics")
     if metrics is not None:
-        pd.DataFrame([metrics]).to_csv(
+        scalar = {k: v for k, v in metrics.items() if k != "by_exit_reason"}
+        pd.DataFrame([scalar]).to_csv(
             directory / "metrics.csv", index=False, encoding="utf-8-sig"
+        )
+        rows = metrics.get("by_exit_reason") or []
+        if rows:
+            pd.DataFrame(rows).to_csv(
+                directory / "exit_reason_breakdown.csv",
+                index=False, encoding="utf-8-sig",
+            )
+    exec_stats = result.get("execution_stats")
+    if exec_stats is not None:
+        pd.DataFrame([exec_stats]).to_csv(
+            directory / "execution_stats.csv",
+            index=False, encoding="utf-8-sig",
+        )
+    dropped = result.get("dropped_signals")
+    if isinstance(dropped, pd.DataFrame) and not dropped.empty:
+        dropped.to_csv(
+            directory / "dropped_signals.csv",
+            index=False, encoding="utf-8-sig",
         )
     failures = result.get("failures")
     if isinstance(failures, pd.DataFrame) and not failures.empty:
@@ -178,7 +210,29 @@ def main():
     )
     metrics = result.get("metrics")
     if metrics is not None:
-        print(pd.Series(metrics).to_string())
+        print(format_metrics(metrics))
+    exec_stats = result.get("execution_stats")
+    if exec_stats is not None:
+        labels = {
+            "limit_up_skips": "涨停封板放弃买入",
+            "limit_down_defers": "跌停封死卖出顺延",
+            "suspension_defers": "停牌挂单顺延",
+            "suspension_expired": "停牌超限作废",
+            "max_defer_wait": "跌停顺延最长等待(bar)",
+            "symbol_cap_skips": "单票集中度超限放弃",
+            "sector_cap_skips": "行业集中度超限放弃",
+            "due_signals": "到期信号总数",
+            "cash_starved_skips": "资金不足丢弃",
+            "position_cap_skips": "仓位已满丢弃",
+            "drop_rate": "资金约束丢弃率",
+        }
+        print("\n— 成交约束统计 —")
+        for key, label in labels.items():
+            print(f"{label}: {exec_stats.get(key, 0)}")
+    dropped = result.get("dropped_signals")
+    if isinstance(dropped, pd.DataFrame) and not dropped.empty:
+        print(f"\n— 被丢弃信号（共{len(dropped)}条，前10）—")
+        print(dropped.head(10).to_string(index=False))
     print(f"结果已保存到: {Path(args.output_dir).resolve()}")
 
 

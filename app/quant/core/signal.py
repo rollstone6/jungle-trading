@@ -102,11 +102,20 @@ class SignalFrame:
         return SignalFrame(self._df[mask])
 
     def to_backtest_format(self, symbol: str) -> pd.DataFrame:
-        """转换为回测引擎所需格式（仅保留 date 列）。"""
+        """转换为回测引擎所需格式（date 必带，score 若存在则透传）。
+
+        策略信号带 score/score_value 列时一并输出，供回测引擎同日多信号
+        按评分排序分配现金；无评分列时仅 date（同日次序退化为代码字典序）。
+        """
         filtered = self.filter_by_symbol(symbol)
         if filtered.is_empty():
             return pd.DataFrame(columns=["date"])
-        return filtered.df[["date"]].copy()
+        cols = ["date"]
+        for sc in ("score", "score_value"):
+            if sc in filtered.df.columns:
+                cols.append(sc)
+                break
+        return filtered.df[cols].copy()
 
     def symbols(self) -> list[str]:
         """返回所有出现过的股票代码。"""
