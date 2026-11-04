@@ -194,6 +194,7 @@ def get_vnpy_strategies() -> List[Dict]:
         {
             'name': 'vnpy_ma',
             'display_name': 'vnpy 均线策略',
+            'category': '趋势跟随',
             'description': '基于 vnpy 框架的均线交叉策略',
             'params': {
                 'fast_period': 5,
@@ -203,6 +204,7 @@ def get_vnpy_strategies() -> List[Dict]:
         {
             'name': 'vnpy_macd',
             'display_name': 'vnpy MACD策略',
+            'category': '趋势跟随',
             'description': '基于 vnpy 框架的 MACD 策略',
             'params': {
                 'fast_period': 12,

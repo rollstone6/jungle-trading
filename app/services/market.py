@@ -61,10 +61,11 @@ async def fetch_kline_sina_minute(code: str, scale: int = 60, datalen: int = 102
     - 60分钟 ≈ 13 个月
     - 30分钟 ≈ 6.5 个月
     - 15分钟 ≈ 3 个月
+    - 240 = 日线（腾讯 WAF 拦截时的备用日线源）
 
     返回的 date 为完整 'YYYY-MM-DD HH:MM:SS' 字符串。
     """
-    if scale not in (60, 30, 15):
+    if scale not in (60, 30, 15, 240):
         return []
     prefix = "sh" if code.startswith(("6", "5", "9")) else "sz"
     url = (

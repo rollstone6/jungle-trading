@@ -123,7 +123,7 @@ REGIME_ADVICE = {    "squeeze": {
     },
     "ranging": {
         "label": "区间型",
-        "strategies": ["boll", "rsi_boll", "kdj"],
+        "strategies": ["boll", "boll_band", "rsi_boll", "kdj"],
         "note": "价格严格回归轨道，是布林带/KDJ 均值回归策略的主场",
     },
     "neutral": {

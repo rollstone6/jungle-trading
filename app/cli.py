@@ -841,7 +841,8 @@ def main():
             result = run_backtest(strategy_name="breakout")
             metrics = result.get("metrics")
             if metrics is not None:
-                print("\n" + pd.Series(metrics).to_string())
+                from app.quant.backtesting.runner import format_metrics
+                print("\n" + format_metrics(metrics))
             print("  明细已保存到: backtest_results")
             continue
 

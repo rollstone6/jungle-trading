@@ -354,6 +354,10 @@ async def backtest_page(request: Request, pwd: str = check_password):
 
 # === 回测 API ===
 
+_KLINE_CACHE: dict = {}  # (code, period) -> (ts, klines)  全量回测时同股多策略复用
+_KLINE_TTL = 600  # 10 分钟
+
+
 async def _fetch_backtest_klines(code: str, period: str) -> list:
     """按周期获取回测用K线：日线约1.5年（550根）；分钟线走新浪源（60/30/15）"""
     # 统一去掉 sh/sz/bj 前缀，腾讯/新浪源均要求裸代码（如 601127）
@@ -361,15 +365,23 @@ async def _fetch_backtest_klines(code: str, period: str) -> list:
         if code.startswith(p):
             code = code[len(p):]
             break
+    import time as _t
+    ck = (code, period)
+    hit = _KLINE_CACHE.get(ck)
+    if hit and _t.time() - hit[0] < _KLINE_TTL:
+        return hit[1]
     conn = get_db()
     row = conn.execute("SELECT kline_data FROM positions WHERE code=?", (code,)).fetchone()
     conn.close()
 
     if period == "1d":
-        from app.services.market import fetch_kline_tencent
+        from app.services.market import fetch_kline_tencent, fetch_kline_sina_minute
         klines = await fetch_kline_tencent(code, days=550, full_date=True)
+        if len(klines) < 30:
+            # 腾讯 WAF 拦截/异常时回退新浪日线源（scale=240）
+            klines = await fetch_kline_sina_minute(code, scale=240, datalen=550)
         if len(klines) < 30 and row and row["kline_data"]:
-            # 实时拉取失败时回退到持仓缓存
+            # 两个实时源都失败时回退到持仓缓存
             klines = json.loads(row["kline_data"])
     elif period in ("60m", "30m", "15m"):
         from app.services.market import fetch_kline_sina_minute
@@ -379,6 +391,7 @@ async def _fetch_backtest_klines(code: str, period: str) -> list:
 
     if len(klines) < 30:
         raise HTTPException(status_code=404, detail="K线数据不足，至少需要30根")
+    _KLINE_CACHE[ck] = (_t.time(), klines)
     return klines
 
 
@@ -665,6 +678,23 @@ async def _research_produce(name: str, ttl_minutes: int, refresh: int, produce, 
     return result
 
 
+@app.get("/api/backtest/lookup")
+async def lookup_stock(code: str, request: Request, pwd: str = check_password):
+    """按 6 位代码查询股票名称（腾讯行情），支持持仓池以外的任意 A 股"""
+    import re as _re
+    code = code.strip().lower()
+    for p in ("sh", "sz", "bj"):
+        if code.startswith(p):
+            code = code[len(p):]
+    if not _re.fullmatch(r"\d{6}", code):
+        raise HTTPException(status_code=400, detail="请输入 6 位股票代码")
+    quotes = await fetch_realtime_tencent([code])
+    info = quotes.get(code)
+    if not info or not info.get("name"):
+        raise HTTPException(status_code=404, detail=f"未找到股票 {code}（请确认代码是否正确）")
+    return {"code": code, "name": info["name"]}
+
+
 @app.post("/api/backtest/run")
 async def run_backtest_api(request: Request, pwd: str = check_password):
     """运行回测"""
@@ -676,6 +706,7 @@ async def run_backtest_api(request: Request, pwd: str = check_password):
     engine = data.get("engine", "backtrader")
     commission = data.get("commission", 0.001)  # 单边手续费率，默认千一
     period = data.get("period", "1d")
+    params = data.get("params") or {}  # 策略参数变体（仅 backtrader 透传）
 
     if not code:
         raise HTTPException(status_code=400, detail="缺少股票代码")
@@ -687,6 +718,11 @@ async def run_backtest_api(request: Request, pwd: str = check_password):
         run_fn, _ = _load_backtest_engine(engine)
         if engine == "zipline":
             result = run_fn(klines, initial_cash)
+        elif engine == "backtrader" and params:
+            try:
+                result = run_fn(klines, strategy, initial_cash, commission=commission, **params)
+            except TypeError as e:
+                raise HTTPException(status_code=400, detail=f"策略参数无效: {e}")
         else:
             result = run_fn(klines, strategy, initial_cash, commission=commission)
     else:

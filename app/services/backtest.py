@@ -38,11 +38,11 @@ class MAStrategy(bt.Strategy):
         if not self.position:
             # 金叉买入
             if self.crossover > 0:
-                self.order = self.buy()
+                self.order = self.order_target_percent(target=0.95)
         else:
             # 死叉卖出
             if self.crossover < 0:
-                self.order = self.sell()
+                self.order = self.order_target_percent(target=0.0)
 
     def notify_order(self, order):
         if order.status in [order.Submitted, order.Accepted]:
@@ -92,10 +92,10 @@ class MACDStrategy(bt.Strategy):
 
         if not self.position:
             if self.crossover > 0:
-                self.order = self.buy()
+                self.order = self.order_target_percent(target=0.95)
         else:
             if self.crossover < 0:
-                self.order = self.sell()
+                self.order = self.order_target_percent(target=0.0)
 
     def notify_order(self, order):
         if order.status in [order.Completed]:
@@ -135,11 +135,49 @@ class BollingerBandsStrategy(bt.Strategy):
         if not self.position:
             # 收盘跌破下轨 -> 超卖买入
             if self.dataclose[0] <= self.bbands.lines.bot[0]:
-                self.order = self.buy()
+                self.order = self.order_target_percent(target=0.95)
         else:
             # 收盘回到中轨上方 -> 止盈卖出
             if self.dataclose[0] >= self.bbands.lines.mid[0]:
-                self.order = self.sell()
+                self.order = self.order_target_percent(target=0.0)
+
+    def notify_order(self, order):
+        if order.status in [order.Submitted, order.Accepted]:
+            return
+        self.order = None
+
+
+class BollingerBandToBandStrategy(bt.Strategy):
+    """布林带下轨买上轨卖（纯 band-to-band，无趋势过滤）
+
+    逻辑：收盘跌破/触及下轨买入；收盘触及/突破上轨卖出。
+    吃完整带宽摆动，但弱势股可能沿下轨阴跌等不到上轨——与 boll（中轨止盈）形成对照。
+    """
+    params = (
+        ('period', 20),
+        ('devfactor', 2.0),
+    )
+
+    def __init__(self):
+        self.dataclose = self.datas[0].close
+        self.order = None
+
+        self.bbands = bt.indicators.BollingerBands(
+            self.datas[0],
+            period=self.params.period,
+            devfactor=self.params.devfactor,
+        )
+
+    def next(self):
+        if self.order:
+            return
+
+        if not self.position:
+            if self.dataclose[0] <= self.bbands.lines.bot[0]:
+                self.order = self.order_target_percent(target=0.95)
+        else:
+            if self.dataclose[0] >= self.bbands.lines.top[0]:
+                self.order = self.order_target_percent(target=0.0)
 
     def notify_order(self, order):
         if order.status in [order.Submitted, order.Accepted]:
@@ -183,11 +221,11 @@ class BollingerMACDStrategy(bt.Strategy):
         trend_up = self.macd.macd[0] > self.macd.signal[0]
         if not self.position:
             if trend_up and self.dataclose[0] <= self.bbands.lines.bot[0]:
-                self.order = self.buy()
+                self.order = self.order_target_percent(target=0.95)
         else:
             if (self.dataclose[0] >= self.bbands.lines.top[0]
                     or self.macd.macd[0] < self.macd.signal[0]):
-                self.order = self.sell()
+                self.order = self.order_target_percent(target=0.0)
 
     def notify_order(self, order):
         if order.status in [order.Submitted, order.Accepted]:
@@ -227,10 +265,10 @@ class MAMACDStrategy(bt.Strategy):
 
         if not self.position:
             if self.dataclose[0] > self.sma[0] and self.crossover[0] > 0:
-                self.order = self.buy()
+                self.order = self.order_target_percent(target=0.95)
         else:
             if self.dataclose[0] < self.sma[0] or self.crossover[0] < 0:
-                self.order = self.sell()
+                self.order = self.order_target_percent(target=0.0)
 
     def notify_order(self, order):
         if order.status in [order.Submitted, order.Accepted]:
@@ -268,11 +306,11 @@ class RSIBollingerStrategy(bt.Strategy):
         if not self.position:
             if (self.rsi[0] < self.params.rsi_oversold
                     and self.dataclose[0] <= self.bbands.lines.bot[0]):
-                self.order = self.buy()
+                self.order = self.order_target_percent(target=0.95)
         else:
             if (self.dataclose[0] >= self.bbands.lines.mid[0]
                     or self.rsi[0] > self.params.rsi_overbought):
-                self.order = self.sell()
+                self.order = self.order_target_percent(target=0.0)
 
     def notify_order(self, order):
         if order.status in [order.Submitted, order.Accepted]:
@@ -314,10 +352,10 @@ class MACDVolumeStrategy(bt.Strategy):
         if not self.position:
             if (self.crossover[0] > 0
                     and self.datas[0].volume[0] > self.vol_ma[0] * self.params.vol_mult):
-                self.order = self.buy()
+                self.order = self.order_target_percent(target=0.95)
         else:
             if self.crossover[0] < 0:
-                self.order = self.sell()
+                self.order = self.order_target_percent(target=0.0)
 
     def notify_order(self, order):
         if order.status in [order.Submitted, order.Accepted]:
@@ -359,10 +397,10 @@ class KDJStrategy(bt.Strategy):
 
         if not self.position:
             if self.kcross[0] > 0 and self.percK[0] < self.params.low_thresh:
-                self.order = self.buy()
+                self.order = self.order_target_percent(target=0.95)
         else:
             if self.kcross[0] < 0 and self.percK[0] > self.params.high_thresh:
-                self.order = self.sell()
+                self.order = self.order_target_percent(target=0.0)
 
     def notify_order(self, order):
         if order.status in [order.Submitted, order.Accepted]:
@@ -418,16 +456,64 @@ class KDJMACDStrategy(bt.Strategy):
         if not self.position:
             if (self.kcross[0] > 0 and self.percK[0] < self.params.low_thresh
                     and self.macd_dif[0] > self.macd_dea[0]):
-                self.order = self.buy()
+                self.order = self.order_target_percent(target=0.95)
         else:
             if (self.kcross[0] < 0 and self.percK[0] > self.params.high_thresh) \
                     or self.macd_dif[0] < self.macd_dea[0]:
-                self.order = self.sell()
+                self.order = self.order_target_percent(target=0.0)
 
     def notify_order(self, order):
         if order.status in [order.Submitted, order.Accepted]:
             return
         self.order = None
+
+
+class ChartRecorder(bt.Analyzer):
+    """回测可视化数据记录器：OHLC 蜡烛、账户净值曲线、成交买卖点。
+
+    供前端画"K线 + 资金曲线 + 买卖标记"图。日线只显示日期，
+    分钟线显示到时间；买卖点记录实际成交价（非信号价），
+    前端按 dt 在日期轴上定位。注意：不能用 self.strategy.close
+    （与 backtrader 平仓方法重名），统一走 data0 线。
+    """
+
+    def __init__(self):
+        self.dates: List[str] = []
+        self.ohlc: List[List[float]] = []   # [open, close, low, high] ECharts 蜡烛序
+        self.equity: List[float] = []
+        self.signals: List[Dict] = []
+
+    def _fmt_dt(self):
+        d = self.strategy.datetime.date(0)
+        t = self.strategy.datetime.time(0)
+        if t.hour or t.minute:
+            return f"{d} {t.strftime('%H:%M')}"
+        return str(d)
+
+    def next(self):
+        data = self.strategy.data0
+        self.dates.append(self._fmt_dt())
+        self.ohlc.append([
+            round(data.open[0], 3), round(data.close[0], 3),
+            round(data.low[0], 3), round(data.high[0], 3),
+        ])
+        self.equity.append(round(self.strategy.broker.getvalue(), 2))
+
+    def notify_order(self, order):
+        if order.status == order.Completed:
+            self.signals.append({
+                'dt': self._fmt_dt(),
+                'type': 'buy' if order.isbuy() else 'sell',
+                'price': round(order.executed.price, 3),
+            })
+
+    def get_analysis(self) -> Dict:
+        return {
+            'dates': self.dates,
+            'ohlc': self.ohlc,
+            'equity': self.equity,
+            'signals': self.signals,
+        }
 
 
 def kline_to_dataframe(klines: List[Dict]) -> pd.DataFrame:
@@ -505,6 +591,8 @@ def run_backtest(
         cerebro.addstrategy(MACDStrategy, **kwargs)
     elif strategy_name == 'boll':
         cerebro.addstrategy(BollingerBandsStrategy, **kwargs)
+    elif strategy_name == 'boll_band':
+        cerebro.addstrategy(BollingerBandToBandStrategy, **kwargs)
     elif strategy_name == 'boll_macd':
         cerebro.addstrategy(BollingerMACDStrategy, **kwargs)
     elif strategy_name == 'ma_macd':
@@ -532,6 +620,7 @@ def run_backtest(
     cerebro.addanalyzer(bt.analyzers.DrawDown, _name='drawdown')
     cerebro.addanalyzer(bt.analyzers.TradeAnalyzer, _name='trades')
     cerebro.addanalyzer(bt.analyzers.Returns, _name='returns')
+    cerebro.addanalyzer(ChartRecorder, _name='chart')
     
     # 运行回测
     start_value = cerebro.broker.getvalue()
@@ -576,6 +665,8 @@ def run_backtest(
         'start_date': _fmt_date(df.index[0]),
         'end_date': _fmt_date(df.index[-1]),
         'total_days': len(df),
+        # 可视化数据：价格线/资金曲线/买卖点
+        'chart': strat.analyzers.chart.get_analysis(),
     }
     
     return result
@@ -587,6 +678,7 @@ def get_available_strategies() -> List[Dict]:
         {
             'name': 'ma',
             'display_name': '均线交叉策略',
+            'category': '趋势跟随',
             'description': '5日线上穿20日线买入，下穿卖出',
             'params': {
                 'fast_period': 5,
@@ -596,6 +688,7 @@ def get_available_strategies() -> List[Dict]:
         {
             'name': 'macd',
             'display_name': 'MACD策略',
+            'category': '趋势跟随',
             'description': 'MACD金叉买入，死叉卖出',
             'params': {
                 'fast_period': 12,
@@ -606,7 +699,18 @@ def get_available_strategies() -> List[Dict]:
         {
             'name': 'boll',
             'display_name': '布林带均值回归',
+            'category': '布林带',
             'description': '收盘跌破下轨（超卖）买入，回到中轨止盈卖出',
+            'params': {
+                'period': 20,
+                'devfactor': 2.0,
+            }
+        },
+        {
+            'name': 'boll_band',
+            'display_name': '布林带下买上卖',
+            'category': '布林带',
+            'description': '收盘触及下轨买入，触及上轨卖出（吃完整带宽，无趋势过滤）',
             'params': {
                 'period': 20,
                 'devfactor': 2.0,
@@ -615,6 +719,7 @@ def get_available_strategies() -> List[Dict]:
         {
             'name': 'boll_macd',
             'display_name': '布林+MACD（趋势中的高卖低买）',
+            'category': '布林带',
             'description': 'MACD金叉状态中触下轨低吸，触上轨高抛或死叉止损',
             'params': {
                 'period': 20,
@@ -627,6 +732,7 @@ def get_available_strategies() -> List[Dict]:
         {
             'name': 'ma_macd',
             'display_name': '均线+MACD共振',
+            'category': '趋势跟随',
             'description': '站上20日线且MACD金叉买入，破线或死叉卖出',
             'params': {
                 'ma_period': 20,
@@ -638,6 +744,7 @@ def get_available_strategies() -> List[Dict]:
         {
             'name': 'rsi_boll',
             'display_name': 'RSI+布林双重超卖',
+            'category': '布林带',
             'description': 'RSI<30且触下轨买入，回中轨或RSI>70卖出',
             'params': {
                 'period': 20,
@@ -650,6 +757,7 @@ def get_available_strategies() -> List[Dict]:
         {
             'name': 'macd_vol',
             'display_name': 'MACD+放量确认',
+            'category': '趋势跟随',
             'description': 'MACD金叉且量超20日均量1.5倍买入，死叉卖出',
             'params': {
                 'fast_period': 12,
@@ -662,6 +770,7 @@ def get_available_strategies() -> List[Dict]:
         {
             'name': 'kdj',
             'display_name': 'KDJ金叉死叉',
+            'category': '震荡指标',
             'description': 'K<30低位金叉买入，K>70高位死叉卖出',
             'params': {
                 'period': 9,
@@ -674,6 +783,7 @@ def get_available_strategies() -> List[Dict]:
         {
             'name': 'kdj_macd',
             'display_name': 'KDJ+MACD共振',
+            'category': '震荡指标',
             'description': 'KDJ低位金叉且MACD多头买入，高位死叉或MACD死叉卖出',
             'params': {
                 'period': 9,
