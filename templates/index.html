@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>持仓工作台</title>
-    <link rel="stylesheet" href="/static/styles.css?v=20261030g">
+    <link rel="stylesheet" href="/static/styles.css?v=20261103a">
     <!-- ===== 量化回测实验室 UI 风格覆盖层 ===== -->
     <style>
         /* 容器 */
@@ -258,6 +258,56 @@
             gap: 16px;
         }
 
+        /* 持仓走势分类筛选条 */
+        .regime-filter {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin: -6px 0 14px;
+        }
+        .regime-filter .rf-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 5px 12px;
+            border-radius: 999px;
+            border: 1.5px solid #e2e8f0;
+            background: #fff;
+            color: #475569;
+            font-size: 12.5px;
+            cursor: pointer;
+            transition: border-color .15s, background .15s, color .15s, box-shadow .15s;
+        }
+        .regime-filter .rf-btn:hover { border-color: var(--accent); color: var(--accent); }
+        .regime-filter .rf-btn:active { transform: scale(0.97); }
+        .regime-filter .rf-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+        .regime-filter .rf-btn small { font-size: 11px; color: #94a3b8; font-variant-numeric: tabular-nums; }
+        .regime-filter .rf-dot {
+            width: 8px; height: 8px; border-radius: 50%;
+            background: #cbd5e1; flex-shrink: 0;
+        }
+        .regime-filter .rf-btn.squeeze .rf-dot { background: linear-gradient(135deg, #f59e0b, #ef4444); }
+        .regime-filter .rf-btn.trending .rf-dot { background: linear-gradient(135deg, #10b981, #0ea5e9); }
+        .regime-filter .rf-btn.ranging .rf-dot { background: linear-gradient(135deg, #3b82f6, #6366f1); }
+        .regime-filter .rf-btn.neutral .rf-dot { background: linear-gradient(135deg, #64748b, #94a3b8); }
+        .regime-filter .rf-btn.all .rf-dot { background: linear-gradient(135deg, var(--accent), #0ea5e9); }
+        .regime-filter .rf-btn.on {
+            border-color: var(--accent);
+            background: rgba(var(--accent-rgb, 102, 126, 234), 0.08);
+            color: var(--accent);
+            font-weight: 600;
+            box-shadow: 0 1px 4px rgba(var(--accent-rgb, 102, 126, 234), 0.18);
+        }
+        .regime-filter .rf-btn.on small { color: var(--accent); }
+        .position-card.hidden-by-filter { display: none !important; }
+        .regime-filter-empty {
+            grid-column: 1 / -1;
+            text-align: center;
+            color: #64748b;
+            font-size: 13px;
+            padding: 28px 0;
+        }
+
         /* 持仓走势分类面板 */
         .regime-panel {
             margin-top: 16px;
@@ -290,7 +340,7 @@
         }
         .regime-panel-list {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            grid-template-columns: repeat(auto-fill, minmax(min(200px, 100%), 1fr));
             gap: 10px;
         }
         /* 走势分类·精简合并版：计数条 + 预警 + 股票池折叠 */
@@ -360,6 +410,10 @@
             flex-direction: column;
             gap: 4px;
             box-shadow: 0 2px 6px rgba(0,0,0,0.12);
+            min-width: 0;
+        }
+        .regime-chip .rc-evidence {
+            overflow-wrap: anywhere;
         }
         .regime-chip.squeeze { background: linear-gradient(135deg, #f59e0b, #ef4444); }
         .regime-chip.trending { background: linear-gradient(135deg, #10b981, #0ea5e9); }
@@ -403,7 +457,10 @@
             font-weight: 700;
         }
         @media (max-width: 480px) {
-            .regime-panel-list { grid-template-columns: 1fr 1fr; }
+            .regime-panel-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        }
+        @media (max-width: 380px) {
+            .regime-panel-list { grid-template-columns: 1fr; }
         }
         
         @media (max-width: 768px) {
@@ -607,9 +664,16 @@
         <!-- 当前持仓 -->
         <section class="positions-section">
             <h2>当前持仓</h2>
+            <div class="regime-filter" role="group" aria-label="按走势分类筛选持仓">
+                <button type="button" class="rf-btn all on" data-filter="all" aria-pressed="true"><span class="rf-dot"></span>全部<small>0</small></button>
+                <button type="button" class="rf-btn squeeze" data-filter="挤压待变" aria-pressed="false"><span class="rf-dot"></span>挤压待变<small>0</small></button>
+                <button type="button" class="rf-btn trending" data-filter="趋势型" aria-pressed="false"><span class="rf-dot"></span>趋势型<small>0</small></button>
+                <button type="button" class="rf-btn ranging" data-filter="区间型" aria-pressed="false"><span class="rf-dot"></span>区间型<small>0</small></button>
+                <button type="button" class="rf-btn neutral" data-filter="中性" aria-pressed="false"><span class="rf-dot"></span>中性<small>0</small></button>
+            </div>
             <div class="position-list">
                 {% for pos in positions %}
-                <article class="position-card {% if pos.risk_level == '高' %}danger{% endif %}" id="pos-{{ pos.code }}" data-code="{{ pos.code }}">
+                <article class="position-card {% if pos.risk_level == '高' %}danger{% endif %}" id="pos-{{ pos.code }}" data-code="{{ pos.code }}" data-regime="{{ pos.regime_label or '中性' }}">
                     <div class="position-main">
                         <div>
                             <strong>{{ pos.name }}</strong>
@@ -759,6 +823,6 @@
         
     </div>
 
-    <script src="/static/app.js?v=20261030f"></script>
+    <script src="/static/app.js?v=20261103a"></script>
 </body>
 </html>

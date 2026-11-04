@@ -839,6 +839,65 @@ loadETFFlow();
 // === 持仓走势分类（日线+30分钟双周期共振） ===
 const REGIME_LABELS = { squeeze: '挤压待变', trending: '趋势型', ranging: '区间型', neutral: '中性' };
 
+/* ===== 持仓走势分类筛选 ===== */
+const RF_FILTER_KEY = 'jungl…r-v1';
+
+function initRegimeFilter() {
+    const bar = document.querySelector('.regime-filter');
+    if (!bar) return;
+    bar.querySelectorAll('.rf-btn').forEach(btn => {
+        btn.addEventListener('click', () => applyRegimeFilter(btn.dataset.filter, true));
+    });
+    const saved = localStorage.getItem(RF_FILTER_KEY) || 'all';
+    const exists = bar.querySelector(`.rf-btn[data-filter="${CSS.escape(saved)}"]`);
+    applyRegimeFilter(exists ? saved : 'all', false);
+}
+
+function applyRegimeFilter(filter, remember) {
+    const bar = document.querySelector('.regime-filter');
+    if (!bar) return;
+    if (remember) localStorage.setItem(RF_FILTER_KEY, filter);
+    bar.querySelectorAll('.rf-btn').forEach(b => {
+        const on = b.dataset.filter === filter;
+        b.classList.toggle('on', on);
+        b.setAttribute('aria-pressed', on ? 'true' : 'false');
+    });
+    const list = document.querySelector('.position-list');
+    if (!list) return;
+    let shown = 0;
+    list.querySelectorAll('.position-card[data-code]').forEach(card => {
+        const hide = filter !== 'all' && card.dataset.regime !== filter;
+        card.classList.toggle('hidden-by-filter', hide);
+        if (!hide) shown++;
+    });
+    const oldEmpty = list.querySelector('.regime-filter-empty');
+    if (oldEmpty) oldEmpty.remove();
+    if (!shown && filter !== 'all') {
+        const div = document.createElement('div');
+        div.className = 'regime-filter-empty';
+        div.textContent = `暂无「${filter}」持仓`;
+        list.appendChild(div);
+    }
+}
+
+function updateRegimeFilterCounts() {
+    const bar = document.querySelector('.regime-filter');
+    if (!bar) return;
+    const counts = { 'all': 0 };
+    document.querySelectorAll('.position-card[data-code]').forEach(card => {
+        counts['all']++;
+        counts[card.dataset.regime] = (counts[card.dataset.regime] || 0) + 1;
+    });
+    bar.querySelectorAll('.rf-btn').forEach(b => {
+        const el = b.querySelector('small');
+        if (el) el.textContent = counts[b.dataset.filter] || 0;
+    });
+    const active = bar.querySelector('.rf-btn.on');
+    if (active && active.dataset.filter !== 'all' && !(counts[active.dataset.filter] > 0)) {
+        applyRegimeFilter('all', true);   // 当前筛选已无票（如重扫后分类变化）→ 回落到全部
+    }
+}
+
 async function loadPositionRegime(refresh = false) {
     const cards = Array.from(document.querySelectorAll('.position-card[data-code]'));
     if (!cards.length) return;
@@ -944,7 +1003,11 @@ async function loadPositionRegime(refresh = false) {
                 badge.style.color = '#fff';
             }
             if (sub) sub.textContent = `日K ${s.label_daily || '-'} / 30分 ${s.label_30m}`;
+            card.dataset.regime = s.label;   // 双周期结果同步给筛选条
         });
+        updateRegimeFilterCounts();
+        const activeBtn = document.querySelector('.regime-filter .rf-btn.on');
+        if (activeBtn) applyRegimeFilter(activeBtn.dataset.filter, false);
     } catch (err) {
         console.error('加载走势分类失败:', err);
         listEl.innerHTML = '<div class="etf-loading">加载失败，稍后自动重试</div>';
@@ -953,9 +1016,13 @@ async function loadPositionRegime(refresh = false) {
         document.querySelectorAll('.regime-badge[data-fallback]').forEach(b => {
             if (!b.textContent.trim()) b.textContent = b.dataset.fallback;
         });
+        updateRegimeFilterCounts();   // 降级：用 SSR 日线口径的计数与筛选
+        const rb = document.querySelector('.regime-filter .rf-btn.on');
+        if (rb) applyRegimeFilter(rb.dataset.filter, false);
     }
 }
 
+initRegimeFilter();
 loadPositionRegime();
 
 function isCnTradingRefreshWindow() {
