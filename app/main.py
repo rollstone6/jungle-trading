@@ -101,6 +101,14 @@ app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="stat
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 
 
+@app.get("/favicon.ico", include_in_schema=False)
+async def favicon():
+    """浏览器自动请求的根路径 icon（免登录），SVG 直接回喂。"""
+    from fastapi.responses import Response
+    data = (BASE_DIR / "static" / "favicon.svg").read_bytes()
+    return Response(content=data, media_type="image/svg+xml")
+
+
 # --- Auth middleware ---
 def check_password(request: Request):
     pwd = request.query_params.get("pwd", "")

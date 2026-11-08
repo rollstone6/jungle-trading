@@ -4,7 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>资金流向背离监测 - 持仓工作台</title>
-    <link rel="stylesheet" href="/static/styles.css?v=20261103a">
+    <link rel="stylesheet" href="/static/styles.css?v=20261108a">
+    <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
     <style>
         .page { max-width: 1100px; margin: 0 auto; padding: 20px; }
         .header {
@@ -22,10 +23,10 @@
         .kpi .v { font-size: 26px; font-weight: 800; color: var(--accent); }
         .kpi .l { font-size: 12px; color: #64748b; margin-top: 4px; }
         .signal-box {
-            background: #fff; border: 2px solid rgba(239,68,68,0.35); border-left: 5px solid #ef4444;
+            background: #fff; border: 2px solid rgba(217,45,32,0.35); border-left: 5px solid var(--red);
             border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); padding: 16px 20px; margin-bottom: 20px;
         }
-        .signal-box h3 { margin: 0 0 6px; color: #ef4444; font-size: 15px; }
+        .signal-box h3 { margin: 0 0 6px; color: var(--red); font-size: 15px; }
         .signal-box p { margin: 0 0 10px; font-size: 12px; color: #64748b; }
         table.data-table {
             width: 100%; border-collapse: collapse; background: #fff;
@@ -35,7 +36,7 @@
         .data-table th { background: var(--accent); color: #fff; padding: 10px 10px; font-size: 12px; text-align: left; }
         .data-table td { padding: 8px 10px; font-size: 12px; border-bottom: 1px solid #f1f5f9; }
         .data-table tr:hover { background: #f8f7ff; }
-        .up { color: #ef4444; font-weight: 600; } .down { color: #10b981; font-weight: 600; }
+        .up { color: var(--red); font-weight: 600; } .down { color: var(--green); font-weight: 600; }
         .scan-bar {
             background: #fff; border: 2px solid #e2e8f0; border-radius: 12px; padding: 12px 16px;
             display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;
@@ -59,6 +60,7 @@
             <a href="/?pwd={{ pwd }}">持仓</a>
             <a href="/quant?pwd={{ pwd }}">信号中心</a>
             <a href="/backtest?pwd={{ pwd }}">回测</a>
+            <a href="/lab?pwd={{ pwd }}">实验室</a>
             <a href="/research?pwd={{ pwd }}" class="on">研究中心</a>
         </nav>
         <div class="scan-bar">
@@ -68,7 +70,7 @@
         <div class="err-banner" id="err-banner" hidden></div>
         <div class="kpi-row">
             <div class="kpi"><div class="v" id="k-universe">-</div><div class="l">扫描股票数</div></div>
-            <div class="kpi"><div class="v" id="k-signals" style="color:#ef4444">-</div><div class="l">背离信号数</div></div>
+            <div class="kpi"><div class="v" id="k-signals" style="color:var(--red)">-</div><div class="l">背离信号数</div></div>
         </div>
         <div class="signal-box">
             <h3><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 2L3 14h7l-1 8 10-12h-7l1-8Z"/></svg> 背离信号（跌 &gt;1% 且主力净流入占比 &gt;1.5% 且成交额 &gt;5000万，已剔除 ST/北交所/新股）</h3>
@@ -98,7 +100,7 @@
                 const d = await r.json();
                 if (!r.ok) throw new Error(d.detail || '加载失败');
                 render(d);
-                document.getElementById('meta').textContent = d.stale ? `⚠ 刷新失败，展示 ${d.fetchedAt} 的缓存数据（${d.source || '东方财富'}）` : `更新于 ${d.fetchedAt} · 数据源 ${d.source || '东方财富'} · 缓存 5 分钟`;
+                document.getElementById('meta').textContent = d.stale ? `刷新失败，展示 ${d.fetchedAt} 的缓存数据（${d.source || '东方财富'}）` : `更新于 ${d.fetchedAt} · 数据源 ${d.source || '东方财富'} · 缓存 5 分钟`;
             } catch (e) {
                 document.getElementById('meta').textContent = '数据源暂不可用';
                 const b = document.getElementById('err-banner');

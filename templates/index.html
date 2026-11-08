@@ -4,7 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>持仓工作台</title>
-    <link rel="stylesheet" href="/static/styles.css?v=20261103a">
+    <link rel="stylesheet" href="/static/styles.css?v=20261108a">
+    <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
     <!-- ===== 量化回测实验室 UI 风格覆盖层 ===== -->
     <style>
         /* 容器 */
@@ -247,8 +248,13 @@
         .kline-card:not(.collapsed) .mini-kline { padding: 8px 12px 10px; min-height: 0; }
 
         /* 消息链接 */
+        .cost-fix-link { display: inline-block; padding: 6px 4px; min-height: 24px; }
+
         .news-list a {
             color: var(--accent);
+            display: inline-block;
+            padding: 6px 0;
+            min-height: 24px;
         }
 
         /* 当前持仓 - 多列布局 */
@@ -281,7 +287,7 @@
         .regime-filter .rf-btn:hover { border-color: var(--accent); color: var(--accent); }
         .regime-filter .rf-btn:active { transform: scale(0.97); }
         .regime-filter .rf-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
-        .regime-filter .rf-btn small { font-size: 11px; color: #94a3b8; font-variant-numeric: tabular-nums; }
+        .regime-filter .rf-btn small { font-size: 11px; color: #64748b; font-variant-numeric: tabular-nums; }
         .regime-filter .rf-dot {
             width: 8px; height: 8px; border-radius: 50%;
             background: #cbd5e1; flex-shrink: 0;
@@ -614,6 +620,7 @@
             <a href="/?pwd={{ pwd }}" class="on">持仓</a>
             <a href="/quant?pwd={{ pwd }}">信号中心</a>
             <a href="/backtest?pwd={{ pwd }}">回测</a>
+            <a href="/lab?pwd={{ pwd }}">实验室</a>
             <a href="/research?pwd={{ pwd }}">研究中心</a>
         </nav>
 

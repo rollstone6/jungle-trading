@@ -4,7 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>基金经理跟踪 - 持仓工作台</title>
-    <link rel="stylesheet" href="/static/styles.css?v=20261103a">
+    <link rel="stylesheet" href="/static/styles.css?v=20261108a">
+    <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
     <style>
         .page { max-width: 1000px; margin: 0 auto; padding: 20px; }
         .header {
@@ -21,7 +22,7 @@
         }
         .kpi .v { font-size: 20px; font-weight: 800; }
         .kpi .l { font-size: 12px; color: #64748b; margin-top: 4px; }
-        .up { color: #ef4444; } .down { color: #10b981; }
+        .up { color: var(--red); } .down { color: var(--green); }
         table.data-table {
             width: 100%; border-collapse: collapse; background: #fff;
             border: 2px solid #e2e8f0; border-radius: 12px; overflow: hidden;
@@ -105,8 +106,8 @@
         .comparison-item:last-child { border-bottom: none; }
         .stock-name { font-weight: 600; color: #111827; }
         .stock-code { color: #64748b; font-size: 10px; margin-left: 4px; }
-        .change-up { color: #ef4444; font-weight: 600; }
-        .change-down { color: #10b981; font-weight: 600; }
+        .change-up { color: var(--red); font-weight: 600; }
+        .change-down { color: var(--green); font-weight: 600; }
         .no-data { color: #64748b; font-style: italic; text-align: center; padding: 8px; }
         
         .loading-detail { text-align: center; padding: 20px; color: #64748b; }
@@ -123,6 +124,7 @@
             <a href="/?pwd={{ pwd }}">持仓</a>
             <a href="/quant?pwd={{ pwd }}">信号中心</a>
             <a href="/backtest?pwd={{ pwd }}">回测</a>
+            <a href="/lab?pwd={{ pwd }}">实验室</a>
             <a href="/research?pwd={{ pwd }}" class="on">研究中心</a>
         </nav>
         <div class="scan-bar">
@@ -151,7 +153,7 @@
                 const d = await r.json();
                 if (!r.ok) throw new Error(d.detail || '加载失败');
                 render(d);
-                document.getElementById('meta').textContent = d.stale ? `⚠ 刷新失败，展示 ${d.fetchedAt} 的缓存数据` : `更新于 ${d.fetchedAt} · 净值通常交易日 18:00-20:00 确认`;
+                document.getElementById('meta').textContent = d.stale ? `刷新失败，展示 ${d.fetchedAt} 的缓存数据` : `更新于 ${d.fetchedAt} · 净值通常交易日 18:00-20:00 确认`;
             } catch (e) {
                 document.getElementById('meta').textContent = '加载失败：' + e.message;
             } finally { btn.disabled = false; }
@@ -167,7 +169,7 @@
             
             const rows = d.funds.map((f, idx) => {
                 if (!f.ok) {
-                    return `<tr><td>${f.manager}</td><td>${f.name}</td><td colspan="5" style="color:#ef4444">获取失败：${f.error}</td></tr>`;
+                    return `<tr><td>${f.manager}</td><td>${f.name}</td><td colspan="5" style="color:var(--red)">获取失败：${f.error}</td></tr>`;
                 }
                 
                 const mainRow = `
@@ -230,13 +232,13 @@
                 const data = await r.json();
                 
                 if (data.error) {
-                    container.innerHTML = `<div style="color:#ef4444;text-align:center">加载失败：${data.error}</div>`;
+                    container.innerHTML = `<div style="color:var(--red);text-align:center">加载失败：${data.error}</div>`;
                     return;
                 }
                 
                 renderHoldings(container, data);
             } catch (e) {
-                container.innerHTML = `<div style="color:#ef4444;text-align:center">加载失败：${e.message}</div>`;
+                container.innerHTML = `<div style="color:var(--red);text-align:center">加载失败：${e.message}</div>`;
             }
         }
         
@@ -292,7 +294,7 @@
                 
                 // 新增
                 html += `<div class="comparison-block">
-                    <div class="comparison-label"><span style="color:#10b981">➕</span> 新增 (${comparison.added.length}只)</div>
+                    <div class="comparison-label"><span style="color:var(--red)"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></span> 新增 (${comparison.added.length}只)</div>
                     <div class="comparison-items">`;
                 if (comparison.added.length > 0) {
                     comparison.added.forEach(s => {
@@ -308,7 +310,7 @@
                 
                 // 退出
                 html += `<div class="comparison-block">
-                    <div class="comparison-label"><span style="color:#ef4444">➖</span> 退出 (${comparison.removed.length}只)</div>
+                    <div class="comparison-label"><span style="color:var(--green)"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14"/></svg></span> 退出 (${comparison.removed.length}只)</div>
                     <div class="comparison-items">`;
                 if (comparison.removed.length > 0) {
                     comparison.removed.forEach(s => {
