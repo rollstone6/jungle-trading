@@ -169,10 +169,10 @@ async def startup():
     _start_scheduler()
 
 
-# --- 量化实验室（DuckDB + VectorBT + APScheduler 闭环） ---
-@app.get("/lab", response_class=HTMLResponse)
-async def lab_page(request: Request, pwd: str = check_password):
-    return templates.TemplateResponse(request, "lab.html", {"request": request, "pwd": pwd})
+# --- 量化实验室（DuckDB + VectorBT + APScheduler 闭环，2026-11-08 并入信号中心 tab） ---
+@app.get("/lab", include_in_schema=False)
+async def lab_page(pwd: str = check_password):
+    return RedirectResponse(url=f"/quant?pwd={pwd}")
 
 
 @app.get("/api/lab/db")
