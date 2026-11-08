@@ -171,19 +171,19 @@ async def startup():
 
 # --- 量化实验室（DuckDB + VectorBT + APScheduler 闭环，2026-11-08 并入信号中心 tab） ---
 @app.get("/lab", include_in_schema=False)
-async def lab_page(pwd: str = check_password):
+async def lab_page(pwd: str = Depends(check_password)):
     return RedirectResponse(url=f"/quant?pwd={pwd}")
 
 
 @app.get("/api/lab/db")
-async def lab_db(pwd: str = check_password):
+async def lab_db(pwd: str = Depends(check_password)):
     info = qp.db_overview()
     info["scheduler"] = _scheduler_status()
     return info
 
 
 @app.get("/api/lab/result")
-async def lab_result(pwd: str = check_password):
+async def lab_result(pwd: str = Depends(check_password)):
     data = qp.load_result()
     if data is None:
         return {"ready": False}
@@ -191,7 +191,7 @@ async def lab_result(pwd: str = check_password):
 
 
 @app.post("/api/lab/run")
-async def lab_run(request: Request, pwd: str = check_password):
+async def lab_run(request: Request, pwd: str = Depends(check_password)):
     body = {}
     try:
         body = await request.json()
@@ -215,7 +215,7 @@ async def lab_run(request: Request, pwd: str = check_password):
 
 # --- Pages ---
 @app.get("/", response_class=HTMLResponse)
-async def index(request: Request, pwd: str = check_password):
+async def index(request: Request, pwd: str = Depends(check_password)):
     account = get_account()
     positions = get_all_positions()
 
@@ -361,7 +361,7 @@ async def index(request: Request, pwd: str = check_password):
 
 # --- API ---
 @app.get("/api/etf-moneyflow")
-async def api_etf_moneyflow(pwd: str = check_password):
+async def api_etf_moneyflow(pwd: str = Depends(check_password)):
     """ETF资金流：realtime=盘中主力净流入(新浪,3分钟缓存)，apply=当日申购净流入(交易所份额法,T+1)"""
     realtime = await etf_flow.fetch_realtime_main_flow()
     apply_data = etf_flow.get_cached()
@@ -372,7 +372,7 @@ async def api_etf_moneyflow(pwd: str = check_password):
 
 
 @app.post("/api/positions/manual")
-async def update_manual(data: ManualUpdate, request: Request, pwd: str = check_password):
+async def update_manual(data: ManualUpdate, request: Request, pwd: str = Depends(check_password)):
     """手工更新持仓"""
     conn = get_db()
 
@@ -412,7 +412,7 @@ async def update_manual(data: ManualUpdate, request: Request, pwd: str = check_p
 
 
 @app.get("/api/reports/strategies")
-async def get_strategies(date: str, request: Request, pwd: str = check_password):
+async def get_strategies(date: str, request: Request, pwd: str = Depends(check_password)):
     """获取指定日期的AI策略报告"""
     report = get_report(date)
     if not report:
@@ -423,7 +423,7 @@ async def get_strategies(date: str, request: Request, pwd: str = check_password)
 # === 回测页面 ===
 
 @app.get("/backtest", response_class=HTMLResponse)
-async def backtest_page(request: Request, pwd: str = check_password):
+async def backtest_page(request: Request, pwd: str = Depends(check_password)):
     """回测页面"""
     positions = get_all_positions()
     held_codes = {p["code"] for p in positions}
@@ -500,7 +500,7 @@ async def _fetch_backtest_klines(code: str, period: str) -> list:
 
 
 @app.get("/api/backtest/strategies")
-async def list_strategies(request: Request, pwd: str = check_password):
+async def list_strategies(request: Request, pwd: str = Depends(check_password)):
     """获取可用的回测策略"""
     _, get_strategies = _load_backtest_engine("backtrader")
     strategies = get_strategies()
@@ -513,7 +513,7 @@ async def list_strategies(request: Request, pwd: str = check_password):
 
 
 @app.post("/api/backtest/classify")
-async def classify_api(request: Request, pwd: str = check_password):
+async def classify_api(request: Request, pwd: str = Depends(check_password)):
     """走势量化分类：判断选中股票是 区间型/趋势型/挤压待变/中性，并推荐策略"""
     data = await request.json()
     code = data.get("code")
@@ -535,13 +535,13 @@ REGIME_CACHE_FILE = BASE_DIR / "data" / "regime_scan.json"
 
 
 @app.get("/regime", response_class=HTMLResponse)
-async def regime_page(request: Request, pwd: str = check_password):
+async def regime_page(request: Request, pwd: str = Depends(check_password)):
     """走势分类已并入首页面板（302 兼容旧链接/收藏）"""
     return RedirectResponse(url=f"/?pwd={pwd}#position-regime")
 
 
 @app.get("/api/regime/latest")
-async def regime_latest(request: Request, pwd: str = check_password, refresh: int = 0):
+async def regime_latest(request: Request, pwd: str = Depends(check_password), refresh: int = 0):
     """最新全池分类扫描结果：当天已有缓存直接返回，否则现场扫描并落盘到 data/regime_scan.json"""
     from app.services.regime import classify_regime, combine_timeframes, REGIME_LABEL, REGIME_ADVICE
 
@@ -650,7 +650,7 @@ RESEARCH_CACHE_DIR = BASE_DIR / "data"
 
 
 @app.get("/research", response_class=HTMLResponse)
-async def research_hub(request: Request, pwd: str = check_password):
+async def research_hub(request: Request, pwd: str = Depends(check_password)):
     """研究中心入口页"""
     return templates.TemplateResponse(
         request, "research_hub.html", {"request": request, "pwd": pwd}
@@ -658,7 +658,7 @@ async def research_hub(request: Request, pwd: str = check_password):
 
 
 @app.get("/research/funds", response_class=HTMLResponse)
-async def research_funds_page(request: Request, pwd: str = check_password):
+async def research_funds_page(request: Request, pwd: str = Depends(check_password)):
     """基金经理跟踪页"""
     return templates.TemplateResponse(
         request, "research_funds.html", {"request": request, "pwd": pwd}
@@ -666,7 +666,7 @@ async def research_funds_page(request: Request, pwd: str = check_password):
 
 
 @app.get("/api/research/funds")
-async def research_funds_api(request: Request, pwd: str = check_password, refresh: int = 0):
+async def research_funds_api(request: Request, pwd: str = Depends(check_password), refresh: int = 0):
     """长跑型基金经理核心基金净值（缓存30分钟）"""
     from app.services import research as rs
 
@@ -677,7 +677,7 @@ async def research_funds_api(request: Request, pwd: str = check_password, refres
 
 
 @app.get("/api/research/funds/holdings")
-async def research_fund_holdings_api(request: Request, pwd: str = check_password, 
+async def research_fund_holdings_api(request: Request, pwd: str = Depends(check_password), 
                                       fund_code: str = None, refresh: int = 0):
     """基金经理持仓和季度变化（缓存6小时）"""
     from app.services import research as rs
@@ -692,7 +692,7 @@ async def research_fund_holdings_api(request: Request, pwd: str = check_password
 
 
 @app.get("/research/rankings", response_class=HTMLResponse)
-async def research_rankings_page(request: Request, pwd: str = check_password):
+async def research_rankings_page(request: Request, pwd: str = Depends(check_password)):
     """东财模拟组合排行榜页"""
     return templates.TemplateResponse(
         request, "research_rankings.html", {"request": request, "pwd": pwd}
@@ -700,7 +700,7 @@ async def research_rankings_page(request: Request, pwd: str = check_password):
 
 
 @app.get("/api/research/rankings")
-async def research_rankings_api(request: Request, pwd: str = check_password,
+async def research_rankings_api(request: Request, pwd: str = Depends(check_password),
                                 refresh: int = 0, top: int = 30):
     """东财模拟组合排行榜五维度 + 热门股票统计（缓存30分钟）"""
     from app.services import research as rs
@@ -713,7 +713,7 @@ async def research_rankings_api(request: Request, pwd: str = check_password,
 
 
 @app.get("/research/moneyflow", response_class=HTMLResponse)
-async def research_moneyflow_page(request: Request, pwd: str = check_password):
+async def research_moneyflow_page(request: Request, pwd: str = Depends(check_password)):
     """资金流向背离监测页"""
     return templates.TemplateResponse(
         request, "research_moneyflow.html", {"request": request, "pwd": pwd}
@@ -721,7 +721,7 @@ async def research_moneyflow_page(request: Request, pwd: str = check_password):
 
 
 @app.get("/api/research/moneyflow")
-async def research_moneyflow_api(request: Request, pwd: str = check_password, refresh: int = 0):
+async def research_moneyflow_api(request: Request, pwd: str = Depends(check_password), refresh: int = 0):
     """价资背离信号 + 主力净流入榜（实时数据，缓存5分钟）"""
     from app.services import research as rs
 
@@ -732,7 +732,7 @@ async def research_moneyflow_api(request: Request, pwd: str = check_password, re
 
 
 @app.get("/research/pboc", response_class=HTMLResponse)
-async def research_pboc_page(request: Request, pwd: str = check_password):
+async def research_pboc_page(request: Request, pwd: str = Depends(check_password)):
     """央行流动性仪表板页"""
     return templates.TemplateResponse(
         request, "research_pboc.html", {"request": request, "pwd": pwd}
@@ -740,7 +740,7 @@ async def research_pboc_page(request: Request, pwd: str = check_password):
 
 
 @app.get("/api/research/pboc")
-async def research_pboc_api(request: Request, pwd: str = check_password, refresh: int = 0):
+async def research_pboc_api(request: Request, pwd: str = Depends(check_password), refresh: int = 0):
     """央行公开市场操作：逆回购/买断式，投放到期净投放（缓存6小时）"""
     from app.services import research as rs
 
@@ -783,7 +783,7 @@ async def _research_produce(name: str, ttl_minutes: int, refresh: int, produce, 
 
 
 @app.get("/api/backtest/search")
-async def search_stock(q: str, request: Request, pwd: str = check_password):
+async def search_stock(q: str, request: Request, pwd: str = Depends(check_password)):
     """按 名称/代码/拼音首字母 模糊搜索全市场 A 股（新浪 suggest 接口，GBK 解码）"""
     import httpx as _httpx
     import re as _re
@@ -826,7 +826,7 @@ async def search_stock(q: str, request: Request, pwd: str = check_password):
 
 
 @app.get("/api/backtest/lookup")
-async def lookup_stock(code: str, request: Request, pwd: str = check_password):
+async def lookup_stock(code: str, request: Request, pwd: str = Depends(check_password)):
     """按 6 位代码查询股票名称（腾讯行情），支持持仓池以外的任意 A 股"""
     import re as _re
     code = code.strip().lower()
@@ -843,7 +843,7 @@ async def lookup_stock(code: str, request: Request, pwd: str = check_password):
 
 
 @app.post("/api/backtest/run")
-async def run_backtest_api(request: Request, pwd: str = check_password):
+async def run_backtest_api(request: Request, pwd: str = Depends(check_password)):
     """运行回测"""
     data = await request.json()
 
@@ -881,7 +881,7 @@ async def run_backtest_api(request: Request, pwd: str = check_password):
 # === 量化信号中心（app/quant 四大能力 Web 化：策略信号/趋势过滤/箱体/筹码） ===
 
 @app.get("/quant", response_class=HTMLResponse)
-async def quant_hub(request: Request, pwd: str = check_password):
+async def quant_hub(request: Request, pwd: str = Depends(check_password)):
     """量化信号中心入口页"""
     return templates.TemplateResponse(
         request, "quant.html", {"request": request, "pwd": pwd}
@@ -889,14 +889,14 @@ async def quant_hub(request: Request, pwd: str = check_password):
 
 
 @app.get("/api/quant/strategies")
-async def quant_strategies(request: Request, pwd: str = check_password):
+async def quant_strategies(request: Request, pwd: str = Depends(check_password)):
     """可扫描策略列表"""
     from app.services.quant_scan import list_strategies
     return {"strategies": list_strategies()}
 
 
 @app.get("/api/quant/signals")
-async def quant_signals_api(request: Request, pwd: str = check_password,
+async def quant_signals_api(request: Request, pwd: str = Depends(check_password),
                             strategy: str = "breakout", refresh: int = 0,
                             full: int = 0):
     """策略信号扫描（当日缓存，refresh=1 强制重扫，full=1 全市场粗筛池）"""
@@ -908,7 +908,7 @@ async def quant_signals_api(request: Request, pwd: str = check_password,
 
 
 @app.get("/api/quant/trend")
-async def quant_trend_api(request: Request, pwd: str = check_password,
+async def quant_trend_api(request: Request, pwd: str = Depends(check_password),
                           mode: str = "strong", refresh: int = 0, full: int = 0):
     """趋势过滤（strong/loose/oversold，full=1 全市场粗筛池）"""
     from app.services.quant_scan import scan_trend
@@ -919,7 +919,7 @@ async def quant_trend_api(request: Request, pwd: str = check_password,
 
 
 @app.get("/api/quant/box")
-async def quant_box_api(request: Request, pwd: str = check_password,
+async def quant_box_api(request: Request, pwd: str = Depends(check_password),
                         refresh: int = 0, full: int = 0):
     """箱体检测（full=1 全市场粗筛池）"""
     from app.services.quant_scan import scan_box
@@ -927,7 +927,7 @@ async def quant_box_api(request: Request, pwd: str = check_password,
 
 
 @app.get("/api/quant/chip")
-async def quant_chip_api(request: Request, pwd: str = check_password,
+async def quant_chip_api(request: Request, pwd: str = Depends(check_password),
                          refresh: int = 0, full: int = 0):
     """筹码集中度扫描（full=1 全市场粗筛池）"""
     from app.services.quant_scan import scan_chip
@@ -935,7 +935,7 @@ async def quant_chip_api(request: Request, pwd: str = check_password,
 
 
 @app.get("/api/quant/chip/detail")
-async def quant_chip_detail_api(request: Request, pwd: str = check_password,
+async def quant_chip_detail_api(request: Request, pwd: str = Depends(check_password),
                                 symbol: str = ""):
     """单股筹码分布明细（画图用）"""
     from app.services.quant_scan import chip_detail
