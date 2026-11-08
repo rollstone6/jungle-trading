@@ -29,6 +29,49 @@ from app.quant.config import STOCK_LIST
 # backtrader / zipline / vnpy 三个回测引擎均为重量级可选依赖，
 # 改为在路由内懒加载，缺装时返回 503 而不是拖垮整个应用启动。
 
+# --- 量化管线（DuckDB + VectorBT + APScheduler）---
+from app.services import quant_pipeline as qp
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+
+_scheduler: AsyncIOScheduler | None = None
+_lab_lock = asyncio.Lock()
+
+
+async def _lab_pipeline_job():
+    """交易日收盘后定时闭环：拉行情→DuckDB→VectorBT→落库。锁防与手动触发并发。"""
+    if _lab_lock.locked():
+        qp.log_job("scheduler", "skip", "pipeline already running")
+        return
+    async with _lab_lock:
+        try:
+            await qp.run_pipeline(trigger="scheduler")
+        except Exception as exc:
+            qp.log_job("scheduler", "error", f"{type(exc).__name__}: {exc}")
+
+
+def _start_scheduler():
+    global _scheduler
+    if _scheduler is not None:
+        return
+    _scheduler = AsyncIOScheduler(timezone="Asia/Shanghai")
+    _scheduler.add_job(_lab_pipeline_job, "cron", day_of_week="mon-fri",
+                       hour=15, minute=35, id="lab-pipeline",
+                       coalesce=True, max_instances=1, misfire_grace_time=3600)
+    _scheduler.start()
+
+
+def _scheduler_status() -> list[dict]:
+    """APScheduler 任务状态（供实验室页 KPI 显示下次触发时间）。"""
+    if _scheduler is None:
+        return []
+    out = []
+    for j in _scheduler.get_jobs():
+        nxt = j.next_run_time
+        out.append({"id": j.id,
+                    "next": nxt.strftime("%Y-%m-%d %H:%M") if nxt else None,
+                    "trigger": str(j.trigger)})
+    return out
+
 
 def _load_backtest_engine(engine: str):
     """按引擎名懒加载回测模块，未安装时抛 503。"""
@@ -115,6 +158,49 @@ async def startup():
             )
         conn.commit()
     conn.close()
+    _start_scheduler()
+
+
+# --- 量化实验室（DuckDB + VectorBT + APScheduler 闭环） ---
+@app.get("/lab", response_class=HTMLResponse)
+async def lab_page(request: Request, pwd: str = check_password):
+    return templates.TemplateResponse(request, "lab.html", {"request": request, "pwd": pwd})
+
+
+@app.get("/api/lab/db")
+async def lab_db(pwd: str = check_password):
+    info = qp.db_overview()
+    info["scheduler"] = _scheduler_status()
+    return info
+
+
+@app.get("/api/lab/result")
+async def lab_result(pwd: str = check_password):
+    data = qp.load_result()
+    if data is None:
+        return {"ready": False}
+    return {"ready": True, **data}
+
+
+@app.post("/api/lab/run")
+async def lab_run(request: Request, pwd: str = check_password):
+    body = {}
+    try:
+        body = await request.json()
+    except Exception:
+        pass
+    fast = int(body.get("fast", qp.DEFAULT_FAST))
+    slow = int(body.get("slow", qp.DEFAULT_SLOW))
+    if not (2 <= fast < slow <= 250):
+        raise HTTPException(status_code=400, detail="参数需满足 2 ≤ fast < slow ≤ 250")
+    if _lab_lock.locked():
+        raise HTTPException(status_code=409, detail="已有管线在跑，请稍候")
+    async with _lab_lock:
+        try:
+            payload = await qp.run_pipeline(fast, slow, trigger="manual")
+        except Exception as exc:
+            raise HTTPException(status_code=500, detail=f"管线失败: {type(exc).__name__}: {exc}")
+    return {"ok": True, "stocks": len(payload["stocks"]), "run_id": payload["run_id"]}
 
 
 # --- Pages ---

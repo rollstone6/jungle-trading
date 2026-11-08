@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>量化实验室 - 持仓工作台</title>
+    <link rel="stylesheet" href="/static/styles.css?v=20261108a">
+    <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+    <script src="/static/lightweight-charts.standalone.production.js?v=20261106a"></script>
+    <style>
+        .lab-container { max-width: 1200px; margin: 0 auto; padding: 14px; }
+        .lab-header {
+            background: linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 100%);
+            color: white; padding: 12px 18px; border-radius: 12px; margin-bottom: 12px;
+            display: flex; align-items: baseline; justify-content: center; gap: 12px; flex-wrap: wrap;
+        }
+        .lab-header h1 { font-size: 16px; margin: 0; }
+        .lab-header .sub { font-size: 12px; opacity: .85; }
+
+        /* KPI 紧凑单行条（同首页账户条规范） */
+        .lab-kpi {
+            display: flex; flex-wrap: wrap; align-items: center; justify-content: center;
+            gap: 4px 0; background: #fff; border-radius: 10px; padding: 8px 12px;
+            margin-bottom: 12px; box-shadow: 0 1px 4px rgba(0,0,0,.08);
+            border-top: 3px solid transparent;
+            border-image: linear-gradient(90deg,#3b82f6,#8b5cf6,#06b6d4,#f59e0b) 1;
+        }
+        .lab-kpi .kpi-item { display: flex; align-items: baseline; gap: 6px; padding: 0 14px; }
+        .lab-kpi .kpi-item + .kpi-item { border-left: 1px solid #e2e8f0; }
+        .lab-kpi .kpi-label { font-size: 12px; color: #64748b; }
+        .lab-kpi .kpi-value { font-size: 16px; font-weight: 700; font-variant-numeric: tabular-nums; }
+
+        /* 控制条 */
+        .lab-ctrl {
+            display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
+            background: #fff; border-radius: 10px; padding: 10px 14px; margin-bottom: 12px;
+            box-shadow: 0 1px 4px rgba(0,0,0,.08);
+        }
+        .lab-ctrl label { font-size: 13px; color: #334155; display: flex; align-items: center; gap: 6px; }
+        .lab-ctrl input { width: 64px; padding: 6px 8px; border: 1.5px solid #e0e0e0; border-radius: 8px; font-size: 14px; }
+        .lab-ctrl input:focus-visible { outline: 2px solid var(--accent); border-color: var(--accent); }
+        .lab-run-btn {
+            padding: 8px 18px; border: none; border-radius: 8px; cursor: pointer;
+            background: linear-gradient(135deg, var(--accent), var(--accent-2));
+            color: #fff; font-size: 13.5px; font-weight: 600;
+        }
+        .lab-run-btn:hover { filter: brightness(1.06); }
+        .lab-run-btn:active { transform: scale(.98); }
+        .lab-run-btn:disabled { opacity: .55; cursor: wait; }
+        .lab-ctrl .hint { font-size: 12px; color: #64748b; }
+
+        /* tab 切换（沿用 quant 页 pill 规范） */
+        .lab-tabs { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+        .lab-tab-btn {
+            padding: 7px 16px; border-radius: 999px; border: 1.5px solid #e2e8f0;
+            background: #fff; font-size: 13px; font-weight: 600; color: #334155; cursor: pointer;
+        }
+        .lab-tab-btn.on { background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: #fff; border-color: transparent; }
+
+        .lab-panel { background: #fff; border-radius: 12px; padding: 14px; box-shadow: 0 1px 4px rgba(0,0,0,.08); margin-bottom: 14px; min-width: 0; }
+        .lab-panel[hidden] { display: none; }
+
+        .lab-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; min-width: 0; }
+        table.lab-table { width: 100%; border-collapse: collapse; font-size: 12.5px; white-space: nowrap; }
+        .lab-table th { background: #f6f7f9; color: #475569; font-weight: 600; padding: 7px 9px; text-align: right; position: sticky; top: 0; }
+        .lab-table th:first-child, .lab-table td:first-child,
+        .lab-table th:nth-child(2), .lab-table td:nth-child(2) { text-align: left; }
+        .lab-table td { padding: 6px 9px; border-bottom: 1px solid #f1f5f9; text-align: right; font-variant-numeric: tabular-nums; }
+        .lab-table tr:hover td { background: #f8faff; }
+        .lab-table tr { cursor: pointer; }
+        .lab-table tr.sel td { background: rgba(var(--accent-rgb,102,126,234),.10); }
+        .gain { color: var(--red); font-weight: 600; }
+        .loss { color: var(--green); font-weight: 600; }
+
+        .lab-chart-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin: 4px 0 8px; }
+        .lab-chart-head h3 { margin: 0; font-size: 15px; }
+        .lab-chart-head .meta { font-size: 12px; color: #64748b; }
+        .lab-section-title { font-size: 13px; font-weight: 700; color: #334155; margin: 12px 0 6px; }
+        #kline-chart { width: 100%; height: 300px; }
+        #equity-chart { width: 100%; height: 150px; }
+
+        .err-banner {
+            display: flex; align-items: center; justify-content: space-between; gap: 10px;
+            background: #fef2f2; border: 1px solid #fecaca; color: #b91c1c;
+            border-radius: 10px; padding: 10px 14px; margin-bottom: 12px; font-size: 13px;
+        }
+        .err-banner[hidden] { display: none; }
+        .err-banner button { border: none; background: #b91c1c; color: #fff; border-radius: 6px; padding: 4px 10px; cursor: pointer; }
+
+        .run-badge { display: inline-block; padding: 2px 8px; border-radius: 6px; font-size: 11.5px; font-weight: 600; }
+        .run-badge.ok { background: #f0fdf4; color: var(--green); }
+        .run-badge.err { background: #fef2f2; color: var(--red); }
+        .run-badge.info { background: #eff6ff; color: #2563eb; }
+        .sub-note { font-size: 12px; color: #64748b; margin: 4px 0 10px; line-height: 1.6; }
+        @media (max-width: 640px) {
+            .lab-kpi .kpi-item { padding: 0 8px; }
+            .lab-container { padding: 10px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="lab-container">
+        <header class="lab-header">
+            <h1>量化实验室</h1>
+            <span class="sub">行情落库 DuckDB · VectorBT 回测 · APScheduler 定时 · Lightweight Charts 渲染</span>
+        </header>
+
+        <nav class="mobile-quicknav" aria-label="页面快捷导航">
+            <a href="/?pwd={{ pwd }}">持仓</a>
+            <a href="/quant?pwd={{ pwd }}">信号中心</a>
+            <a href="/backtest?pwd={{ pwd }}">回测</a>
+            <a href="/lab?pwd={{ pwd }}" class="on">实验室</a>
+            <a href="/research?pwd={{ pwd }}">研究中心</a>
+        </nav>
+
+        <div id="err" class="err-banner" hidden role="alert" aria-live="assertive">
+            <span id="err-text"></span>
+            <button type="button" id="err-close" aria-label="关闭提示">✕</button>
+        </div>
+
+        <div class="lab-kpi" id="lab-kpi">
+            <div class="kpi-item"><span class="kpi-label">状态</span><span class="kpi-value" id="kpi-status">加载中…</span></div>
+            <div class="kpi-item"><span class="kpi-label">生成时间</span><span class="kpi-value" id="kpi-time" style="font-size:13px">—</span></div>
+            <div class="kpi-item"><span class="kpi-label">DuckDB 行数</span><span class="kpi-value" id="kpi-rows">—</span></div>
+            <div class="kpi-item"><span class="kpi-label">库大小</span><span class="kpi-value" id="kpi-size">—</span></div>
+            <div class="kpi-item"><span class="kpi-label">下次定时</span><span class="kpi-value" id="kpi-next" style="font-size:13px">—</span></div>
+        </div>
+
+        <div class="lab-ctrl">
+            <label>快均线<input type="number" id="inp-fast" value="10" min="2" max="249" aria-label="快均线周期"></label>
+            <label>慢均线<input type="number" id="inp-slow" value="30" min="3" max="250" aria-label="慢均线周期"></label>
+            <button type="button" class="lab-run-btn" id="btn-run">▶ 跑管线（拉行情→落库→回测）</button>
+            <span class="hint" id="run-hint">全池 8 只，约 20–30 秒；策略：快线上穿慢线持有，下穿空仓</span>
+        </div>
+
+        <div class="lab-tabs" role="tablist">
+            <button type="button" class="lab-tab-btn on" data-tab="bt" role="tab" aria-selected="true">回测结果</button>
+            <button type="button" class="lab-tab-btn" data-tab="db" role="tab" aria-selected="false">数据底座</button>
+        </div>
+
+        <section class="lab-panel" id="panel-bt" role="tabpanel">
+            <div class="lab-table-wrap">
+                <table class="lab-table" aria-label="回测结果汇总">
+                    <thead><tr>
+                        <th>代码</th><th>名称</th><th>K线</th><th>区间收益</th><th>买入持有</th>
+                        <th>年化</th><th>最大回撤</th><th>Sharpe</th><th>Sortino</th><th>胜率%</th><th>笔数</th>
+                    </tr></thead>
+                    <tbody id="bt-tbody"><tr><td colspan="11" style="text-align:center;color:#64748b">尚未运行管线 — 点击上方「跑管线」</td></tr></tbody>
+                </table>
+            </div>
+            <div class="lab-section-title">点击行查看明细图表</div>
+            <div class="lab-chart-head">
+                <h3 id="chart-title">—</h3>
+                <span class="meta" id="chart-meta"></span>
+            </div>
+            <div id="kline-chart" aria-label="日K蜡烛图与买卖点"></div>
+            <div id="equity-chart" aria-label="回测账户资金曲线"></div>
+        </section>
+
+        <section class="lab-panel" id="panel-db" role="tabpanel" hidden>
+            <div class="lab-section-title">kline_daily · 按标的</div>
+            <div class="lab-table-wrap">
+                <table class="lab-table" aria-label="行情库覆盖">
+                    <thead><tr><th>代码</th><th>根数</th><th>首日</th><th>末日</th><th>数据源</th></tr></thead>
+                    <tbody id="db-codes"></tbody>
+                </table>
+            </div>
+            <div class="lab-section-title">bt_runs · 回测运行日志（最近 8 次）</div>
+            <div class="lab-table-wrap">
+                <table class="lab-table" aria-label="回测运行历史">
+                    <thead><tr><th>#</th><th>时间</th><th>策略</th><th>参数</th><th>成功数</th><th>备注</th></tr></thead>
+                    <tbody id="db-runs"></tbody>
+                </table>
+            </div>
+            <div class="lab-section-title">job_log · 任务事件（最近 12 条）</div>
+            <div class="lab-table-wrap">
+                <table class="lab-table" aria-label="任务日志">
+                    <thead><tr><th>时间</th><th>任务</th><th>状态</th><th>详情</th></tr></thead>
+                    <tbody id="db-jobs"></tbody>
+                </table>
+            </div>
+            <p class="sub-note">闭环链路：腾讯/百度/新浪级联行情 → DuckDB <code>data/jungle.duckdb</code>（主键 code+date 幂等 upsert）→ VectorBT 向量化回测 → 指标落 <code>bt_runs</code> + 快照 <code>data/pipeline_result.json</code>。APScheduler 每交易日 15:35 自动重跑，与手动触发互斥。</p>
+        </section>
+    </div>
+
+    <script>
+    const PWD = "{{ pwd }}";
+    function apiUrl(p) {
+        return p + (p.includes("?") ? "&" : "?") + "pwd=" + encodeURIComponent(PWD);
+    }
+    const $ = (id) => document.getElementById(id);
+    let RESULT = null, DBINFO = null, currentCode = null;
+    let kChart = null, kSeries = null, eqChart = null, eqSeries = null;
+
+    // ---- 涨跌配色：从 CSS token 取字面值（canvas 不认 var()） ----
+    const CSSVAR = getComputedStyle(document.documentElement);
+    const C_RED = (CSSVAR.getPropertyValue("--red") || "#d92d20").trim();
+    const C_GREEN = (CSSVAR.getPropertyValue("--green") || "#0b8f62").trim();
+    const C_ACCENT = (CSSVAR.getPropertyValue("--accent") || "#667eea").trim();
+
+    function fmt(v, suffix = "", dp = 2) {
+        if (v === null || v === undefined) return "—";
+        return Number(v).toFixed(dp) + suffix;
+    }
+    function cls(v) { return v > 0 ? "gain" : (v < 0 ? "loss" : ""); }
+    function cell(v, suffix, dp) {
+        const t = fmt(v, suffix, dp);
+        const c = (suffix === "%" || suffix === "") ? cls(v) : "";
+        return `<span class="${c}">${t}</span>`;
+    }
+    function showError(msg) {
+        $("err-text").textContent = msg;
+        $("err").hidden = false;
+    }
+    $("err-close").addEventListener("click", () => { $("err").hidden = true; });
+
+    // ---- tabs ----
+    document.querySelectorAll(".lab-tab-btn").forEach(btn => {
+        btn.addEventListener("click", () => {
+            document.querySelectorAll(".lab-tab-btn").forEach(b => {
+                b.classList.toggle("on", b === btn);
+                b.setAttribute("aria-selected", b === btn ? "true" : "false");
+            });
+            $("panel-bt").hidden = btn.dataset.tab !== "bt";
+            $("panel-db").hidden = btn.dataset.tab !== "db";
+        });
+    });
+
+    // ---- charts ----
+    function ensureCharts() {
+        if (kChart) return;
+        const base = {
+            layout: { background: { color: "#ffffff" }, textColor: "#475569", fontSize: 11 },
+            grid: { vertLines: { color: "#f1f5f9" }, horzLines: { color: "#f1f5f9" } },
+            rightPriceScale: { borderColor: "#e2e8f0" },
+            timeScale: { borderColor: "#e2e8f0", rightOffset: 4 },
+            crosshair: { mode: 0 },
+        };
+        kChart = LightweightCharts.createChart($("kline-chart"),
+            { ...base, height: $("kline-chart").clientHeight || 300 });
+        kSeries = kChart.addCandlestickSeries({
+            upColor: C_RED, downColor: C_GREEN,
+            borderUpColor: C_RED, borderDownColor: C_GREEN,
+            wickUpColor: C_RED, wickDownColor: C_GREEN,
+        });
+        eqChart = LightweightCharts.createChart($("equity-chart"),
+            { ...base, height: 150 });
+        eqSeries = eqChart.addAreaSeries({
+            lineColor: C_ACCENT, topColor: "rgba(102,126,234,.25)",
+            bottomColor: "rgba(102,126,234,.02)", lineWidth: 2, priceLineVisible: false,
+        });
+        const ro = new ResizeObserver(() => {
+            kChart.applyOptions({ width: $("kline-chart").clientWidth });
+            eqChart.applyOptions({ width: $("equity-chart").clientWidth });
+        });
+        ro.observe($("kline-chart"));
+    }
+
+    function renderStock(code) {
+        const s = RESULT.stocks.find(x => x.code === code);
+        if (!s) return;
+        currentCode = code;
+        document.querySelectorAll("#bt-tbody tr").forEach(tr =>
+            tr.classList.toggle("sel", tr.dataset.code === code));
+        $("chart-title").textContent = `${s.code} ${s.name}`;
+        const m = s.metrics;
+        $("chart-meta").textContent =
+            `${s.range[0]} ~ ${s.range[1]} · ${s.bars}根 · 源:${s.source} · ` +
+            `策略收益 ${fmt(m.total_return,"%")} vs 持有 ${fmt(m.buy_hold_return,"%")} · ` +
+            `回撤 ${fmt(m.max_drawdown,"%")} · ${m.trade_count}笔${m.open_count ? "（含持仓中" + m.open_count + "笔）" : ""}`;
+        ensureCharts();
+        kChart.applyOptions({ width: $("kline-chart").clientWidth });
+        eqChart.applyOptions({ width: $("equity-chart").clientWidth });
+
+        kSeries.setData(s.candles.map(x => ({ time: x.t, open: x.o, high: x.h, low: x.l, close: x.c })));
+        const markers = [];
+        for (const t of s.trades) {
+            markers.push({ time: t.entry_date, position: "belowBar", color: C_RED,
+                shape: "arrowUp", text: "买" });
+            if (t.status !== "Open") markers.push({ time: t.exit_date, position: "aboveBar",
+                color: C_GREEN, shape: "arrowDown", text: "卖" });
+        }
+        markers.sort((a, b) => a.time < b.time ? -1 : 1);
+        kSeries.setMarkers(markers);
+        eqSeries.setData(s.equity.map(x => ({ time: x.t, value: x.v })));
+        kChart.timeScale().fitContent();
+        eqChart.timeScale().fitContent();
+    }
+
+    // ---- 结果渲染 ----
+    function renderResult() {
+        if (!RESULT || !RESULT.ready) return;
+        $("kpi-status").innerHTML = `<span class="run-badge ok">run#${RESULT.run_id} · ${RESULT.trigger}</span>`;
+        $("kpi-time").textContent = RESULT.generated_at;
+        const tb = $("bt-tbody");
+        tb.innerHTML = RESULT.stocks.map(s => {
+            const m = s.metrics;
+            return `<tr data-code="${s.code}"><td>${s.code}</td><td>${s.name}</td><td>${s.bars}</td>
+            <td>${cell(m.total_return,"%")}</td><td>${cell(m.buy_hold_return,"%")}</td>
+            <td>${cell(m.annual_return,"%")}</td><td><span class="loss">${fmt(m.max_drawdown,"%")}</span></td>
+            <td>${fmt(m.sharpe,"",2)}</td><td>${fmt(m.sortino,"",2)}</td>
+            <td>${fmt(m.win_rate,"%",1)}</td><td>${m.trade_count}</td></tr>`;
+        }).join("");
+        tb.querySelectorAll("tr").forEach(tr =>
+            tr.addEventListener("click", () => renderStock(tr.dataset.code)));
+        if (RESULT.stocks.length && !RESULT.stocks.find(x => x.code === currentCode))
+            renderStock(RESULT.stocks[0].code);
+    }
+
+    function renderDb() {
+        if (!DBINFO) return;
+        $("kpi-rows").textContent = DBINFO.kline_rows.toLocaleString();
+        $("kpi-size").textContent = DBINFO.db_size_kb + " KB";
+        const sch = (DBINFO.scheduler || [])[0];
+        $("kpi-next").textContent = sch && sch.next ? sch.next.replace("T", " ").slice(5, 16) : "未启用";
+        $("db-codes").innerHTML = DBINFO.per_code.map(p =>
+            `<tr style="cursor:default"><td>${p.code}</td><td>${p.bars}</td><td>${p.first}</td><td>${p.last}</td><td>${p.source}</td></tr>`
+        ).join("") || `<tr><td colspan="5" style="text-align:center;color:#64748b">空库</td></tr>`;
+        $("db-runs").innerHTML = DBINFO.runs.map(r =>
+            `<tr style="cursor:default"><td>${r.run_id}</td><td>${r.ts}</td><td>${r.strategy}</td><td>${r.params}</td><td>${r.ok_count}</td><td>${r.note || "—"}</td></tr>`
+        ).join("") || `<tr><td colspan="6" style="text-align:center;color:#64748b">暂无运行记录</td></tr>`;
+        const badge = { ok: "ok", error: "err", start: "info", skip: "info" };
+        $("db-jobs").innerHTML = DBINFO.jobs.map(j =>
+            `<tr style="cursor:default"><td>${j.ts}</td><td>${j.task}</td><td><span class="run-badge ${badge[j.status] || 'info'}">${j.status}</span></td><td>${j.detail || ""}</td></tr>`
+        ).join("") || `<tr><td colspan="4" style="text-align:center;color:#64748b">暂无日志</td></tr>`;
+    }
+
+    async function loadAll() {
+        try {
+            const [r1, r2] = await Promise.all([
+                fetch(apiUrl("/api/lab/result")).then(x => x.json()),
+                fetch(apiUrl("/api/lab/db")).then(x => x.json()),
+            ]);
+            RESULT = r1; DBINFO = r2;
+            try { renderResult(); } catch (e) { showError("图表渲染失败：" + e.message); }
+            renderDb();
+        } catch (e) { showError("数据未就绪：接口请求失败（" + e.message + "），请稍后重试"); }
+    }
+
+    // ---- 手动触发管线 ----
+    $("btn-run").addEventListener("click", async () => {
+        const fast = parseInt($("inp-fast").value, 10), slow = parseInt($("inp-slow").value, 10);
+        if (!(fast >= 2 && slow > fast && slow <= 250)) { showError("参数需满足 2 ≤ 快线 < 慢线 ≤ 250"); return; }
+        const btn = $("btn-run");
+        btn.disabled = true;
+        $("run-hint").textContent = "管线运行中：拉行情 → DuckDB upsert → VectorBT 回测 → 落库…";
+        $("err").hidden = true;
+        try {
+            const resp = await fetch(apiUrl("/api/lab/run"), {
+                method: "POST", headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ fast, slow }),
+            });
+            const d = await resp.json();
+            if (!resp.ok) throw new Error(d.detail || resp.status);
+            $("run-hint").textContent = `完成：run#${d.run_id}，${d.stocks} 只成功。`;
+            currentCode = currentCode || null;
+            await loadAll();
+        } catch (e) {
+            showError("管线失败：" + e.message);
+            $("run-hint").textContent = "运行失败，可重试。";
+        } finally { btn.disabled = false; }
+    });
+
+    loadAll();
+    </script>
+</body>
+</html>

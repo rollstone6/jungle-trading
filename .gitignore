@@ -47,3 +47,7 @@ result.txt
 data/regime_scan.json
 data/research_*.json
 data/quant_scan_*.json
+
+# 量化实验室运行时产物（DuckDB 数据库 + 管线快照，可再生）
+data/jungle.duckdb*
+data/pipeline_result.json

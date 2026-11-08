@@ -9,6 +9,11 @@ backtrader2==1.9.76.123
 zipline-reloaded==3.1.1
 vnpy==4.0.0
 
+# ========== 量化实验室 (app/services/quant_pipeline.py) ==========
+duckdb>=1.0
+vectorbt>=1.0
+pandas<3.0  # vectorbt 与 zipline 均要求 pandas 2.x（实测 2.3.3 + vectorbt 1.2.0 可用）
+
 # ========== 量化模块 (fi_quant/) ==========
 pandas>=1.5.0
 numpy>=1.21.0
