@@ -290,6 +290,10 @@
             </div>
 
             <div class="lab-ctrl">
+                <label class="mk-toggle" for="lab-inp-adaptive" title="按60日波动率+ER120效率系数自动选参数：高波动趋势5/15 · 高波动震荡10/30 · 中波动8/24 · 低波动10/30">
+                    <input type="checkbox" id="lab-inp-adaptive" checked>
+                    <span class="mk-track"></span><span>自适应参数</span>
+                </label>
                 <label for="lab-inp-fast">快均线</label><input type="number" id="lab-inp-fast" value="10" min="2" max="249" aria-label="快均线周期">
                 <label for="lab-inp-slow">慢均线</label><input type="number" id="lab-inp-slow" value="30" min="3" max="250" aria-label="慢均线周期">
                 <button type="button" class="lab-run-btn" id="lab-btn-run">▶ 跑管线（拉行情→落库→回测）</button>
@@ -305,10 +309,10 @@
                 <div class="lab-table-wrap">
                     <table class="lab-table" aria-label="回测结果汇总">
                         <thead><tr>
-                            <th>代码</th><th>名称</th><th>K线</th><th>区间收益</th><th>买入持有</th>
+                            <th>代码</th><th>名称</th><th>均线</th><th>K线</th><th>区间收益</th><th>买入持有</th>
                             <th>年化</th><th>最大回撤</th><th>Sharpe</th><th>Sortino</th><th>胜率%</th><th>笔数</th>
                         </tr></thead>
-                        <tbody id="lab-bt-tbody"><tr><td colspan="11" class="loading">加载中…</td></tr></tbody>
+                        <tbody id="lab-bt-tbody"><tr><td colspan="12" class="loading">加载中…</td></tr></tbody>
                     </table>
                 </div>
                 <div class="lab-section-title">点击行查看明细图表</div>
@@ -677,7 +681,7 @@
             lab$("lab-chart-title").textContent = `${s.code} ${s.name}`;
             const m = s.metrics;
             lab$("lab-chart-meta").textContent =
-                `${s.range[0]} ~ ${s.range[1]} · ${s.bars}根 · 源:${s.source} · ` +
+                `${s.range[0]} ~ ${s.range[1]} · ${s.bars}根 · 源:${s.source} · MA${s.adaptive ? s.adaptive.ma + (s.adaptive.bucket ? "·" + s.adaptive.bucket : "") : "?"} · ` +
                 `策略收益 ${labFmt(m.total_return,"%")} vs 持有 ${labFmt(m.buy_hold_return,"%")} · ` +
                 `回撤 ${labFmt(m.max_drawdown,"%")} · ${m.trade_count}笔${m.open_count ? "（含持仓中" + m.open_count + "笔）" : ""}`;
             labKChart.applyOptions({ width: lab$("lab-kline-chart").clientWidth });
@@ -700,15 +704,16 @@
         function renderLabResult() {
             if (!LAB_RESULT || !LAB_RESULT.ready) {
                 lab$("lab-kpi-status").innerHTML = `<span class="run-badge info">未运行</span>`;
-                lab$("lab-bt-tbody").innerHTML = '<tr><td colspan="11" class="loading">尚未运行管线 — 点击上方「跑管线」或等交易日 15:35 定时任务</td></tr>';
+                lab$("lab-bt-tbody").innerHTML = '<tr><td colspan="12" class="loading">尚未运行管线 — 点击上方「跑管线」或等交易日 15:35 定时任务</td></tr>';
                 return;
             }
             lab$("lab-kpi-status").innerHTML = `<span class="run-badge ok">run#${LAB_RESULT.run_id} · ${LAB_RESULT.trigger}</span>`;
             lab$("lab-kpi-time").textContent = LAB_RESULT.generated_at;
             const tb = lab$("lab-bt-tbody");
             tb.innerHTML = LAB_RESULT.stocks.map(s => {
-                const m = s.metrics;
-                return `<tr data-code="${s.code}"><td>${s.code}</td><td>${esc(s.name)}</td><td>${s.bars}</td>
+                const m = s.metrics, ad = s.adaptive;
+                const maCell = ad ? `<span title="${esc(ad.bucket)}${ad.vol60 ? ' · vol60 ' + ad.vol60 + '% · ER120 ' + ad.er120 : ''}">${ad.ma}</span>` : "—";
+                return `<tr data-code="${s.code}"><td>${s.code}</td><td>${esc(s.name)}</td><td>${maCell}</td><td>${s.bars}</td>
                 <td>${labCell(m.total_return,"%")}</td><td>${labCell(m.buy_hold_return,"%")}</td>
                 <td>${labCell(m.annual_return,"%")}</td><td><span class="loss">${labFmt(m.max_drawdown,"%")}</span></td>
                 <td>${labFmt(m.sharpe,"",2)}</td><td>${labFmt(m.sortino,"",2)}</td>
@@ -778,16 +783,19 @@
 
         // 手动触发管线
         lab$("lab-btn-run").addEventListener("click", async () => {
+            const adaptive = lab$("lab-inp-adaptive").checked;
             const fast = parseInt(lab$("lab-inp-fast").value, 10), slow = parseInt(lab$("lab-inp-slow").value, 10);
             if (!(fast >= 2 && slow > fast && slow <= 250)) { labError("参数需满足 2 ≤ 快线 < 慢线 ≤ 250"); return; }
             const btn = lab$("lab-btn-run");
             btn.disabled = true;
-            lab$("lab-run-hint").textContent = "管线运行中：拉行情 → DuckDB upsert → VectorBT 回测 → 落库…";
+            lab$("lab-run-hint").textContent = adaptive
+                ? "管线运行中（自适应：按波动率+ER自动选参）…"
+                : `管线运行中（固定 ${fast}/${slow}）…`;
             lab$("lab-err").classList.remove("show");
             try {
                 const resp = await fetch(`/api/lab/run?pwd=${encodeURIComponent(pwd)}`, {
                     method: "POST", headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ fast, slow }),
+                    body: JSON.stringify({ fast, slow, mode: adaptive ? "adaptive" : "fixed" }),
                 });
                 const d = await resp.json();
                 if (!resp.ok) throw new Error(d.detail || resp.status);

@@ -197,6 +197,8 @@ async def lab_run(request: Request, pwd: str = check_password):
         body = await request.json()
     except Exception:
         pass
+    mode = body.get("mode", "adaptive")
+    adaptive = mode != "fixed"
     fast = int(body.get("fast", qp.DEFAULT_FAST))
     slow = int(body.get("slow", qp.DEFAULT_SLOW))
     if not (2 <= fast < slow <= 250):
@@ -205,7 +207,7 @@ async def lab_run(request: Request, pwd: str = check_password):
         raise HTTPException(status_code=409, detail="已有管线在跑，请稍候")
     async with _lab_lock:
         try:
-            payload = await qp.run_pipeline(fast, slow, trigger="manual")
+            payload = await qp.run_pipeline(fast, slow, trigger="manual", adaptive=adaptive)
         except Exception as exc:
             raise HTTPException(status_code=500, detail=f"管线失败: {type(exc).__name__}: {exc}")
     return {"ok": True, "stocks": len(payload["stocks"]), "run_id": payload["run_id"]}
