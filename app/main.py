@@ -5,6 +5,10 @@ import asyncio
 from datetime import datetime
 from pathlib import Path
 
+from dotenv import load_dotenv
+
+load_dotenv(Path(__file__).resolve().parents[1] / ".env")
+
 from fastapi import FastAPI, Request, HTTPException, Depends
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
@@ -93,7 +97,7 @@ def _load_backtest_engine(engine: str):
     raise HTTPException(status_code=400, detail="不支持的回测引擎")
 
 # Config
-SITE_PASSWORD = os.environ.get("SITE_PASSWORD", "0mGecaPX3duCfVXhEb")
+SITE_PASSWORD = os.environ.get("SITE_PASSWORD", "")
 BASE_DIR = Path(__file__).parent.parent
 
 app = FastAPI(title="Jungle Genius Trading Desktop")
