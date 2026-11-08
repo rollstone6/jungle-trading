@@ -426,6 +426,13 @@ async def backtest_page(request: Request, pwd: str = check_password):
             continue
         seen.add(symbol)
         quant_pool.append(s)
+    pool_json = json.dumps(
+        {
+            "held": [{"code": p["code"], "name": p["name"]} for p in positions],
+            "pool": [{"code": s["symbol"], "name": s["name"]} for s in quant_pool],
+        },
+        ensure_ascii=False,
+    ).replace("</", "<\\/")
     return templates.TemplateResponse(
         request,
         "backtest.html",
@@ -433,6 +440,7 @@ async def backtest_page(request: Request, pwd: str = check_password):
             "request": request,
             "positions": positions,
             "quant_pool": quant_pool,
+            "pool_json": pool_json,
             "pwd": pwd,
         }
     )
@@ -762,6 +770,49 @@ async def _research_produce(name: str, ttl_minutes: int, refresh: int, produce, 
     except Exception:
         pass  # 落盘失败不影响返回
     return result
+
+
+@app.get("/api/backtest/search")
+async def search_stock(q: str, request: Request, pwd: str = check_password):
+    """按 名称/代码/拼音首字母 模糊搜索全市场 A 股（新浪 suggest 接口，GBK 解码）"""
+    import httpx as _httpx
+    import re as _re
+    q = q.strip()
+    if len(q) < 1:
+        return {"results": []}
+    url = f"https://suggest3.sinajs.cn/suggest/type=11&key={_re.escape(q)}"
+    async with _httpx.AsyncClient(timeout=6) as client:
+        r = await client.get(url, headers={"User-Agent": "Mozilla/5.0", "Referer": "https://finance.sina.com.cn"})
+        r.raise_for_status()
+        text = r.content.decode("gbk", "ignore")
+    m = _re.search(r'"(.*?)"', text, _re.S)
+    out, seen = [], set()
+    if m:
+        for item in m.group(1).split(";"):
+            parts = item.split(",")
+            if len(parts) < 4:
+                continue
+            name, full = parts[0].strip(), parts[3].strip()
+            code = full[-6:]
+            if not _re.fullmatch(r"\d{6}", code) or not full[:2] in ("sh", "sz"):
+                continue  # 只保留沪深A股（排除北交所/板块指数）
+            if code.startswith("399"):
+                continue  # suggest 会混入深圳指数（如399436绿色煤炭），剔除；000xxx是正股不能误杀
+            if not name or name == code or name == full:
+                continue  # 输入纯代码时 suggest 返回空名/代码名，交给 lookup 兜底
+            if code in seen:
+                continue
+            seen.add(code)
+            out.append({"code": code, "name": name, "pinyin": parts[5].strip() if len(parts) > 5 else ""})
+            if len(out) >= 10:
+                break
+    # 无结果且像 6 位代码 → 腾讯行情兜底（如 000001 平安银行）
+    if not out and _re.fullmatch(r"\d{6}", q):
+        quotes = await fetch_realtime_tencent([q])
+        info = quotes.get(q)
+        if info and info.get("name"):
+            out.append({"code": q, "name": info["name"], "pinyin": ""})
+    return {"results": out}
 
 
 @app.get("/api/backtest/lookup")

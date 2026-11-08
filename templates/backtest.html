@@ -4,7 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>量化回测 - 持仓工作台</title>
-    <link rel="stylesheet" href="/static/styles.css?v=20261103a">
+    <link rel="stylesheet" href="/static/styles.css?v=20261108a">
+    <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
     <style>
         .backtest-container {
             max-width: 1200px;
@@ -64,18 +65,8 @@
             outline: none;
             border-color: var(--accent);
         }
-        .mp-wrap {
-            display: flex;
-            align-items: center;
-            gap: 7px;
-            margin-top: 10px;
-            font-size: 13px;
-            color: #475569;
-            font-weight: 500;
-            cursor: pointer;
-            user-select: none;
-        }
-        .mp-wrap input { width: auto; margin: 0; accent-color: var(--accent); transform: scale(1.15); }
+        .mp-wrap { display: flex; align-items: center; gap: 7px; margin-top: 10px; font-size: 13px; color: #475569; font-weight: 500; cursor: pointer; user-select: none; }
+        .mp-wrap input { margin: 0; accent-color: var(--accent); width: 18px; height: 18px; flex-shrink: 0; }
         #multi-period-box .cat-pill {
             padding: 4px 14px;
             border-radius: 999px;
@@ -107,13 +98,13 @@
         .hist-open:hover .hist-desc { color: var(--accent); }
         .hist-open:focus-visible, .strategy-card:focus-visible, .cat-pill:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
         .hist-item:hover { border-color: var(--accent); background: rgba(var(--accent-rgb, 102, 126, 234), 0.05); }
-        .hist-time { color: #94a3b8; font-size: 11.5px; flex: none; }
+        .hist-time { color: #64748b; font-size: 11.5px; flex: none; }
         .hist-desc { color: #334155; flex: 1; min-width: 160px; }
         .hist-best { font-weight: 700; flex: none; }
         .hist-best.pos { color: var(--red); }
         .hist-best.neg { color: var(--green); }
-        .hist-del { border: none; background: none; color: #94a3b8; cursor: pointer; font-size: 14px; min-width: 32px; min-height: 32px; padding: 4px 8px; flex: none; border-radius: 8px; }
-        .hist-del:hover { color: #ef4444; background: rgba(239, 68, 68, 0.08); }
+        .hist-del { border: none; background: none; color: #64748b; cursor: pointer; font-size: 14px; min-width: 32px; min-height: 32px; padding: 4px 8px; flex: none; border-radius: 8px; }
+        .hist-del:hover { color: var(--red); background: rgba(217, 45, 32, 0.08); }
         .hist-restored { background: rgba(var(--accent-rgb, 102, 126, 234), 0.08); border: 1px dashed var(--accent); color: var(--accent); border-radius: 8px; padding: 6px 10px; font-size: 12.5px; margin: 0 0 14px; display: none; }
         .hist-load { border: 1px solid #e2e8f0; background: #fff; color: #475569; border-radius: 8px; padding: 6px 10px; min-height: 32px; font-size: 12px; cursor: pointer; }
         .hist-load:hover { border-color: var(--accent); color: var(--accent); }
@@ -148,7 +139,7 @@
             color: var(--accent);
             font-weight: 600;
         }
-        .strat-cats .sc-cat small { font-size: 11px; color: #94a3b8; margin-left: 2px; }
+        .strat-cats .sc-cat small { font-size: 11px; color: #64748b; margin-left: 2px; }
         .strat-cats .sc-cat.on small { color: var(--accent); }
         .strategy-card.hidden-by-cat { display: none; }
         .strategy-card .sc-cat-tag {
@@ -208,7 +199,7 @@
             .strategy-card .sc-params {
                 margin-top: 6px;
                 font-size: 11px;
-                color: #94a3b8;
+                color: #64748b;
                 font-family: ui-monospace, Menlo, monospace;
             }
             .strategy-card .engine-badge {
@@ -253,10 +244,10 @@
             font-weight: 700;
             font-size: 14px;
         }
-        .regime-badge.ranging { background: #10b981; }
-        .regime-badge.trending { background: var(--accent); }
-        .regime-badge.squeeze { background: #f59e0b; }
-        .regime-badge.neutral { background: #94a3b8; }
+        .regime-badge.ranging { background: linear-gradient(135deg, #3b82f6, #6366f1); }
+        .regime-badge.trending { background: linear-gradient(135deg, #10b981, #0ea5e9); }
+        .regime-badge.squeeze { background: linear-gradient(135deg, #f59e0b, #ef4444); }
+        .regime-badge.neutral { background: #6b7280; }
         .regime-metrics {
             display: flex;
             flex-wrap: wrap;
@@ -426,19 +417,35 @@
         .bt-chart-box { width: 100%; height: 460px; }
         /* 多股票选择区 */
         .stock-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
-        .stock-chips:empty::after { content: "尚未选择股票：从下方下拉添加，或输入任意 6 位代码"; color: #94a3b8; font-size: 12.5px; }
+        .stock-chips:empty::after { content: "尚未选择股票：上方搜索任意A股，或展开下方股票池点选"; color: #64748b; font-size: 12.5px; }
         .st-chip { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--accent); background: rgba(var(--accent-rgb, 102, 126, 234), 0.08); color: var(--accent); border-radius: 999px; padding: 4px 10px 4px 12px; font-size: 12.5px; font-weight: 600; }
         .st-chip .st-x { border: none; background: none; color: inherit; cursor: pointer; font-size: 14px; line-height: 1; padding: 0 2px; }
         .st-chip.custom { border-color: #f59e0b; background: rgba(245, 158, 11, 0.10); color: #b45309; }
-        .stock-row { display: flex; gap: 8px; }
-        .stock-row select { flex: 1; min-width: 0; }
-        .stock-row .st-btn { border: 1px solid #e2e8f0; background: #fff; color: #475569; border-radius: 8px; padding: 0 14px; font-size: 13px; cursor: pointer; white-space: nowrap; }
-        .stock-row .st-btn:active { background: #f1f5f9; }
         .st-btn.primary { border-color: var(--accent); color: var(--accent); font-weight: 600; }
-        .stock-lookup { display: flex; gap: 8px; margin-top: 8px; }
-        .stock-lookup input { flex: 1; min-width: 0; border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 10px; font-size: 13px; }
-        .stock-lookup .st-info { align-self: center; font-size: 12px; color: #94a3b8; max-width: 45%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .stock-lookup .st-info.err { color: #d92d20; }
+        .st-info { font-size: 12px; color: #64748b; white-space: nowrap; }
+        .st-info.err { color: #d92d20; }
+        /* 搜索框 + 下拉建议 */
+        .st-search-wrap { position: relative; }
+        .st-search-box { display: flex; align-items: center; gap: 8px; border: 1px solid #e2e8f0; border-radius: 10px; padding: 0 12px; background: #fff; transition: border-color .15s, box-shadow .15s; }
+        .st-search-box svg { flex-shrink: 0; }
+        .st-search-box:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(var(--accent-rgb, 102, 126, 234), 0.12); }
+        .st-search-box input { flex: 1; min-width: 0; border: none; outline: none; padding: 10px 0; font-size: 13.5px; background: transparent; }
+        .st-suggest { position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 60; background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; box-shadow: 0 8px 24px rgba(15, 23, 42, .12); max-height: 264px; overflow-y: auto; }
+        .sg-item { display: flex; align-items: center; gap: 8px; padding: 8px 12px; cursor: pointer; font-size: 13px; }
+        .sg-item.on, .sg-item:hover { background: rgba(var(--accent-rgb, 102, 126, 234), 0.07); }
+        .sg-name { font-weight: 600; color: #1e293b; }
+        .sg-code { color: #64748b; font-size: 12px; font-variant-numeric: tabular-nums; }
+        .sg-tag { margin-left: auto; font-size: 11px; color: #64748b; border: 1px solid #e2e8f0; border-radius: 6px; padding: 1px 6px; white-space: nowrap; }
+        .sg-tag.pool { color: var(--accent); border-color: var(--accent); background: rgba(var(--accent-rgb, 102, 126, 234), 0.07); }
+        /* 股票池快捷点选 */
+        .st-pool-row { display: flex; align-items: center; gap: 6px; margin-top: 8px; }
+        .st-pool-label { font-size: 12px; color: #64748b; }
+        .st-pool-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; align-items: center; }
+        .st-pool-grp { font-size: 11.5px; color: #64748b; background: #f1f5f9; border-radius: 6px; padding: 2px 8px; }
+        .st-pick { border: 1px solid #e2e8f0; background: #fff; color: #475569; border-radius: 999px; padding: 3px 11px; font-size: 12.5px; cursor: pointer; transition: all .12s; }
+        .st-pick:hover { border-color: var(--accent); color: var(--accent); }
+        .st-pick.picked { border-color: var(--accent); background: var(--accent); color: #fff; font-weight: 600; }
+        @media (max-width: 480px) { .st-pool-chips { max-height: 168px; overflow-y: auto; } }
         /* 交叉对比矩阵 */
         .mtx-wrap { overflow-x: auto; margin-bottom: 18px; }
         .mtx-table { border-collapse: collapse; width: 100%; font-size: 12.5px; }
@@ -453,7 +460,8 @@
         .mtx-table td.best { background: rgba(var(--accent-rgb, 102, 126, 234), 0.10); font-weight: 700; }
         .cmp-stock-title { font-weight: 700; font-size: 14px; color: #334155; margin: 18px 0 8px; }
         /* 策略参数变体 */
-        .strategy-card .sc-gear { border: none; background: none; color: var(--accent); font-size: 11.5px; cursor: pointer; padding: 0; margin-left: 8px; }
+        .mini-link-btn { border: none; background: none; font-size: 12px; cursor: pointer; padding: 6px 8px; min-height: 32px; }
+        .strategy-card .sc-gear { border: none; background: none; color: var(--accent); font-size: 11.5px; cursor: pointer; padding: 6px 8px; margin: -6px 0 -6px 4px; min-height: 32px; }
         .sc-editor { margin-top: 8px; padding: 8px; background: #f8fafc; border-radius: 8px; }
         .sc-editor .se-row { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; font-size: 12px; color: #475569; }
         .sc-editor .se-row label { flex: 1; }
@@ -461,7 +469,7 @@
         .sc-editor .se-name { width: 100%; border: 1px solid #e2e8f0; border-radius: 6px; padding: 4px 6px; font-size: 12px; margin-bottom: 6px; }
         .sc-editor .se-btns { display: flex; gap: 6px; }
         .sc-editor .sev-btn { border: 1px solid var(--accent); background: rgba(var(--accent-rgb, 102, 126, 234), 0.08); color: var(--accent); border-radius: 6px; padding: 4px 10px; font-size: 12px; cursor: pointer; }
-        .sev-btn.ghost { border-color: #e2e8f0; background: #fff; color: #94a3b8; }
+        .sev-btn.ghost { border-color: #e2e8f0; background: #fff; color: #64748b; }
         .strategy-card.is-variant { border-style: dashed; }
         .strategy-card.is-variant .sc-cat-tag { background: rgba(245, 158, 11, 0.13); color: #b45309; }
         .sc-del-var { border: none; background: none; color: #d92d20; font-size: 11.5px; cursor: pointer; padding: 0; margin-left: 8px; }
@@ -480,39 +488,34 @@
             <a href="/?pwd={{ pwd }}">持仓</a>
             <a href="/quant?pwd={{ pwd }}">信号中心</a>
             <a href="/backtest?pwd={{ pwd }}" class="on">回测</a>
+            <a href="/lab?pwd={{ pwd }}">实验室</a>
             <a href="/research?pwd={{ pwd }}">研究中心</a>
         </nav>
         
         <!-- 回测表单 -->
         <div class="backtest-form">
             <div class="form-group">
-                <label>回测股票 <small style="color:#94a3b8; font-weight:400;">（可多只，与策略交叉对比）
-                    <button type="button" id="st-clear" style="border:none;background:none;color:#94a3b8;font-size:12px;cursor:pointer;padding:0 2px;">清空</button>
+                <label>回测股票 <small style="color:#64748b; font-weight:400;">（可多只，与策略交叉对比）
+                    <button type="button" id="st-clear" class="mini-link-btn" style="color:#64748b;">清空</button>
                 </small></label>
                 <div class="stock-chips" id="stock-chips" aria-label="已选股票"></div>
-                <div class="stock-row">
-                    <select id="stock-select" aria-label="选择股票加入">
-                        <option value="">从持仓/股票池选择…</option>
-                        <optgroup label="当前持仓">
-                            {% for pos in positions %}
-                            <option value="{{ pos.code }}" data-name="{{ pos.name }}">{{ pos.name }} ({{ pos.code }})</option>
-                            {% endfor %}
-                        </optgroup>
-                        {% if quant_pool %}
-                        <optgroup label="量化股票池">
-                            {% for s in quant_pool %}
-                            <option value="{{ s.symbol }}" data-name="{{ s.name }}">{{ s.name }} ({{ s.symbol }})</option>
-                            {% endfor %}
-                        </optgroup>
-                        {% endif %}
-                    </select>
-                    <button type="button" class="st-btn primary" id="st-add">＋ 加入</button>
+                <div class="st-search-wrap">
+                    <div class="st-search-box">
+                        <svg class="ic" style="width:15px;height:15px;color:#64748b" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+                        <input type="text" id="st-search" autocomplete="off" placeholder="搜索股票：名称 / 6位代码 / 拼音首字母（如 gzmt），回车添加" aria-label="搜索股票" aria-expanded="false" role="combobox">
+                        <span class="st-info" id="st-info"></span>
+                    </div>
+                    <div class="st-suggest" id="st-suggest" role="listbox" style="display:none"></div>
                 </div>
-                <div class="stock-lookup">
-                    <input type="text" id="st-code" maxlength="8" placeholder="或输入任意 6 位代码（池外股票）" aria-label="输入股票代码查询">
-                    <button type="button" class="st-btn" id="st-lookup">查询</button>
-                    <span class="st-info" id="st-info"></span>
+                <div class="st-pool-row">
+                    <span class="st-pool-label">快捷加入</span>
+                    <button type="button" class="st-btn ghost" id="st-toggle-pool" class="mini-link-btn" style="color:var(--accent);">展开股票池</button>
                 </div>
+                <div id="st-pool-detail" style="display:none">
+                    <div class="st-pool-chips" id="st-quick-held"></div>
+                    <div class="st-pool-chips" id="st-quick-pool"></div>
+                </div>
+                <script id="pool-data" type="application/json">{{ pool_json | safe }}</script>
             </div>
             
             <div class="form-group">
@@ -535,35 +538,35 @@
             </div>
 
             <div class="form-group">
-                <label>选择策略 <small style="color:#94a3b8; font-weight:400;">（可多选，同时回测对比）
-                    <button type="button" id="pick-all" style="border:none;background:none;color:var(--accent);font-size:12px;cursor:pointer;padding:0 2px;">全选</button>/<button type="button" id="pick-none" style="border:none;background:none;color:#94a3b8;font-size:12px;cursor:pointer;padding:0 2px;">清空</button>
+                <label>选择策略 <small style="color:#64748b; font-weight:400;">（可多选，同时回测对比）
+                    <button type="button" id="pick-all" class="mini-link-btn" style="color:var(--accent);">全选</button>/<button type="button" id="pick-none" class="mini-link-btn" style="color:#64748b;">清空</button>
                 </small></label>
                 <div class="strat-cats" id="strat-cats" role="group" aria-label="策略分类筛选"></div>
                 <div class="strategy-cards" id="strategy-cards">
                     <!-- 动态加载 -->
                 </div>
-                <small id="strategy-picked" style="color:#94a3b8;"></small>
+                <small id="strategy-picked" style="color:#64748b;"></small>
             </div>
             
             <div class="form-group">
-                <label>初始资金 (¥)</label>
+                <label for="initial-cash">初始资金 (¥)</label>
                 <input type="number" id="initial-cash" value="100000" min="10000" step="10000">
             </div>
 
             <div class="form-group">
-                <label>手续费率（单边）</label>
+                <label for="commission">手续费率（单边）</label>
                 <input type="number" id="commission" value="0.001" min="0" max="0.01" step="0.0001">
                 <small style="color: #999; font-size: 12px;">默认 0.001（千一）；万一填 0.0001</small>
             </div>
             
             <button class="run-button" id="run-backtest" type="button">开始回测</button>
-            <button class="run-button run-all" id="run-all" type="button" title="持仓+股票池全部股票 × 全部策略（含自定义变体）一键交叉回测">⚡ 全量回测（所有股票 × 所有策略）</button>
+            <button class="run-button run-all" id="run-all" type="button" title="持仓+股票池全部股票 × 全部策略（含自定义变体）一键交叉回测"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 2 3 14h7l-1 8 10-12h-7z"/></svg> 全量回测（所有股票 × 所有策略）</button>
         </div>
 
         <!-- 回测历史（自动保留最近 10 次摘要，本机存储） -->
         <div class="form-group" id="history-group" style="display:none;">
-            <label>📜 历史回测 <small style="color:#94a3b8; font-weight:400;">（保留最近 10 次的摘要，点击可查看对比矩阵；曲线图不保留）
-                <button type="button" id="hist-clear" style="border:none;background:none;color:#ef4444;font-size:12px;cursor:pointer;padding:0 2px;">清空</button>
+            <label><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 21h12a2 2 0 0 0 2-2v-2H8a2 2 0 0 1-2-2V5a2 2 0 0 0-2-2h13a2 2 0 0 1 2 2v12"/><path d="M8 21a2 2 0 0 1-2-2V7"/></svg> 历史回测 <small style="color:#64748b; font-weight:400;">（保留最近 10 次的摘要，点击可查看对比矩阵；曲线图不保留）
+                <button type="button" id="hist-clear" class="mini-link-btn" style="color:var(--red);">清空</button>
             </small></label>
             <div id="history-list"></div>
         </div>
@@ -620,49 +623,118 @@
             if (selStocks.some(s => s.code === code)) { selStocks = selStocks.filter(s => s.code !== code); }  // 重复加入=置顶
             selStocks.push({ code, name, custom });
             saveSelStocks(); renderStockChips();
+            if (typeof syncPoolChips === 'function') syncPoolChips();
             if (typeof classifyRegime === 'function') classifyRegime();
         }
 
-        function addOptionToSelect(code, name) {
-            const sel = document.getElementById('stock-select');
-            let grp = sel.querySelector('optgroup[data-grp="custom"]');
-            if (!grp) { grp = document.createElement('optgroup'); grp.label = '已查询的池外股票'; grp.dataset.grp = 'custom'; sel.appendChild(grp); }
-            if (!Array.from(grp.querySelectorAll('option')).some(o => o.value === code)) {
-                const o = document.createElement('option');
-                o.value = code; o.dataset.name = name; o.textContent = `${name} (${code})`;
-                grp.appendChild(o);
-            }
-            sel.value = code;
+        // ===== 股票数据源：持仓 + 量化池（服务端注入）=====
+        const POOL = (() => { try { return JSON.parse(document.getElementById('pool-data').textContent); } catch (e) { return { held: [], pool: [] }; } })();
+        const POOL_MAP = {};   // code -> {code,name,group}
+        POOL.held.forEach(s => POOL_MAP[s.code] = { ...s, group: '持仓' });
+        POOL.pool.forEach(s => { if (!POOL_MAP[s.code]) POOL_MAP[s.code] = { ...s, group: '股票池' }; });
+
+        // ===== 搜索框：名称/代码/拼音，下拉建议，回车添加 =====
+        const stSearch = document.getElementById('st-search');
+        const stSuggest = document.getElementById('st-suggest');
+        const stInfo = document.getElementById('st-info');
+        let sgItems = [], sgIdx = -1, sgTimer = null, sgReq = 0;
+
+        function closeSuggest() { stSuggest.style.display = 'none'; sgItems = []; sgIdx = -1; stSearch.setAttribute('aria-expanded', 'false'); }
+        function renderSuggest() {
+            if (!sgItems.length) { closeSuggest(); return; }
+            stSuggest.innerHTML = sgItems.map((s, i) => {
+                const inPool = POOL_MAP[s.code];
+                const added = selStocks.some(x => x.code === s.code);
+                return `<div class="sg-item${i === sgIdx ? ' on' : ''}" data-i="${i}" role="option">
+                    <span class="sg-name">${s.name}</span><span class="sg-code">${s.code}</span>
+                    <span class="sg-tag${inPool ? ' pool' : ''}">${inPool ? inPool.group : (added ? '已加入' : '池外')}</span></div>`;
+            }).join('');
+            stSuggest.style.display = 'block';
+            stSearch.setAttribute('aria-expanded', 'true');
+            stSuggest.querySelectorAll('.sg-item').forEach(el => {
+                el.addEventListener('mousedown', e => { e.preventDefault(); chooseSuggest(sgItems[Number(el.dataset.i)]); });
+            });
         }
-
-        document.getElementById('st-add').addEventListener('click', () => {
-            const sel = document.getElementById('stock-select');
-            const opt = sel.selectedOptions[0];
-            if (!opt || !opt.value) { showError('请先在下拉中选择一只股票'); return; }
-            addStock(opt.value, opt.dataset.name || opt.textContent.split(' (')[0], !!opt.parentElement?.dataset?.grp);
-        });
-        document.getElementById('st-clear').addEventListener('click', () => { selStocks = []; saveSelStocks(); renderStockChips(); });
-
-        async function lookupStock() {
-            const input = document.getElementById('st-code');
-            const info = document.getElementById('st-info');
-            const code = input.value.trim().replace(/^(sh|sz|bj)/i, '');
-            if (!/^\d{6}$/.test(code)) { info.className = 'st-info err'; info.textContent = '请输入 6 位代码'; return; }
-            info.className = 'st-info'; info.textContent = '查询中…';
+        function chooseSuggest(s) {
+            if (!s) return;
+            clearTimeout(sgTimer); sgReq++;   // 取消挂起的搜索，防止下拉重弹
+            const pool = POOL_MAP[s.code];
+            addStock(s.code, s.name, !pool);
+            stSearch.value = ''; closeSuggest(); stInfo.className = 'st-info'; stInfo.textContent = '';
+        }
+        async function doSearch(q) {
+            const seq = ++sgReq;
+            try {
+                const resp = await fetch(`/api/backtest/search?pwd=${pwd}&q=${encodeURIComponent(q)}`);
+                const data = await resp.json();
+                if (seq !== sgReq) return;   // 丢弃过期响应
+                sgItems = data.results || [];
+                sgIdx = sgItems.length ? 0 : -1;
+                renderSuggest();
+                if (!sgItems.length) { stInfo.className = 'st-info err'; stInfo.textContent = '无匹配'; }
+            } catch (e) { if (seq === sgReq) { stInfo.className = 'st-info err'; stInfo.textContent = '搜索失败'; } }
+        }
+        async function lookupByCode(code) {
+            stInfo.className = 'st-info'; stInfo.textContent = '查询中…';
             try {
                 const resp = await fetch(`/api/backtest/lookup?pwd=${pwd}&code=${code}`);
                 const data = await resp.json();
                 if (!resp.ok) throw new Error(data.detail || '查询失败');
-                info.textContent = `✓ ${data.name}`;
-                addOptionToSelect(data.code, data.name);
-                addStock(data.code, data.name, true);
-                input.value = '';
+                chooseSuggest({ code: data.code, name: data.name });
+                stInfo.textContent = '';
             } catch (e) {
-                info.className = 'st-info err'; info.textContent = e.message;
+                stInfo.className = 'st-info err'; stInfo.textContent = e.message;
             }
         }
-        document.getElementById('st-lookup').addEventListener('click', lookupStock);
-        document.getElementById('st-code').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); lookupStock(); } });
+        stSearch.addEventListener('input', () => {
+            clearTimeout(sgTimer);
+            stInfo.textContent = '';
+            const q = stSearch.value.trim();
+            if (!q) { closeSuggest(); return; }
+            sgTimer = setTimeout(() => doSearch(q), 250);
+        });
+        stSearch.addEventListener('keydown', e => {
+            if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+                if (!sgItems.length) return;
+                e.preventDefault();
+                sgIdx = (sgIdx + (e.key === 'ArrowDown' ? 1 : -1) + sgItems.length) % sgItems.length;
+                renderSuggest();
+            } else if (e.key === 'Enter') {
+                e.preventDefault();
+                if (sgIdx >= 0 && sgItems[sgIdx]) { chooseSuggest(sgItems[sgIdx]); return; }
+                const q = stSearch.value.trim().replace(/^(sh|sz|bj)/i, '');
+                if (/^\d{6}$/.test(q)) lookupByCode(q);
+            } else if (e.key === 'Escape') {
+                closeSuggest();
+            }
+        });
+        stSearch.addEventListener('blur', () => setTimeout(closeSuggest, 150));
+
+        // ===== 股票池快捷点选（默认折叠）=====
+        (function initPoolChips() {
+            const grpLabel = t => `<span class="st-pool-grp">${t}</span>`;
+            const chip = s => `<button type="button" class="st-pick${selStocks.some(x => x.code === s.code) ? ' picked' : ''}" data-code="${s.code}" data-name="${s.name}" data-custom="${POOL_MAP[s.code] ? '' : '1'}" title="${s.code}">${s.name}</button>`;
+            document.getElementById('st-quick-held').innerHTML = grpLabel('持仓') + POOL.held.map(chip).join('');
+            document.getElementById('st-quick-pool').innerHTML = grpLabel('量化股票池') + POOL.pool.map(chip).join('');
+            document.getElementById('st-pool-detail').addEventListener('click', e => {
+                const btn = e.target.closest('.st-pick');
+                if (!btn) return;
+                addStock(btn.dataset.code, btn.dataset.name, !!btn.dataset.custom);
+                syncPoolChips();
+            });
+            const detail = document.getElementById('st-pool-detail'), toggle = document.getElementById('st-toggle-pool');
+            toggle.addEventListener('click', () => {
+                const open = detail.style.display !== 'none';
+                detail.style.display = open ? 'none' : 'block';
+                toggle.textContent = open ? '展开股票池' : '收起';
+            });
+        })();
+        function syncPoolChips() {
+            document.querySelectorAll('#st-pool-detail .st-pick').forEach(btn =>
+                btn.classList.toggle('picked', selStocks.some(x => x.code === btn.dataset.code)));
+        }
+
+        document.getElementById('st-clear').addEventListener('click', () => { selStocks = []; saveSelStocks(); renderStockChips(); syncPoolChips(); });
         renderStockChips();
 
         function updatePickedLabel() {
@@ -691,9 +763,9 @@
             if (!meta || !ed) return;
             ed.innerHTML =
                 Object.entries(meta.params).map(([k, v]) =>
-                    `<div class="se-row"><label>${k}</label><input type="number" step="any" value="${v}" data-p="${k}"></div>`
+                    `<div class="se-row"><label for="edp-${name}-${k}">${k}</label><input type="number" step="any" value="${v}" data-p="${k}" id="edp-${name}-${k}"></div>`
                 ).join('') +
-                `<input class="se-name" placeholder="变体名称（如：布林带(10,1.5)）" id="edn-${name}">` +
+                `<input class="se-name" placeholder="变体名称（如：布林带(10,1.5)）" id="edn-${name}" aria-label="策略变体名称">` +
                 `<div class="se-btns"><button type="button" class="sev-btn" data-save="${name}">存为变体并选中</button>` +
                 `<button type="button" class="sev-btn ghost" data-close="${name}">收起</button></div>`;
             ed.querySelector('[data-close]').addEventListener('click', (e) => { e.stopPropagation(); ed.style.display = 'none'; });
@@ -737,7 +809,7 @@
             const fmt = Object.entries(v.params).map(([k, val]) => `${k}=${val}`).join(' ');
             card.innerHTML = `<span class="sc-check">✓</span>
                 <div class="sc-head"><h3>${v.display}</h3><button type="button" class="sc-del-var" data-del="${vkey}">删除</button></div>
-                <div style="margin-bottom:4px;"><span class="sc-cat-tag">自定义</span><small style="color:#94a3b8;font-size:11px;margin-left:6px;">基于 ${stratMeta[v.base]?.display || v.base}</small></div>
+                <div style="margin-bottom:4px;"><span class="sc-cat-tag">自定义</span><small style="color:#64748b;font-size:11px;margin-left:6px;">基于 ${stratMeta[v.base]?.display || v.base}</small></div>
                 <p>自定义参数变体</p><div class="sc-params">${fmt}</div>`;
             card.addEventListener('click', (e) => { if (!e.target.dataset.del) toggleCard(card); });
             card.querySelector('[data-del]').addEventListener('click', (e) => {
@@ -798,7 +870,7 @@
                     const vnpy = s.name.startsWith('vnpy');
                     const cat = s.category || '其他';
                     const gear = (!vnpy && s.name !== 'zipline' && Object.keys(s.params || {}).length)
-                        ? `<button type="button" class="sc-gear" data-gear="${s.name}" title="修改参数并存为变体">⚙ 改参数</button>` : '';
+                        ? `<button type="button" class="sc-gear" data-gear="${s.name}" title="修改参数并存为变体"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.09a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.09a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg> 改参数</button>` : '';
                     return `
                     <div class="strategy-card" tabindex="0" role="button" aria-pressed="false" data-name="${s.name}" data-engine="${vnpy ? 'vnpy' : 'backtrader'}" data-category="${cat}">
                         <span class="sc-check">✓</span>
@@ -813,7 +885,7 @@
                     </div>`;
                 }).join('');
 
-                // ⚙ 改参数：展开编辑器（点击卡片本身仍是勾选，不冲突）
+                // 齿轮按钮: 改参数：展开编辑器（点击卡片本身仍是勾选，不冲突）
                 container.querySelectorAll('.sc-gear').forEach(btn => {
                     btn.addEventListener('click', (e) => {
                         e.stopPropagation();
@@ -900,14 +972,11 @@
             window.scrollTo({ top: Math.max(0, y), behavior: 'smooth' });
         }
 
-        // 从下拉框收集全部候选股票（持仓 + 股票池 + 已查询的池外股）
+        // 收集全部候选股票（持仓 + 股票池 + 已查询添加的池外股）
         function allStocksFromSelect() {
-            const out = [];
-            document.querySelectorAll('#stock-select option').forEach(o => {
-                if (!o.value || out.some(s => s.code === o.value)) return;
-                out.push({ code: o.value, name: o.dataset.name || o.textContent.split(' (')[0] });
-            });
-            return out;
+            const out = POOL.held.concat(POOL.pool);
+            selStocks.forEach(s => { if (!out.some(o => o.code === s.code)) out.push({ code: s.code, name: s.name }); });
+            return out.filter((s, i) => out.findIndex(o => o.code === s.code) === i);
         }
         // 收集全部策略卡（含自定义变体，无视分类筛选与勾选状态）
         function allStrategyItems() {
@@ -1153,7 +1222,7 @@
                 html += `</tr>`;
             }
             html += `</tbody></table></div>`;
-            if (periodLabel) html += `<p style="color:#94a3b8;font-size:12px;margin:0 0 16px;">同周期、同资金与手续费口径；★ 为该指标最优策略（${periodLabel}）。</p>`;
+            if (periodLabel) html += `<p style="color:#64748b;font-size:12px;margin:0 0 16px;">同周期、同资金与手续费口径；★ 为该指标最优策略（${periodLabel}）。</p>`;
             return html;
         }
 
@@ -1202,7 +1271,7 @@
             }
             if (stockCodes.length > 1) {
                 if (!multip) {
-                    html += `<div class="cmp-stock-title">交叉对比 · 总收益率（股票 × 策略，★ = 全场最优，<span style="color:#94a3b8;">点列头可按该策略排序</span>）</div>` + buildMtx(ok, 'mtx-wrap');
+                    html += `<div class="cmp-stock-title">交叉对比 · 总收益率（股票 × 策略，★ = 全场最优，<span style="color:#64748b;">点列头可按该策略排序</span>）</div>` + buildMtx(ok, 'mtx-wrap');
                     const heavy = ok.length > 24;
                     if (!heavy) {
                         stockCodes.forEach(c => {
@@ -1211,16 +1280,16 @@
                             if (sub.length > 1) html += `<div class="cmp-stock-title">${st.name} (${c})</div>` + cmpTableHtml(sub, pLabel);
                         });
                     } else {
-                        html += `<div class="cmp-stock-title" style="color:#94a3b8;font-weight:400;">共 ${ok.length} 个组合，已省略每股明细对比表 — 可点击矩阵列头按该策略收益率排序，快速定位最优股票/策略</div>`;
+                        html += `<div class="cmp-stock-title" style="color:#64748b;font-weight:400;">共 ${ok.length} 个组合，已省略每股明细对比表 — 可点击矩阵列头按该策略收益率排序，快速定位最优股票/策略</div>`;
                     }
                 } else {
                     // 多周期：每个周期一张矩阵（同结构可横向对照），明细表省略
                     pKeys.forEach((k, pi) => {
                         const sub = ok.filter(r => (r.p || '1d') === k);
                         if (!sub.length) { html += `<div class="cmp-stock-title">${PERIOD_LABELS[k] || k}：无成功组合</div>`; return; }
-                        html += `<div class="cmp-stock-title">交叉对比 · 总收益率（${PERIOD_LABELS[k] || k}，★ = 该周期最优，<span style="color:#94a3b8;">点列头可按该策略排序</span>）</div>` + buildMtx(sub, `mtx-${pi}`);
+                        html += `<div class="cmp-stock-title">交叉对比 · 总收益率（${PERIOD_LABELS[k] || k}，★ = 该周期最优，<span style="color:#64748b;">点列头可按该策略排序</span>）</div>` + buildMtx(sub, `mtx-${pi}`);
                     });
-                    html += `<div class="cmp-stock-title" style="color:#94a3b8;font-weight:400;">多周期模式已省略每股明细对比表 — 各周期矩阵列结构一致，上下对照即可看出同一股票/策略在不同周期下的差异</div>`;
+                    html += `<div class="cmp-stock-title" style="color:#64748b;font-weight:400;">多周期模式已省略每股明细对比表 — 各周期矩阵列结构一致，上下对照即可看出同一股票/策略在不同周期下的差异</div>`;
                 }
             } else if (ok.length > 1 && !multip) {
                 html = cmpTableHtml(ok, pLabel);
@@ -1271,7 +1340,7 @@
                 `<th class="sortable${M.col === i ? ' on' : ''}" onclick="mtxSortCol(${i},'${id}')" title="点击按该策略收益率排序">${s.display}${arrow(i)}</th>`).join('')}</tr></thead><tbody>` +
                 rows.map(c => {
                     const st = sts[c];
-                    let tr = `<tr><td class="rowh">${st.name}<small style="color:#94a3b8;font-weight:400;"> ${c}</small></td>`;
+                    let tr = `<tr><td class="rowh">${st.name}<small style="color:#64748b;font-weight:400;"> ${c}</small></td>`;
                     tr += strats.map((s, si) => {
                         const r = byStock[c][si];
                         if (!r || !r.result.success) return '<td style="color:#cbd5e1;">—</td>';
@@ -1335,15 +1404,15 @@
                 ],
                 xAxis: [
                     { type: 'category', data: ch.dates, gridIndex: 0, boundaryGap: true, axisLine: { lineStyle: { color: '#cbd5e1' } }, axisTick: { show: false }, axisLabel: { show: false }, splitLine: { show: false } },
-                    { type: 'category', data: ch.dates, gridIndex: 1, axisLine: { lineStyle: { color: '#cbd5e1' } }, axisTick: { show: false }, axisLabel: { fontSize: 10, color: '#94a3b8' }, splitLine: { show: false } },
+                    { type: 'category', data: ch.dates, gridIndex: 1, axisLine: { lineStyle: { color: '#cbd5e1' } }, axisTick: { show: false }, axisLabel: { fontSize: 10, color: '#64748b' }, splitLine: { show: false } },
                 ],
                 yAxis: [
                     { scale: true, gridIndex: 0, splitLine: { lineStyle: { color: '#f1f5f9' } }, axisLabel: { fontSize: 10, color: '#64748b' } },
-                    { scale: true, gridIndex: 1, splitLine: { show: false }, axisLabel: { fontSize: 10, color: '#94a3b8', formatter: (v) => { const p = (v / ch.eq0 - 1) * 100; return (p >= 0 ? '+' : '') + p.toFixed(ch.eqDec) + '%'; } } },
+                    { scale: true, gridIndex: 1, splitLine: { show: false }, axisLabel: { fontSize: 10, color: '#64748b', formatter: (v) => { const p = (v / ch.eq0 - 1) * 100; return (p >= 0 ? '+' : '') + p.toFixed(ch.eqDec) + '%'; } } },
                 ],
                 dataZoom: [
                     { type: 'inside', xAxisIndex: [0, 1], start: 0, end: 100 },
-                    { type: 'slider', xAxisIndex: [0, 1], height: 16, bottom: 2, borderColor: 'transparent', fillerColor: 'rgba(102,126,234,0.10)', handleStyle: { color: '#8ea2ec' }, textStyle: { fontSize: 9, color: '#94a3b8' } },
+                    { type: 'slider', xAxisIndex: [0, 1], height: 16, bottom: 2, borderColor: 'transparent', fillerColor: 'rgba(102,126,234,0.10)', handleStyle: { color: '#8ea2ec' }, textStyle: { fontSize: 9, color: '#64748b' } },
                 ],
                 series: [
                     {
@@ -1472,7 +1541,7 @@
         };
 
         async function classifyRegime() {
-            const code = (selStocks.length ? selStocks[selStocks.length - 1].code : document.getElementById('stock-select').value);
+            const code = (selStocks.length ? selStocks[selStocks.length - 1].code : (POOL.held[0] || POOL.pool[0] || {}).code || '');
             const period = document.getElementById('period-select').value;
             const group = document.getElementById('regime-group');
             const card = document.getElementById('regime-card');
@@ -1533,8 +1602,8 @@
         // 初始化
         document.getElementById('run-backtest').addEventListener('click', runBacktest);
         document.getElementById('run-all').addEventListener('click', runAllBacktest);
-        document.getElementById('stock-select').addEventListener('change', classifyRegime);
         document.getElementById('period-select').addEventListener('change', classifyRegime);
+        if (selStocks.length) classifyRegime();
         loadStrategies();
     </script>
 </body>
