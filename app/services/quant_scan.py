@@ -37,6 +37,9 @@ SIGNAL_LOOKBACK_DAYS = 30
 
 MAX_WORKERS = 8
 
+#: 全市场模式：新浪全A快照按成交额粗筛的候选数量上限（3.4G 主机安全线）
+FULL_MARKET_LIMIT = 300
+
 
 # ----------------------------------------------------------------------
 # 工具函数
@@ -51,6 +54,69 @@ def _pool() -> list[dict]:
         seen.add(s["symbol"])
         pool.append(s)
     return pool
+
+
+def _market_candidates(limit: int | None = None) -> list[dict]:
+    """全市场粗筛候选池：新浪全A实时快照按成交额降序取前 N。
+
+    过滤：剔 ST/退市（名称含 ST 或 退）、只留 60/00/30/68 前缀（排除北交所）。
+    端点已在服务器实测可达（须带 Referer）。失败时返回空列表由调用方降级。
+    """
+    import requests
+
+    limit = limit or FULL_MARKET_LIMIT
+
+    url = ("https://vip.stock.finance.sina.com.cn/quotes_service/api/"
+           "json_v2.php/Market_Center.getHQNodeData")
+    out: list[dict] = []
+    seen: set[str] = set()
+    page = 1
+    try:
+        while len(out) < limit:
+            resp = requests.get(url, params={
+                "page": page, "num": 100, "sort": "amount", "asc": 0,
+                "node": "hs_a", "symbol": "", "_s": "r_ma",
+            }, headers={"Referer": "https://finance.sina.com.cn"}, timeout=10)
+            resp.raise_for_status()
+            data = resp.json()
+            if not data:
+                break
+            for it in data:
+                code = str(it.get("code", ""))
+                name = str(it.get("name", ""))
+                if not code.startswith(("60", "00", "30", "68")):
+                    continue
+                if "ST" in name.upper() or "退" in name:
+                    continue
+                if code in seen:
+                    continue
+                seen.add(code)
+                out.append({"symbol": code, "name": name})
+                if len(out) >= limit:
+                    break
+            page += 1
+            if page > 60:
+                break
+    except Exception:
+        return out  # 部分成功也返回已有候选
+    return out
+
+
+def _resolve_pool(full: bool) -> tuple[list[dict], str]:
+    """按开关选择扫描池。全市场粗筛失败时降级回 30 只池（scope 如实返回）。"""
+    if not full:
+        return _pool(), "pool"
+    cands = _market_candidates()
+    if not cands:
+        return _pool(), "pool"
+    return cands, "market"
+
+
+def _free_mem_cache(symbol: str, timeframe: str = "1d",
+                    start_date: str = "20240101") -> None:
+    """全市场扫描时逐票释放内存缓存（磁盘缓存保留），防止 3.4G 主机被打爆。"""
+    from app.quant.data.cache import _DATA_CACHE
+    _DATA_CACHE.pop(f"stock_{symbol}_{timeframe}_{start_date}", None)
 
 
 def _today() -> str:
@@ -109,11 +175,11 @@ def _fetch_daily(symbol: str) -> pd.DataFrame:
 # 1. 策略信号扫描
 # ----------------------------------------------------------------------
 
-def scan_signals(strategy: str, refresh: bool = False) -> dict:
-    """扫描指定策略在全池的近期信号。
+def scan_signals(strategy: str, refresh: bool = False, full: bool = False) -> dict:
+    """扫描指定策略在池/全市场的近期信号。
 
     返回:
-        dict: asOf / strategy / strategyName / signals[] / failures[] / total
+        dict: asOf / strategy / strategyName / signals[] / failures[] / total / scope / poolSize
     """
     engine_cls = STRATEGY_REGISTRY.get(strategy)
     if engine_cls is None:
@@ -121,7 +187,8 @@ def scan_signals(strategy: str, refresh: bool = False) -> dict:
             f"未知策略: {strategy}，可选: {list(STRATEGY_REGISTRY.keys())}"
         )
 
-    cache_key = f"signals_{strategy}"
+    scope = "market" if full else "pool"
+    cache_key = f"signals_{strategy}_{scope}"
     if not refresh:
         cached = _load_cache(cache_key)
         if cached:
@@ -130,8 +197,7 @@ def scan_signals(strategy: str, refresh: bool = False) -> dict:
     cfg = StrategyConfig(signal_timeframe="1d")
     engine = engine_cls(cfg)
     timeframe = _TIMEFRAME_BY_STRATEGY.get(strategy, "1d")
-    pool = _pool()
-    names = {s["symbol"]: s["name"] for s in pool}
+    pool, scope = _resolve_pool(full)
     cutoff = pd.Timestamp.now() - pd.Timedelta(days=SIGNAL_LOOKBACK_DAYS)
 
     rows: list[dict] = []
@@ -157,30 +223,36 @@ def scan_signals(strategy: str, refresh: bool = False) -> dict:
             except Exception as exc:
                 failures.append({"symbol": symbol, "reason": str(exc)})
                 continue
-            if frame is None or frame.is_empty():
-                continue
-            recent = frame.df[frame.df["date"] >= cutoff]
-            for _, row in recent.iterrows():
-                meta = {
-                    k: (None if pd.isna(v) else v)
-                    for k, v in row.to_dict().items()
-                    if k not in ("date", "symbol", "close", "strategy")
-                }
-                rows.append({
-                    "date": str(row["date"])[:10],
-                    "symbol": symbol,
-                    "name": names.get(symbol, ""),
-                    "close": round(float(row["close"]), 2),
-                    "metadata": meta,
-                })
+            if frame is not None and not frame.is_empty():
+                recent = frame.df[frame.df["date"] >= cutoff]
+                for _, row in recent.iterrows():
+                    meta = {
+                        k: (None if pd.isna(v) else v)
+                        for k, v in row.to_dict().items()
+                        if k not in ("date", "symbol", "close", "strategy")
+                    }
+                    rows.append({
+                        "date": str(row["date"])[:10],
+                        "symbol": symbol,
+                        "name": stock["name"],
+                        "close": round(float(row["close"]), 2),
+                        "metadata": meta,
+                    })
+            if scope == "market":
+                _free_mem_cache(symbol, timeframe)
 
-    rows.sort(key=lambda r: r["date"], reverse=True)
+    rows.sort(key=lambda r: (r["date"], r["metadata"].get("score") or 0),
+              reverse=True)
+    if scope == "market":
+        rows = rows[:200]  # 全市场结果截断，页面展示 top
     payload = _native({
         "asOf": _today(),
         "fetchedAt": _now(),
         "strategy": strategy,
         "strategyName": engine.name,
         "lookbackDays": SIGNAL_LOOKBACK_DAYS,
+        "scope": scope,
+        "poolSize": len(pool),
         "signals": rows,
         "failures": failures,
         "total": len(rows),
@@ -209,19 +281,20 @@ def list_strategies() -> list[dict]:
 _TREND_MODES = {"strong", "loose", "oversold"}
 
 
-def scan_trend(mode: str = "strong", refresh: bool = False) -> dict:
-    """全池趋势过滤，返回每只股票的逐项判定。"""
+def scan_trend(mode: str = "strong", refresh: bool = False, full: bool = False) -> dict:
+    """池/全市场趋势过滤，返回每只股票的逐项判定。"""
     if mode not in _TREND_MODES:
         raise ValueError(f"未知模式: {mode}，可选: {sorted(_TREND_MODES)}")
 
-    cache_key = f"trend_{mode}"
+    scope = "market" if full else "pool"
+    cache_key = f"trend_{mode}_{scope}"
     if not refresh:
         cached = _load_cache(cache_key)
         if cached:
             return cached
 
     tf = TrendFilter(StrategyConfig())
-    pool = _pool()
+    pool, scope = _resolve_pool(full)
 
     def work(stock: dict):
         df = _fetch_daily(stock["symbol"])
@@ -237,25 +310,32 @@ def scan_trend(mode: str = "strong", refresh: bool = False) -> dict:
             stock, result = future.result()
             if result is None:
                 failures.append(stock["symbol"])
-                continue
-            rows.append({
-                "symbol": stock["symbol"],
-                "name": stock["name"],
-                "pass": result["pass"],
-                "ma_bullish": result["ma_bullish"],
-                "ma20_up": result["ma20_up"],
-                "near_high": result["near_high"],
-                "vol_ok": result["vol_ok"],
-                "detail": result["detail"],
-                "reasons": result["reasons"],
-            })
+            else:
+                rows.append({
+                    "symbol": stock["symbol"],
+                    "name": stock["name"],
+                    "pass": result["pass"],
+                    "ma_bullish": result["ma_bullish"],
+                    "ma20_up": result["ma20_up"],
+                    "near_high": result["near_high"],
+                    "vol_ok": result["vol_ok"],
+                    "detail": result["detail"],
+                    "reasons": result["reasons"],
+                })
+            if scope == "market":
+                _free_mem_cache(stock["symbol"])
 
     rows.sort(key=lambda r: (not r["pass"], r["symbol"]))
     passed = [r for r in rows if r["pass"]]
+    if scope == "market":
+        rows = rows[:200]      # 通过项排前面后截断，保留可读的 top
+        passed = [r for r in passed[:200]]
     payload = _native({
         "asOf": _today(),
         "fetchedAt": _now(),
         "mode": mode,
+        "scope": scope,
+        "poolSize": len(pool),
         "stocks": rows,
         "passed": [{"symbol": r["symbol"], "name": r["name"]} for r in passed],
         "passedCount": len(passed),
@@ -269,16 +349,17 @@ def scan_trend(mode: str = "strong", refresh: bool = False) -> dict:
 # 3. 箱体检测
 # ----------------------------------------------------------------------
 
-def scan_box(refresh: bool = False) -> dict:
-    """全池箱体检测，返回处于箱体的股票及箱体参数。"""
-    cache_key = "box"
+def scan_box(refresh: bool = False, full: bool = False) -> dict:
+    """池/全市场箱体检测，返回处于箱体的股票及箱体参数。"""
+    scope = "market" if full else "pool"
+    cache_key = f"box_{scope}"
     if not refresh:
         cached = _load_cache(cache_key)
         if cached:
             return cached
 
     detector = BoxDetector(StrategyConfig(signal_timeframe="1d"))
-    pool = _pool()
+    pool, scope = _resolve_pool(full)
 
     def work(stock: dict):
         df = _fetch_daily(stock["symbol"])
@@ -301,15 +382,21 @@ def scan_box(refresh: bool = False) -> dict:
                 info = future.result()
             except Exception:
                 failures.append(stock["symbol"])
-                continue
+                info = None
             if info:
                 box_stocks.append(info)
+            if scope == "market":
+                _free_mem_cache(stock["symbol"])
 
     box_stocks.sort(key=lambda r: (r.get("aspect_ratio", 0), r["quality_score"]), reverse=True)
+    if scope == "market":
+        box_stocks = box_stocks[:200]
     payload = _native({
         "asOf": _today(),
         "fetchedAt": _now(),
         "boxBars": detector.box_bars,
+        "scope": scope,
+        "poolSize": len(pool),
         "stocks": box_stocks,
         "total": len(box_stocks),
         "failures": failures,
@@ -322,20 +409,29 @@ def scan_box(refresh: bool = False) -> dict:
 # 4. 筹码分布
 # ----------------------------------------------------------------------
 
-def scan_chip(refresh: bool = False) -> dict:
-    """全池筹码集中度扫描，按评分降序。"""
-    cache_key = "chip"
+def scan_chip(refresh: bool = False, full: bool = False) -> dict:
+    """池/全市场筹码集中度扫描，按评分降序。"""
+    scope = "market" if full else "pool"
+    cache_key = f"chip_{scope}"
     if not refresh:
         cached = _load_cache(cache_key)
         if cached:
             return cached
 
+    pool, scope = _resolve_pool(full)
     analyzer = ChipDistributionAnalyzer(StrategyConfig())
-    results = analyzer.scan_stocks(_pool(), max_workers=MAX_WORKERS,
+    results = analyzer.scan_stocks(pool, max_workers=MAX_WORKERS,
                                    print_detail=False)
+    if scope == "market":
+        # 全市场扫描后清掉本次加载的日线内存缓存（磁盘缓存保留）
+        for s in pool:
+            _free_mem_cache(s["symbol"])
+        results = results[:200]
     payload = _native({
         "asOf": _today(),
         "fetchedAt": _now(),
+        "scope": scope,
+        "poolSize": len(pool),
         "stocks": results,
         "passedCount": sum(1 for r in results if r["metrics"]["pass"]),
     })
