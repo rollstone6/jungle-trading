@@ -170,8 +170,9 @@ async def acme_challenge(token: str):
 # --- Models ---
 class ManualPosition(BaseModel):
     code: str
-    quantity: int
-    cost_price: float
+    quantity: int = 0
+    cost_price: float = 0.0
+    name: str = ""
 
 class ManualUpdate(BaseModel):
     account: dict | None = None
@@ -182,28 +183,9 @@ class ManualUpdate(BaseModel):
 @app.on_event("startup")
 async def startup():
     init_db()
-    # Seed default positions if empty
-    conn = get_db()
-    count = conn.execute("SELECT COUNT(*) FROM positions").fetchone()[0]
-    if count == 0:
-        # 与 app/quant/config.py 的 STOCK_LIST 保持一致（2026-10-23 西南+中信合并持仓）
-        defaults = [
-            ("000592", "平潭发展", "林业/综合", 100, 43.840),
-            ("300291", "百纳千成", "影视传媒", 500, 12.070),
-            ("300394", "天孚通信", "光模块/CPO", 100, 346.982),
-            ("300505", "川金诺", "磷化工", 1200, 22.867),
-            ("300251", "光线传媒", "影视传媒", 0, 0),
-            ("513310", "中韩芯片", "QDII-ETF/半导体", 100, 5.179),
-            ("600580", "卧龙电驱", "电机/机电", 100, 80.062),
-            ("603678", "火炬电子", "军工电子/电容", 300, 53.871),
-        ]
-        for code, name, sector, qty, cost in defaults:
-            conn.execute(
-                "INSERT OR REPLACE INTO positions (code, name, sector, quantity, cost_price) VALUES (?,?,?,?,?)",
-                (code, name, sector, qty, cost)
-            )
-        conn.commit()
-    conn.close()
+    # 不再自动种子旧默认持仓（2026-11-11 移除）：
+    # 历史上误清空后重启会把硬编码旧持仓写回（"持仓又变回老旧内容"），
+    # 现在持仓的增删改全部走首页「编辑持仓」弹窗，空表就是空仓。
     _start_scheduler()
 
 
@@ -379,6 +361,19 @@ async def index(request: Request, pwd: str = Depends(check_password)):
     current_date = available_dates[0] if available_dates else ""
     report_time = ""
 
+    # 持仓编辑弹窗数据（预填当前持仓 + 账户 + 股票池快捷选）
+    edit_data = {
+        "account": {"principal": account["principal"], "total_asset": account["total_asset"]},
+        "positions": [
+            {"code": p["code"], "name": p["name"], "sector": p.get("sector") or "",
+             "quantity": p["quantity"], "cost_price": p["cost_price"],
+             "latest_price": p.get("latest_price") or 0}
+            for p in positions
+        ],
+        "pool": [{"code": s["symbol"], "name": s["name"]} for s in STOCK_LIST],
+    }
+    edit_json = json.dumps(edit_data, ensure_ascii=False).replace("</", "<\\/")
+
     return templates.TemplateResponse(
         request,
         "index.html",
@@ -392,6 +387,7 @@ async def index(request: Request, pwd: str = Depends(check_password)):
             "current_date": current_date,
             "report_time": report_time,
             "pwd": pwd,
+            "edit_json": edit_json,
             "is_update_mode": request.query_params.get("update") == "1",
         }
     )
@@ -411,8 +407,57 @@ async def api_etf_moneyflow(pwd: str = Depends(check_password)):
 
 @app.post("/api/positions/manual")
 async def update_manual(data: ManualUpdate, request: Request, pwd: str = Depends(check_password)):
-    """手工更新持仓"""
+    """手工更新持仓（增/改/删一体，返回变更摘要）"""
+    import re as _re
     conn = get_db()
+
+    old = {r["code"]: dict(r) for r in conn.execute("SELECT * FROM positions").fetchall()}
+    new_codes = set()
+
+    # 名称解析：持仓里已有的沿用旧名（保留用户自定义简称），新增代码查腾讯行情
+    need_names = [p.code for p in data.positions if p.code not in old]
+    resolved: dict[str, str] = {}
+    if need_names:
+        try:
+            quotes = await fetch_realtime_tencent(need_names)
+            for c in need_names:
+                info = quotes.get(c) or {}
+                if info.get("name"):
+                    resolved[c] = info["name"]
+        except Exception:
+            pass
+
+    added, updated, removed = [], [], []
+    for pos in data.positions:
+        if not _re.fullmatch(r"\d{6}", pos.code):
+            conn.close()
+            raise HTTPException(status_code=400, detail=f"股票代码格式错误：{pos.code}")
+        new_codes.add(pos.code)
+        existing = old.get(pos.code)
+        if existing:
+            name = existing["name"] or pos.name or pos.code
+            sector = existing["sector"]
+        else:
+            name = pos.name or resolved.get(pos.code) or pos.code
+            sector = ""
+        qty = max(int(pos.quantity or 0), 0)
+        cost = max(float(pos.cost_price or 0), 0)
+        conn.execute("""
+            INSERT OR REPLACE INTO positions (code, name, sector, quantity, cost_price, kline_data, news, updated_at)
+            VALUES (?, ?, ?, ?, ?,
+                COALESCE((SELECT kline_data FROM positions WHERE code=?), '[]'),
+                COALESCE((SELECT news FROM positions WHERE code=?), '[]'),
+                CURRENT_TIMESTAMP)
+        """, (pos.code, name, sector, qty, cost, pos.code, pos.code))
+        if not existing:
+            added.append(name)
+        elif existing["quantity"] != qty or abs(float(existing["cost_price"] or 0) - cost) > 1e-6:
+            updated.append(name)
+
+    for c, row in old.items():
+        if c not in new_codes:
+            conn.execute("DELETE FROM positions WHERE code=?", (c,))
+            removed.append(row["name"] or c)
 
     # Update account
     if data.account:
@@ -422,31 +467,22 @@ async def update_manual(data: ManualUpdate, request: Request, pwd: str = Depends
             conn.execute("UPDATE account SET principal=?, total_asset=? WHERE id=1",
                          (principal, total_asset))
 
-    # Replace all positions
-    new_codes = set()
-    for pos in data.positions:
-        new_codes.add(pos.code)
-        # Try to keep existing name/sector
-        existing = conn.execute("SELECT name, sector FROM positions WHERE code=?", (pos.code,)).fetchone()
-        name = existing["name"] if existing else pos.code
-        sector = existing["sector"] if existing else ""
-        conn.execute("""
-            INSERT OR REPLACE INTO positions (code, name, sector, quantity, cost_price, kline_data, news, updated_at)
-            VALUES (?, ?, ?, ?, ?,
-                COALESCE((SELECT kline_data FROM positions WHERE code=?), '[]'),
-                COALESCE((SELECT news FROM positions WHERE code=?), '[]'),
-                CURRENT_TIMESTAMP)
-        """, (pos.code, name, sector, pos.quantity, pos.cost_price, pos.code, pos.code))
-
-    # Remove old positions not in new list
-    old_codes = [r[0] for r in conn.execute("SELECT code FROM positions").fetchall()]
-    for c in old_codes:
-        if c not in new_codes:
-            conn.execute("DELETE FROM positions WHERE code=?", (c,))
-
     conn.commit()
     conn.close()
-    return {"message": "持仓已更新，正在刷新行情..."}
+
+    def join(lst):
+        return "、".join(lst[:5]) + (f" 等{len(lst)}只" if len(lst) > 5 else "")
+
+    parts = []
+    if added:
+        parts.append(f"新增 {join(added)}")
+    if updated:
+        parts.append(f"修改 {join(updated)}")
+    if removed:
+        parts.append(f"移除 {join(removed)}")
+    if not parts:
+        parts.append("持仓未变化")
+    return {"message": "，".join(parts) + "。正在刷新行情..."}
 
 
 @app.get("/api/reports/strategies")

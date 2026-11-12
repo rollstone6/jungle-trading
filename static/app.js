@@ -29,19 +29,6 @@ function apiUrl(path) {
   return url.toString();
 }
 
-function createPositionRow() {
-  const row = document.createElement("div");
-  row.className = "manual-row";
-  row.dataset.positionRow = "";
-  row.innerHTML = `
-    <input name="code" inputmode="numeric" maxlength="6" value="" aria-label="股票代码" />
-    <input name="quantity" inputmode="decimal" value="" aria-label="持仓数量" />
-    <input name="cost_price" inputmode="decimal" value="" aria-label="成本价格" />
-    <button type="button" class="icon-button" data-remove-row title="删除这一行">×</button>
-  `;
-  return row;
-}
-
 function readDecimal(value) {
   const cleaned = String(value || "").replace(/,/g, "").trim();
   if (!cleaned) return null;
@@ -49,53 +36,366 @@ function readDecimal(value) {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
-function collectManualPayload(form) {
-  const positions = [];
-  form.querySelectorAll("[data-position-row]").forEach((row) => {
-    const code = row.querySelector('input[name="code"]').value.trim();
-    const quantity = readDecimal(row.querySelector('input[name="quantity"]').value);
-    const costPrice = readDecimal(row.querySelector('input[name="cost_price"]').value);
-    if (!code && quantity === null && costPrice === null) return;
-    if (!/^\d{6}$/.test(code)) throw new Error(`股票代码格式错误：${code || "空"}`);
-    if (!quantity || quantity <= 0) throw new Error(`${code} 的持仓数量必须大于 0`);
-    if (!costPrice || costPrice <= 0) throw new Error(`${code} 的成本价格必须大于 0`);
-    positions.push({ code, quantity, cost_price: costPrice });
-  });
-  if (!positions.length) throw new Error("至少需要输入一条持仓。");
-  return {
-    account: {
-      principal: readDecimal(form.elements.principal.value),
-      total_asset: readDecimal(form.elements.total_asset.value),
-    },
-    positions,
-  };
+function pmEsc(value) {
+  return String(value ?? "").replace(/[&<>"']/g, (ch) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+  }[ch]));
 }
 
 function bindManualPositionForm() {
   const form = document.querySelector("[data-manual-position-form]");
   if (!form) return;
   const modal = document.querySelector("[data-position-modal]");
-  const openButton = document.querySelector("[data-open-position-modal]");
-  const closeButton = document.querySelector("[data-close-position-modal]");
   const rows = form.querySelector("[data-position-rows]");
   const addButton = form.querySelector("[data-add-position-row]");
+  const searchInput = form.querySelector("[data-pm-search-input]");
+  const suggestBox = form.querySelector("[data-pm-suggest]");
+  const poolBox = form.querySelector("[data-pm-pool]");
+  const changesBox = form.querySelector("[data-pm-changes]");
+  const submitBtn = form.querySelector("[data-pm-submit]");
+  const draftBar = form.querySelector("[data-pm-draft]");
+
+  // 服务端注入的当前持仓/账户/股票池
+  const EDIT = (() => {
+    try { return JSON.parse(document.getElementById("position-edit-data").textContent); }
+    catch (e) { return { account: {}, positions: [], pool: [] }; }
+  })();
+  const ORIGINAL = new Map(EDIT.positions.map((p) => [p.code, p]));
+  const POOL = EDIT.pool || [];
+  const DRAFT_KEY = "jungl…t-v1";
+
+  let searchTimer = null;
+  let searchSeq = 0;
+
+  // ---- 行构造 ----
+  function createPositionRow(item = {}) {
+    const row = document.createElement("div");
+    row.className = "manual-row";
+    row.dataset.positionRow = "";
+    const manual = item.manual === true || !item.code;
+    const qtyVal = item.quantity > 0 ? item.quantity : "";
+    const costVal = item.cost_price > 0 ? item.cost_price : "";
+    const canFill = !costVal && item.latest_price > 0;
+    row.innerHTML = `
+      <div class="pm-id">${manual
+        ? `<input name="code" class="pm-code" inputmode="numeric" maxlength="6" pattern="\\d{6}" placeholder="6位代码" aria-label="股票代码" value="${pmEsc(item.code || "")}" />`
+        : `<strong>${pmEsc(item.name || "?")}</strong><small>${pmEsc(item.code)}</small>`}</div>
+      <input name="quantity" class="pm-qty" inputmode="numeric" value="${qtyVal}" placeholder="数量" aria-label="${pmEsc(item.name || item.code || "该行")} 持仓数量" />
+      <div class="pm-costwrap">
+        <input name="cost_price" class="pm-cost" inputmode="decimal" value="${costVal}" placeholder="成本价" aria-label="${pmEsc(item.name || item.code || "该行")} 成本价格" />
+        ${canFill ? `<button type="button" class="pm-fill" data-fill-cost="${item.latest_price}" title="按最新价 ${item.latest_price} 填入">现价</button>` : ""}
+      </div>
+      <button type="button" class="icon-button" data-remove-row title="清仓（从持仓移除）" aria-label="清仓 ${pmEsc(item.name || item.code || "")}"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12 M18 6L6 18"/></svg></button>
+    `;
+    if (!manual) {
+      row.dataset.code = item.code;
+      if (item.name) row.dataset.name = item.name;
+      if (item.latest_price) row.dataset.latest = item.latest_price;
+    }
+    return row;
+  }
+
+  function existingCodes() {
+    return new Set(
+      [...rows.querySelectorAll("[data-position-row][data-code]")].map((r) => r.dataset.code)
+    );
+  }
+
+  function addPosition(item) {
+    if (existingCodes().has(item.code)) {
+      showToast(`${item.name || item.code} 已在列表中`);
+      return;
+    }
+    rows.appendChild(createPositionRow(item));
+    syncPoolChips();
+    updateChanges();
+    saveDraft();
+  }
+
+  // ---- 快捷股票池 ----
+  function renderPool() {
+    if (!poolBox || !POOL.length) return;
+    poolBox.innerHTML = POOL.map((s) =>
+      `<button type="button" class="pm-pool-chip" data-pool-code="${s.code}" data-pool-name="${pmEsc(s.name)}">${pmEsc(s.name)}</button>`
+    ).join("");
+  }
+
+  function syncPoolChips() {
+    const held = existingCodes();
+    poolBox.querySelectorAll("[data-pool-code]").forEach((chip) => {
+      const on = held.has(chip.dataset.poolCode);
+      chip.classList.toggle("on", on);
+      chip.setAttribute("aria-pressed", String(on));
+    });
+  }
+
+  poolBox.addEventListener("click", (event) => {
+    const chip = event.target.closest("[data-pool-code]");
+    if (!chip) return;
+    if (chip.classList.contains("on")) return; // 已在列表，不重复加
+    addPosition({ code: chip.dataset.poolCode, name: chip.dataset.poolName, quantity: 0, cost_price: 0 });
+  });
+
+  // ---- 搜索选股（名称/代码/拼音首字母） ----
+  function closeSuggest() {
+    if (suggestBox) { suggestBox.hidden = true; suggestBox.innerHTML = ""; }
+  }
+
+  function renderSuggest(results) {
+    if (!results.length) {
+      suggestBox.innerHTML = '<div class="pm-suggest-empty">未找到匹配的股票</div>';
+    } else {
+      suggestBox.innerHTML = results.map((r) => {
+        const tag = ORIGINAL.has(r.code) ? "已持仓" : (POOL.some((s) => s.code === r.code) ? "股票池" : "池外");
+        return `<div class="pm-suggest-item" role="button" tabindex="0" data-code="${r.code}" data-name="${pmEsc(r.name)}">
+          <span class="pm-s-name">${pmEsc(r.name)}</span>
+          <span class="pm-s-code">${r.code}</span>
+          <span class="pm-s-tag ${tag === "已持仓" ? "held" : ""}">${tag}</span>
+        </div>`;
+      }).join("");
+    }
+    suggestBox.hidden = false;
+  }
+
+  async function runSearch(q) {
+    const seq = ++searchSeq;
+    try {
+      const resp = await fetch(apiUrl(`/api/backtest/search?q=${encodeURIComponent(q)}`));
+      if (!resp.ok) throw new Error();
+      const data = await resp.json();
+      if (seq !== searchSeq) return; // 丢弃过期响应
+      renderSuggest(data.results || []);
+    } catch (e) {
+      if (seq !== searchSeq) return;
+      // suggest 无结果且是 6 位代码 → lookup 兜底
+      if (/^\d{6}$/.test(q)) {
+        try {
+          const r = await fetch(apiUrl(`/api/backtest/lookup?code=${q}`));
+          if (r.ok && seq === searchSeq) {
+            const info = await r.json();
+            renderSuggest([{ code: info.code, name: info.name }]);
+            return;
+          }
+        } catch (e2) { /* 忽略 */ }
+      }
+      if (seq === searchSeq) closeSuggest();
+    }
+  }
+
+  searchInput.addEventListener("input", () => {
+    clearTimeout(searchTimer);
+    const q = searchInput.value.trim();
+    if (!q) { closeSuggest(); return; }
+    searchTimer = setTimeout(() => runSearch(q), 250);
+  });
+  searchInput.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") closeSuggest();
+  });
+
+  function pickSuggest(item) {
+    addPosition({ code: item.dataset.code, name: item.dataset.name, quantity: 0, cost_price: 0 });
+    searchInput.value = "";
+    closeSuggest();
+  }
+
+  suggestBox.addEventListener("mousedown", (event) => {
+    const item = event.target.closest("[data-code]");
+    if (!item) return;
+    event.preventDefault(); // 防 blur 先关闭
+    pickSuggest(item);
+  });
+  suggestBox.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter") return;
+    const item = event.target.closest("[data-code]");
+    if (item) pickSuggest(item);
+  });
+  document.addEventListener("click", (event) => {
+    if (!event.target.closest("[data-pm-search]")) closeSuggest();
+  });
+
+  // ---- 变更摘要（新增/修改/清仓） ----
+  function collectRows() {
+    const out = [];
+    rows.querySelectorAll("[data-position-row]").forEach((row) => {
+      const codeInput = row.querySelector(".pm-code");
+      const qtyRaw = row.querySelector(".pm-qty").value.trim();
+      const costRaw = row.querySelector(".pm-cost").value.trim();
+      const code = (codeInput ? codeInput.value : row.dataset.code || "").trim();
+      // 全空的手动行直接忽略（不拦提交）
+      if (codeInput && !code && !qtyRaw && !costRaw) return;
+      out.push({ row, code, qty: readDecimal(qtyRaw), cost: readDecimal(costRaw), name: row.dataset.name || "" });
+    });
+    return out;
+  }
+
+  function validate(items) {
+    const seen = new Set();
+    for (const it of items) {
+      if (!it.code) { it.row.classList.add("pm-bad"); return "有行缺少股票代码"; }
+      if (!/^\d{6}$/.test(it.code)) { it.row.classList.add("pm-bad"); return `代码「${it.code}」不是 6 位数字`; }
+      if (seen.has(it.code)) { it.row.classList.add("pm-bad"); return `${it.code} 重复出现`; }
+      seen.add(it.code);
+      if (it.qty !== null && it.qty < 0) { it.row.classList.add("pm-bad"); return `${it.code} 数量不能为负`; }
+      if (it.cost !== null && it.cost < 0) { it.row.classList.add("pm-bad"); return `${it.code} 成本不能为负`; }
+    }
+    return null;
+  }
+
+  function updateChanges() {
+    rows.querySelectorAll(".pm-bad").forEach((r) => r.classList.remove("pm-bad"));
+    const items = collectRows();
+    if (!items.length) {
+      changesBox.innerHTML = '<span class="pm-change-warn">列表为空：保存将清空全部持仓，请确认这确实是清仓操作。</span>';
+      submitBtn.textContent = "保存（清仓全部）";
+      submitBtn.disabled = false;
+      syncPoolChips();
+      return;
+    }
+    const err = validate(items);
+    if (err) {
+      changesBox.innerHTML = `<span class="pm-change-warn">${pmEsc(err)}</span>`;
+      submitBtn.disabled = true;
+      syncPoolChips();
+      return;
+    }
+    submitBtn.disabled = false;
+    const newCodes = new Set(items.map((i) => i.code));
+    const added = items.filter((i) => !ORIGINAL.has(i.code));
+    const modified = items.filter((i) => {
+      const o = ORIGINAL.get(i.code);
+      if (!o) return false;
+      const q = i.qty === null ? 0 : i.qty;
+      const c = i.cost === null ? 0 : i.cost;
+      return q !== o.quantity || Math.abs(c - (o.cost_price || 0)) > 1e-6;
+    });
+    const removedNames = [...ORIGINAL.values()].filter((p) => !newCodes.has(p.code)).map((p) => p.name || p.code);
+    const parts = [];
+    if (added.length) parts.push(`<span class="pm-tag add">+ 新增 ${added.length}</span>`);
+    if (modified.length) parts.push(`<span class="pm-tag mod">± 修改 ${modified.length}</span>`);
+    if (removedNames.length) parts.push(`<span class="pm-tag del">− 清仓 ${removedNames.length}（${pmEsc(removedNames.join("、"))}）</span>`);
+    changesBox.innerHTML = parts.length
+      ? parts.join(" ")
+      : '<span class="pm-change-none">无变更</span>';
+    submitBtn.textContent = removedNames.length
+      ? `保存变更（含清仓 ${removedNames.length} 只）`
+      : "保存变更";
+    syncPoolChips();
+  }
+
+  rows.addEventListener("input", (event) => {
+    const row = event.target.closest("[data-position-row]");
+    if (row) row.classList.remove("pm-bad");
+    updateChanges();
+    saveDraft();
+  });
+
+  // 「现价」一键回填
+  rows.addEventListener("click", (event) => {
+    const fill = event.target.closest("[data-fill-cost]");
+    if (!fill) return;
+    const input = fill.closest(".pm-costwrap").querySelector(".pm-cost");
+    input.value = fill.dataset.fillCost;
+    fill.remove();
+    updateChanges();
+    saveDraft();
+  });
+
+  // ---- 草稿 ----
+  function rowSnapshot(row) {
+    const codeInput = row.querySelector(".pm-code");
+    return {
+      manual: !!codeInput,
+      code: codeInput ? codeInput.value.trim() : row.dataset.code,
+      name: row.dataset.name || "",
+      latest: row.dataset.latest || 0,
+      qty: row.querySelector(".pm-qty").value,
+      cost: row.querySelector(".pm-cost").value,
+    };
+  }
+
+  function saveDraft() {
+    try {
+      const items = [...rows.querySelectorAll("[data-position-row]")].map(rowSnapshot)
+        .filter((i) => i.code || i.qty || i.cost); // 忽略全空手动行
+      if (!items.length || !draftDiffers(items)) { localStorage.removeItem(DRAFT_KEY); draftBar.hidden = true; return; }
+      localStorage.setItem(DRAFT_KEY, JSON.stringify(items));
+    } catch (e) { /* 配额/隐私模式忽略 */ }
+  }
+
+  function draftDiffers(items) {
+    if (items.length !== ORIGINAL.size) return true;
+    return items.some((i) => {
+      if (i.manual) return true;
+      const o = ORIGINAL.get(i.code);
+      if (!o) return true;
+      const q = (i.qty || "").trim();
+      const c = (i.cost || "").trim();
+      return (q ? Number(q) : 0) !== (o.quantity || 0) || (c ? Number(c) : 0) !== (o.cost_price || 0);
+    });
+  }
+
+  function loadDraft() {
+    let raw = null;
+    try { raw = localStorage.getItem(DRAFT_KEY); } catch (e) { return; }
+    if (!raw) return;
+    let items;
+    try { items = JSON.parse(raw); } catch (e) { localStorage.removeItem(DRAFT_KEY); return; }
+    if (!Array.isArray(items) || !items.length) return;
+    if (!draftDiffers(items)) { localStorage.removeItem(DRAFT_KEY); return; }
+    draftBar.querySelector("[data-pm-draft-text]").textContent =
+      `发现上次未保存的编辑（${items.length} 行），是否恢复？`;
+    draftBar.hidden = false;
+    draftBar.dataset.draft = raw;
+  }
+
+  form.querySelector("[data-draft-restore]").addEventListener("click", () => {
+    try {
+      const items = JSON.parse(draftBar.dataset.draft || "[]");
+      rows.innerHTML = "";
+      items.forEach((i) => rows.appendChild(createPositionRow({
+        manual: i.manual,
+        code: i.code,
+        name: i.name || ORIGINAL.get(i.code)?.name || "",
+        quantity: readDecimal(i.qty),
+        cost_price: readDecimal(i.cost),
+        latest_price: ORIGINAL.get(i.code)?.latest_price || i.latest || 0,
+      })));
+    } catch (e) { /* ignore */ }
+    draftBar.hidden = true;
+    updateChanges();
+  });
+  form.querySelector("[data-draft-discard]").addEventListener("click", () => {
+    localStorage.removeItem(DRAFT_KEY);
+    draftBar.hidden = true;
+  });
+
+  // ---- 打开/关闭 ----
+  function fillServerState() {
+    rows.innerHTML = "";
+    ORIGINAL.forEach((p) => rows.appendChild(createPositionRow(p)));
+    form.elements.principal.value = EDIT.account?.principal ?? "";
+    form.elements.total_asset.value = EDIT.account?.total_asset ?? "";
+    updateChanges();
+  }
 
   function openModal() {
     if (!modal) return;
+    fillServerState();
+    loadDraft();
     modal.hidden = false;
     document.body.classList.add("modal-open");
-    const firstInput = modal.querySelector("input");
-    if (firstInput) firstInput.focus();
+    searchInput.focus();
   }
 
   function closeModal() {
     if (!modal) return;
     modal.hidden = true;
     document.body.classList.remove("modal-open");
+    closeSuggest();
   }
 
-  if (openButton) openButton.addEventListener("click", openModal);
-  if (closeButton) closeButton.addEventListener("click", closeModal);
+  document.querySelectorAll("[data-open-position-modal]").forEach((b) => b.addEventListener("click", openModal));
+  form.querySelectorAll("[data-close-position-modal]").forEach((b) => b.addEventListener("click", closeModal));
   if (modal) {
     modal.addEventListener("click", (event) => {
       if (event.target === modal) closeModal();
@@ -107,32 +407,45 @@ function bindManualPositionForm() {
 
   addButton.addEventListener("click", () => {
     rows.appendChild(createPositionRow());
-    const last = rows.querySelector("[data-position-row]:last-child input");
-    if (last) last.focus();
+    const inputs = rows.querySelectorAll("[data-position-row]");
+    const last = inputs[inputs.length - 1];
+    const codeInput = last.querySelector(".pm-code");
+    if (codeInput) codeInput.focus();
+    updateChanges();
   });
 
-  form.addEventListener("click", (event) => {
+  rows.addEventListener("click", (event) => {
     const removeButton = event.target.closest("[data-remove-row]");
     if (!removeButton) return;
     const row = removeButton.closest("[data-position-row]");
     if (!row) return;
-    if (rows.querySelectorAll("[data-position-row]").length <= 1) {
-      row.querySelectorAll("input").forEach((input) => {
-        input.value = "";
-      });
-      return;
-    }
     row.remove();
+    updateChanges();
+    saveDraft();
   });
 
+  // ---- 提交 ----
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
-    const submit = form.querySelector('button[type="submit"]');
+    const items = collectRows();
+    const err = validate(items);
+    if (err) { showToast(err); return; }
+    const removals = [...ORIGINAL.values()].filter((p) => !items.some((i) => i.code === p.code));
+    if (removals.length && !window.confirm(`将清仓 ${removals.length} 只：${removals.map((r) => r.name || r.code).join("、")}。确认保存？`)) return;
+    const payload = {
+      account: {
+        principal: readDecimal(form.elements.principal.value),
+        total_asset: readDecimal(form.elements.total_asset.value),
+      },
+      positions: items.map((i) => ({
+        code: i.code, name: i.name,
+        quantity: Math.max(i.qty === null ? 0 : Math.floor(i.qty), 0),
+        cost_price: Math.max(i.cost === null ? 0 : i.cost, 0),
+      })),
+    };
+    submitBtn.disabled = true;
+    submitBtn.textContent = "保存中…";
     try {
-      const payload = collectManualPayload(form);
-      submit.disabled = true;
-      submit.textContent = "更新中";
-      showToast("正在更新持仓并刷新行情...");
       const response = await fetch(apiUrl("/api/positions/manual"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -140,15 +453,21 @@ function bindManualPositionForm() {
       });
       const result = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(result.detail || "持仓更新失败。");
+      localStorage.removeItem(DRAFT_KEY);
       showToast(result.message || "持仓已更新。");
-      window.setTimeout(() => window.location.reload(), 900);
+      window.sessionStorage.setItem("jungle-scroll-restore", String(window.scrollY || 0));
+      window.setTimeout(() => window.location.reload(), 1200);
     } catch (error) {
       showToast(error.message || "持仓更新失败，请检查输入。");
-    } finally {
-      submit.disabled = false;
-      submit.textContent = "确定更新";
+      submitBtn.disabled = false;
+      submitBtn.textContent = "保存变更";
     }
   });
+
+  renderPool();
+
+  // 维护模式直达：/?update=1 自动打开弹窗（成本补录横幅链接）
+  if (new URLSearchParams(window.location.search).get("update") === "1") openModal();
 }
 
 bindManualPositionForm();

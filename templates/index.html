@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>持仓工作台</title>
-    <link rel="stylesheet" href="/static/styles.css?v=20261108a">
+    <link rel="stylesheet" href="/static/styles.css?v=20261111b">
     <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
     <!-- ===== 量化回测实验室 UI 风格覆盖层 ===== -->
     <style>
@@ -669,7 +669,13 @@
 
         <!-- 当前持仓 -->
         <section class="positions-section">
-            <h2>当前持仓</h2>
+            <div class="positions-head">
+                <h2>当前持仓</h2>
+                <button type="button" class="pm-open-btn" data-open-position-modal>
+                    <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14 M5 12h14"/></svg>
+                    编辑持仓
+                </button>
+            </div>
             <div class="regime-filter" role="group" aria-label="按走势分类筛选持仓">
                 <button type="button" class="rf-btn all on" data-filter="all" aria-pressed="true"><span class="rf-dot"></span>全部<small>0</small></button>
                 <button type="button" class="rf-btn squeeze" data-filter="挤压待变" aria-pressed="false"><span class="rf-dot"></span>挤压待变<small>0</small></button>
@@ -820,15 +826,53 @@
             <div class="etf-note" id="etf-note"></div>
         </section>
 
-        <!-- 更新持仓按钮（维护模式） -->
-        {% if is_update_mode %}
-        <section class="update-section">
-            <button data-open-position-modal class="update-btn" type="button">更新持仓</button>
-        </section>
-        {% endif %}
-        
+        <!-- 持仓编辑弹窗（顶层节点，避免 stacking context 遮挡） -->
+        <div class="modal-backdrop" data-position-modal hidden>
+            <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="pm-title">
+                <div class="modal-head">
+                    <div>
+                        <h2 id="pm-title">编辑持仓</h2>
+                        <small>搜索选股或直接改数量/成本 · 点 × 即清仓 · 成本可留空稍后补录</small>
+                    </div>
+                    <button type="button" class="icon-button" data-close-position-modal aria-label="关闭编辑弹窗"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12 M18 6L6 18"/></svg></button>
+                </div>
+                <form class="manual-form" data-manual-position-form>
+                    <div class="pm-draft" data-pm-draft hidden>
+                        <span data-pm-draft-text>发现上次未保存的草稿</span>
+                        <span class="pm-draft-actions">
+                            <button type="button" class="pm-draft-btn restore" data-draft-restore>恢复草稿</button>
+                            <button type="button" class="pm-draft-btn discard" data-draft-discard>丢弃</button>
+                        </span>
+                    </div>
+                    <div class="pm-search" data-pm-search>
+                        <input type="search" data-pm-search-input placeholder="搜索股票：名称 / 6位代码 / 拼音首字母，点击加入持仓" autocomplete="off" aria-label="搜索股票加入持仓" />
+                        <div class="pm-suggest" data-pm-suggest hidden></div>
+                    </div>
+                    <div class="pm-pool" data-pm-pool></div>
+                    <div class="manual-head"><span>品种</span><span>数量(股)</span><span>成本价</span><span></span></div>
+                    <div class="manual-table" data-position-rows></div>
+                    <button type="button" class="pm-add-manual" data-add-position-row><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14 M5 12h14"/></svg> 手动输入代码</button>
+                    <div class="pm-changes" data-pm-changes aria-live="polite"></div>
+                    <details class="pm-account">
+                        <summary>账户设置（本金 / 总资产）</summary>
+                        <div class="account-input-grid">
+                            <label><span>本金</span><input name="principal" inputmode="decimal" placeholder="如 200000" /></label>
+                            <label><span>总资产</span><input name="total_asset" inputmode="decimal" placeholder="如 185000" /></label>
+                        </div>
+                    </details>
+                    <div class="manual-actions">
+                        <button type="button" data-close-position-modal>取消</button>
+                        <button type="submit" data-pm-submit>保存变更</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div id="toast" role="status" aria-live="polite"></div>
+
+        <script id="position-edit-data" type="application/json">{{ edit_json | safe }}</script>
     </div>
 
-    <script src="/static/app.js?v=20261103a"></script>
+    <script src="/static/app.js?v=20261111a"></script>
 </body>
 </html>
