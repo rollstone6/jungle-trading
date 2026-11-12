@@ -61,7 +61,41 @@ def _start_scheduler():
     _scheduler.add_job(_lab_pipeline_job, "cron", day_of_week="mon-fri",
                        hour=15, minute=35, id="lab-pipeline",
                        coalesce=True, max_instances=1, misfire_grace_time=3600)
+    _scheduler.add_job(_quant_warm_job, "cron", day_of_week="mon-fri",
+                       hour=15, minute=45, id="quant-warm",
+                       coalesce=True, max_instances=1, misfire_grace_time=3600)
     _scheduler.start()
+
+
+async def _quant_warm_job():
+    """交易日 15:45 预热信号中心股票池扫描：清当日K线缓存→重扫→写 ready。
+
+    收盘定稿数据重算一次，用户之后打开信号中心直接命中缓存（秒出），
+    不用在页面等几分钟冷扫。全市场模式太重，不进定时。
+    """
+    from app.services import quant_jobs, quant_scan as qs
+
+    def compute_all():
+        qs.invalidate_pool_cache()
+        outs = []
+        for strategy in ("breakout", "mean_reversion", "accumulation", "ma_cross"):
+            key = f"signals_{strategy}_pool"
+            p = qs.scan_signals(strategy, True, False)
+            quant_jobs.prime(key, p)
+            outs.append(f"{key}:{p.get('total')}")
+        for key, fn in (("trend_strong_pool", lambda: qs.scan_trend("strong", True, False)),
+                        ("box_pool", lambda: qs.scan_box(True, False)),
+                        ("chip_pool", lambda: qs.scan_chip(True, False))):
+            p = fn()
+            quant_jobs.prime(key, p)
+            outs.append(f"{key}:{p.get('total', p.get('passedCount', len(p.get('stocks', []))))}")
+        return " ".join(outs)
+
+    try:
+        summary = await asyncio.to_thread(compute_all)
+        qp.log_job("quant-warm", "ok", summary)
+    except Exception as exc:
+        qp.log_job("quant-warm", "error", f"{type(exc).__name__}: {exc}")
 
 
 def _scheduler_status() -> list[dict]:
@@ -929,41 +963,57 @@ async def quant_strategies(request: Request, pwd: str = Depends(check_password))
 
 @app.get("/api/quant/signals")
 async def quant_signals_api(request: Request, pwd: str = Depends(check_password),
-                            strategy: str = "breakout", refresh: int = 0,
-                            full: int = 0):
-    """策略信号扫描（当日缓存，refresh=1 强制重扫，full=1 全市场粗筛池）"""
+                             strategy: str = "breakout", refresh: int = 0,
+                             full: int = 0):
+    """策略信号扫描（当日缓存，refresh=1 强制重扫，full=1 全市场粗筛池）
+
+    2026-11-10 性能改造：首跑转后台任务，立即返回 status=scanning，
+    前端轮询同一 URL 直到 status=ready（singleflight，不再挂住请求/重复扫描）。
+    """
+    from app.quant.strategies import STRATEGY_REGISTRY
+    from app.services import quant_jobs
     from app.services.quant_scan import scan_signals
-    try:
-        return await asyncio.to_thread(scan_signals, strategy, bool(refresh), bool(full))
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc))
+    if strategy not in STRATEGY_REGISTRY:
+        raise HTTPException(status_code=400, detail=f"未知策略: {strategy}")
+    key = f"signals_{strategy}_{'market' if full else 'pool'}"
+    return await quant_jobs.run(
+        key, lambda: scan_signals(strategy, True, bool(full)),
+        force=bool(refresh))
 
 
 @app.get("/api/quant/trend")
 async def quant_trend_api(request: Request, pwd: str = Depends(check_password),
                           mode: str = "strong", refresh: int = 0, full: int = 0):
     """趋势过滤（strong/loose/oversold，full=1 全市场粗筛池）"""
-    from app.services.quant_scan import scan_trend
-    try:
-        return await asyncio.to_thread(scan_trend, mode, bool(refresh), bool(full))
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc))
+    from app.services import quant_jobs
+    from app.services.quant_scan import _TREND_MODES, scan_trend
+    if mode not in _TREND_MODES:
+        raise HTTPException(status_code=400, detail=f"未知模式: {mode}")
+    key = f"trend_{mode}_{'market' if full else 'pool'}"
+    return await quant_jobs.run(
+        key, lambda: scan_trend(mode, True, bool(full)), force=bool(refresh))
 
 
 @app.get("/api/quant/box")
 async def quant_box_api(request: Request, pwd: str = Depends(check_password),
                         refresh: int = 0, full: int = 0):
     """箱体检测（full=1 全市场粗筛池）"""
+    from app.services import quant_jobs
     from app.services.quant_scan import scan_box
-    return await asyncio.to_thread(scan_box, bool(refresh), bool(full))
+    key = f"box_{'market' if full else 'pool'}"
+    return await quant_jobs.run(
+        key, lambda: scan_box(True, bool(full)), force=bool(refresh))
 
 
 @app.get("/api/quant/chip")
 async def quant_chip_api(request: Request, pwd: str = Depends(check_password),
                          refresh: int = 0, full: int = 0):
     """筹码集中度扫描（full=1 全市场粗筛池）"""
+    from app.services import quant_jobs
     from app.services.quant_scan import scan_chip
-    return await asyncio.to_thread(scan_chip, bool(refresh), bool(full))
+    key = f"chip_{'market' if full else 'pool'}"
+    return await quant_jobs.run(
+        key, lambda: scan_chip(True, bool(full)), force=bool(refresh))
 
 
 @app.get("/api/quant/chip/detail")

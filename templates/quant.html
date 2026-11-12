@@ -375,7 +375,45 @@
             return data;
         }
 
-        const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+        const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+        // ---------- 扫描任务轮询（后端转后台后返回 status=scanning，3s 轮询到 ready） ----------
+        // 注意：refresh=1 只提交一次；进入轮询后必须剥掉它，否则任务完成后
+        // 下一次 force 轮询会误触发重扫（无限循环）。
+        const scanState = {};
+        async function pollScan(section, url, renderFn, meta, btn, est) {
+            const st = scanState[section] = scanState[section] || { token: 0, timer: null };
+            const my = ++st.token;
+            if (st.timer) clearTimeout(st.timer);
+            const t0 = Date.now();
+            let pollUrl = url;
+            btn.disabled = true;
+            meta.textContent = '扫描中（' + est + '）...';
+            const step = async () => {
+                if (my !== st.token) return;   // 已被更新的请求接管
+                let d;
+                try { d = await fetchJSON(pollUrl); }
+                catch (e) {
+                    if (my === st.token) { meta.textContent = '加载失败：' + e.message; btn.disabled = false; }
+                    return;
+                }
+                if (my !== st.token) return;
+                pollUrl = url.replace('refresh=1', 'refresh=0');  // 提交后转只读轮询
+                if (d.status === 'scanning') {
+                    const secs = Math.round((Date.now() - t0) / 1000);
+                    meta.textContent = `后台扫描中…已等待 ${secs}s（${est}）` + (d.queued ? ' · 排队中' : '');
+                    st.timer = setTimeout(step, 3000);
+                    return;
+                }
+                if (d.status === 'error') {
+                    meta.textContent = '扫描失败：' + (d.error || '未知错误') + ' —— 点「重新扫描」重试';
+                    btn.disabled = false;
+                    return;
+                }
+                try { renderFn(d); } finally { btn.disabled = false; }
+            };
+            await step();
+        }
 
         // ---------- 全市场开关（成交额前300粗筛池） ----------
         const MK_KEY = '***';
@@ -417,10 +455,13 @@
         async function loadSignals(refresh) {
             const meta = document.getElementById('signal-meta');
             const btn = document.getElementById('signal-refresh');
-            btn.disabled = true;
-            meta.textContent = mkOn('mk-signals') ? '全市场扫描中（300只粗筛，首次约5-15分钟）...' : '扫描中（全池取数+信号计算，首次约1-2分钟）...';
-            try {
-                const d = await fetchJSON(`/api/quant/signals?pwd=${pwd}&strategy=${signalStrategy}` + (refresh ? '&refresh=1' : '') + (mkOn('mk-signals') ? '&full=1' : ''));
+            const url = `/api/quant/signals?pwd=${pwd}&strategy=${signalStrategy}` + (refresh ? '&refresh=1' : '') + (mkOn('mk-signals') ? '&full=1' : '');
+            return pollScan('signals', url, renderSignals, meta, btn,
+                mkOn('mk-signals') ? '300只粗筛，首次约5-15分钟' : '全池取数+信号计算，首次约1-2分钟');
+        }
+        function renderSignals(d) {
+            const meta = document.getElementById('signal-meta');
+            {
                 const rows = d.signals || [];
                 document.getElementById('signal-body').innerHTML = rows.length ? rows.map(s => {
                     const md = s.metadata || {};
@@ -447,10 +488,6 @@
                 meta.textContent = `数据日期 ${d.asOf} · 更新于 ${d.fetchedAt} · ` + mkScopeTag(d) +
                     `近${d.lookbackDays}天共 ${d.total} 条信号` +
                     (d.failures && d.failures.length ? ` · ${d.failures.length} 只取数失败` : '');
-            } catch (e) {
-                meta.textContent = '加载失败：' + e.message;
-            } finally {
-                btn.disabled = false;
             }
         }
         document.getElementById('signal-refresh').addEventListener('click', () => loadSignals(true));
@@ -460,10 +497,13 @@
             const mode = document.getElementById('trend-mode').value;
             const meta = document.getElementById('trend-meta');
             const btn = document.getElementById('trend-refresh');
-            btn.disabled = true;
-            meta.textContent = '扫描中...';
-            try {
-                const d = await fetchJSON(`/api/quant/trend?pwd=${pwd}&mode=${mode}` + (refresh ? '&refresh=1' : '') + (mkOn('mk-trend') ? '&full=1' : ''));
+            const url = `/api/quant/trend?pwd=${pwd}&mode=${mode}` + (refresh ? '&refresh=1' : '') + (mkOn('mk-trend') ? '&full=1' : '');
+            return pollScan('trend', url, renderTrend, meta, btn,
+                mkOn('mk-trend') ? '全市场粗筛模式' : '全池模式');
+        }
+        function renderTrend(d) {
+            const meta = document.getElementById('trend-meta');
+            {
                 document.getElementById('trend-kpi').innerHTML = `
                     <div class="kpi-card pass"><div class="v">${d.passedCount}</div><div class="l">通过筛选（共 ${d.stocks.length} 只）</div></div>
                     <div class="kpi-card"><div class="v">${d.stocks.length - d.passedCount}</div><div class="l">未通过</div></div>
@@ -482,10 +522,6 @@
                         <td style="font-size:12px;color:var(--red)">${esc((s.reasons || []).join('、'))}</td>
                     </tr>`).join('') : '<tr><td colspan="9" class="loading">无数据</td></tr>';
                 meta.textContent = `数据日期 ${d.asOf} · 更新于 ${d.fetchedAt} · 模式 ${d.mode} · ` + mkScopeTag(d);
-            } catch (e) {
-                meta.textContent = '加载失败：' + e.message;
-            } finally {
-                btn.disabled = false;
             }
         }
         document.getElementById('trend-refresh').addEventListener('click', () => loadTrend(true));
@@ -495,10 +531,13 @@
         async function loadBox(refresh) {
             const meta = document.getElementById('box-meta');
             const btn = document.getElementById('box-refresh');
-            btn.disabled = true;
-            meta.textContent = '扫描中...';
-            try {
-                const d = await fetchJSON(`/api/quant/box?pwd=${pwd}` + (refresh ? '&refresh=1' : '') + (mkOn('mk-box') ? '&full=1' : ''));
+            const url = `/api/quant/box?pwd=${pwd}` + (refresh ? '&refresh=1' : '') + (mkOn('mk-box') ? '&full=1' : '');
+            return pollScan('box', url, renderBox, meta, btn,
+                mkOn('mk-box') ? '全市场粗筛，首次约1-2分钟' : '全池模式');
+        }
+        function renderBox(d) {
+            const meta = document.getElementById('box-meta');
+            {
                 document.getElementById('box-kpi').innerHTML = `
                     <div class="kpi-card box"><div class="v">${d.total}</div><div class="l">横向箱体（跨度>振幅，长>宽）</div></div>
                     <div class="kpi-card"><div class="v">${d.failures ? d.failures.length : 0}</div><div class="l">取数失败</div></div>`;
@@ -517,10 +556,6 @@
                         <td style="font-size:12px">${esc(s.action_hint)}</td>
                     </tr>`).join('') : '<tr><td colspan="11" class="loading">股票池中没有横向箱体（长>宽）的股票</td></tr>';
                 meta.textContent = `数据日期 ${d.asOf} · 更新于 ${d.fetchedAt} · ` + mkScopeTag(d);
-            } catch (e) {
-                meta.textContent = '加载失败：' + e.message;
-            } finally {
-                btn.disabled = false;
             }
         }
         document.getElementById('box-refresh').addEventListener('click', () => loadBox(true));
@@ -529,10 +564,13 @@
         async function loadChip(refresh) {
             const meta = document.getElementById('chip-meta');
             const btn = document.getElementById('chip-refresh');
-            btn.disabled = true;
-            meta.textContent = '扫描中...';
-            try {
-                const d = await fetchJSON(`/api/quant/chip?pwd=${pwd}` + (refresh ? '&refresh=1' : '') + (mkOn('mk-chip') ? '&full=1' : ''));
+            const url = `/api/quant/chip?pwd=${pwd}` + (refresh ? '&refresh=1' : '') + (mkOn('mk-chip') ? '&full=1' : '');
+            return pollScan('chip', url, renderChip, meta, btn,
+                mkOn('mk-chip') ? '全市场粗筛，首次约2-5分钟' : '全池模式');
+        }
+        function renderChip(d) {
+            const meta = document.getElementById('chip-meta');
+            {
                 document.getElementById('chip-kpi').innerHTML = `
                     <div class="kpi-card score"><div class="v">${d.stocks.length}</div><div class="l">完成扫描</div></div>
                     <div class="kpi-card pass"><div class="v">${d.passedCount}</div><div class="l">集中度达标</div></div>`;
@@ -552,10 +590,6 @@
                     </tr>`;
                 }).join('') : '<tr><td colspan="10" class="loading">无数据</td></tr>';
                 meta.textContent = `数据日期 ${d.asOf} · 更新于 ${d.fetchedAt} · ` + mkScopeTag(d) + '按综合评分降序';
-            } catch (e) {
-                meta.textContent = '加载失败：' + e.message;
-            } finally {
-                btn.disabled = false;
             }
         }
         document.getElementById('chip-refresh').addEventListener('click', () => loadChip(true));

@@ -157,6 +157,33 @@ def _load_cache(key: str) -> dict | None:
     return None
 
 
+def today_cache(key: str) -> dict | None:
+    """公开的当日磁盘缓存读取（供 quant_jobs 任务层复用）。"""
+    return _load_cache(key)
+
+
+def invalidate_pool_cache() -> None:
+    """清除股票池标的的当日 K 线内存+磁盘缓存（1d 与 60m）。
+
+    磁盘缓存按日期目录组织，只删当天目录 → 收盘后预热任务借此强制
+    重新拉取定稿数据，避免吃盘中快照。全市场候选不清（太重，按需手动刷）。
+    """
+    import os
+
+    from app.quant.data.cache import CACHE_DIR, _DATA_CACHE
+
+    today = datetime.now().strftime("%Y%m%d")
+    for s in _pool():
+        sym = s["symbol"]
+        for tf in ("1d", "60m"):
+            key = f"stock_{sym}_{tf}_20240101"
+            _DATA_CACHE.pop(key, None)
+            try:
+                os.remove(os.path.join(CACHE_DIR, today, f"{key}.pkl"))
+            except OSError:
+                pass
+
+
 def _save_cache(key: str, payload: dict) -> None:
     try:
         DATA_DIR.mkdir(parents=True, exist_ok=True)
