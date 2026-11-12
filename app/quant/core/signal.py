@@ -106,10 +106,17 @@ class SignalFrame:
 
         策略信号带 score/score_value 列时一并输出，供回测引擎同日多信号
         按评分排序分配现金；无评分列时仅 date（同日次序退化为代码字典序）。
+        带 side 列的策略（如 ma_cross 金叉/死叉）只输出买入侧——统一引擎
+        把每个信号日期当入场，卖出侧退出走引擎自身的止损/移动止损规则。
         """
         filtered = self.filter_by_symbol(symbol)
         if filtered.is_empty():
             return pd.DataFrame(columns=["date"])
+        if "side" in filtered.df.columns:
+            mask = filtered.df["side"].astype(str) != "卖出"
+            filtered = SignalFrame(filtered.df.loc[mask])
+            if filtered.is_empty():
+                return pd.DataFrame(columns=["date"])
         cols = ["date"]
         for sc in ("score", "score_value"):
             if sc in filtered.df.columns:

@@ -225,6 +225,9 @@ def scan_signals(strategy: str, refresh: bool = False, full: bool = False) -> di
                 continue
             if frame is not None and not frame.is_empty():
                 recent = frame.df[frame.df["date"] >= cutoff]
+                # 同一标的只采纳最新时间的信号，历史信号不再重复刷屏
+                if not recent.empty:
+                    recent = recent[recent["date"] == recent["date"].max()]
                 for _, row in recent.iterrows():
                     meta = {
                         k: (None if pd.isna(v) else v)

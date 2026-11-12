@@ -92,6 +92,9 @@
         }
         .badge.ok { background: var(--green); }
         .badge.no { background: #cbd5e1; }
+        /* 买卖徽章：A股语义 红=买入 绿=卖出 */
+        .badge.buy { background: var(--red); }
+        .badge.sell { background: var(--green); }
         .mark { font-size: 14px; }
         .mark.yes { color: var(--green); }
         .mark.no { color: var(--red); }
@@ -421,18 +424,22 @@
                 const rows = d.signals || [];
                 document.getElementById('signal-body').innerHTML = rows.length ? rows.map(s => {
                     const md = s.metadata || {};
-                    const detail = md.score_detail || [
+                    const detail = md.score_detail || (md.side ?
+                        [md.signal_type, md.ma, md.bucket].filter(Boolean).join(' · ') : [
                         md.box_width ? `箱体宽${md.box_width}` : '',
                         md.pullback || '',
                         md.vol_ratio ? `量比${md.vol_ratio}` : '',
                         md.obv_alert || '',
-                    ].filter(Boolean).join(' · ');
+                    ].filter(Boolean).join(' · '));
+                    const scoreCell = md.side
+                        ? `<span class="badge ${md.side === '买入' ? 'buy' : 'sell'}">${md.side}</span>`
+                        : `<span class="badge ${md.score >= 70 ? 'ok' : 'no'}">${md.score ?? '-'}</span>`;
                     return `<tr>
                         <td class="mono">${s.date}</td>
                         <td style="font-weight:600">${esc(s.name)}</td>
                         <td class="mono">${s.symbol}</td>
                         <td class="mono">${s.close}</td>
-                        <td><span class="badge ${md.score >= 70 ? 'ok' : 'no'}">${md.score ?? '-'}</span></td>
+                        <td>${scoreCell}</td>
                         <td style="font-size:12px;color:#64748b">${esc(detail)}</td>
                         <td class="mono" style="font-size:12px">${s.metadata?.stop_loss ?? '-'} / ${s.metadata?.take_profit ?? '-'}</td>
                     </tr>`;

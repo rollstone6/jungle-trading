@@ -23,6 +23,7 @@ from app.quant.strategies.breakout import BreakoutPullbackEngine
 from app.quant.strategies.mean_reversion import MeanReversionEngine
 from app.quant.strategies.accumulation import AccumulationEngine
 from app.quant.strategies.chip_single_peak import ChipSinglePeakEngine
+from app.quant.strategies.ma_cross import MaCrossEngine
 
 #: 策略注册表
 STRATEGY_REGISTRY: dict[str, type[StrategyBase]] = {
@@ -30,6 +31,7 @@ STRATEGY_REGISTRY: dict[str, type[StrategyBase]] = {
     "mean_reversion": MeanReversionEngine,
     "accumulation": AccumulationEngine,
     "chip_single_peak": ChipSinglePeakEngine,
+    "ma_cross": MaCrossEngine,
 }
 
 

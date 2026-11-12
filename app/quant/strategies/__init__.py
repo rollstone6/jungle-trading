@@ -6,12 +6,14 @@ from app.quant.strategies.accumulation import AccumulationEngine
 from app.quant.strategies.lead_lag import LeadLagEngine
 from app.quant.strategies.pair import PairTradingEngine
 from app.quant.strategies.smart import SmartMoneyEngine
+from app.quant.strategies.ma_cross import MaCrossEngine
 
 #: 策略注册表
 STRATEGY_REGISTRY = {
     "breakout": BreakoutPullbackEngine,
     "mean_reversion": MeanReversionEngine,
     "accumulation": AccumulationEngine,
+    "ma_cross": MaCrossEngine,
 }
 
 __all__ = [
@@ -22,4 +24,5 @@ __all__ = [
     "LeadLagEngine",
     "PairTradingEngine",
     "SmartMoneyEngine",
+    "MaCrossEngine",
 ]
