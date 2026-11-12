@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>估值均值回归 - 持仓工作台</title>
+    <link rel="stylesheet" href="/static/styles.css?v=20261111b">
+    <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+    <script src="/static/echarts.min.js"></script>
+    <style>
+        .page { max-width: 1100px; margin: 0 auto; padding: 20px; }
+        .header {
+            background: linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 100%);
+            color: #fff; padding: 12px 18px; border-radius: 12px; margin-bottom: 12px;
+            display: flex; align-items: baseline; justify-content: center; gap: 12px; flex-wrap: wrap;
+        }
+        .header h1 { font-size: 16px; margin: 0; }
+        .kpi-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 16px; }
+        .kpi { background: #fff; border: 2px solid #e2e8f0; border-radius: 12px; padding: 12px; text-align: center; }
+        .kpi .v { font-size: 22px; font-weight: 800; color: var(--accent); }
+        .kpi .v.hot { color: var(--red); } .kpi .v.cold { color: var(--green); }
+        .kpi .l { font-size: 11px; color: #64748b; margin-top: 4px; }
+        .ctrl-bar {
+            background: #fff; border: 2px solid #e2e8f0; border-radius: 12px; padding: 12px 16px;
+            display: flex; gap: 14px; align-items: center; flex-wrap: wrap; margin-bottom: 16px; font-size: 13px;
+        }
+        .ctrl-bar label { display: inline-flex; align-items: center; gap: 6px; color: #475569; min-height: 32px; }
+        .ctrl-bar select, .ctrl-bar input {
+            border: 1.5px solid #cbd5e1; border-radius: 8px; padding: 6px 8px; font-size: 13px;
+            min-height: 32px; background: #fff;
+        }
+        .ctrl-bar input[type="number"] { width: 74px; }
+        .run-btn {
+            background: linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 100%); color: #fff;
+            border: none; border-radius: 8px; padding: 8px 18px; font-size: 13px; font-weight: 600;
+            cursor: pointer; min-height: 32px;
+        }
+        .chart-card { background: #fff; border: 2px solid #e2e8f0; border-radius: 12px; padding: 14px; margin-bottom: 16px; }
+        .chart-card h3 { margin: 0 0 8px; font-size: 14px; color: #334155; }
+        #pe-chart { width: 100%; height: 320px; }
+        table.data-table {
+            width: 100%; border-collapse: collapse; background: #fff;
+            border: 2px solid #e2e8f0; border-radius: 12px; overflow: hidden; font-size: 12px;
+        }
+        .data-table th { background: var(--accent); color: #fff; padding: 9px 10px; text-align: left; font-size: 12px; }
+        .data-table td { padding: 8px 10px; border-bottom: 1px solid #f1f5f9; }
+        .gain { color: var(--red); font-weight: 600; } .loss { color: var(--green); font-weight: 600; }
+        .cmp-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
+        .cmp-card { background: #fff; border: 2px solid #e2e8f0; border-radius: 12px; padding: 12px; }
+        .cmp-card h4 { margin: 0 0 8px; font-size: 13px; color: #334155; }
+        .cmp-card.me { border-left: 5px solid var(--accent); }
+        .cmp-card.row { display: flex; justify-content: space-between; font-size: 12px; padding: 3px 0; color: #475569; }
+        .note { font-size: 11px; color: #94a3b8; margin: 10px 2px; line-height: 1.6; }
+        .err-banner { display:none; background:#fef2f2; border:1.5px solid #fca5a5; color:#b91c1c; border-radius:10px; padding:10px 14px; font-size:13px; margin-bottom:14px; }
+        .loading { text-align: center; padding: 30px; color: #666; font-size: 13px; }
+        @media (max-width: 640px) { .cmp-grid { grid-template-columns: 1fr; } .kpi-row { grid-template-columns: repeat(3, 1fr); } .page { padding-bottom: 90px; } }
+    </style>
+</head>
+<body>
+    <div class="page">
+        <div class="header">
+            <h1><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v18h18 M7 14l4-6 4 3 5-8 M17 3h4v4"/></svg> 估值均值回归体检</h1>
+        </div>
+        <nav class="mobile-quicknav" aria-label="页面快捷导航">
+            <a href="/?pwd={{ pwd }}">持仓</a>
+            <a href="/quant?pwd={{ pwd }}">信号中心</a>
+            <a href="/backtest?pwd={{ pwd }}">回测</a>
+            <a href="/research?pwd={{ pwd }}" class="on">研究中心</a>
+        </nav>
+        <div class="err-banner" id="err-banner"></div>
+        <div class="ctrl-bar">
+            <label for="sel-index">指数
+                <select id="sel-index">
+                    <option>沪深300</option><option>上证50</option><option>中证500</option>
+                    <option>中证1000</option><option>创业板50</option><option>上证红利</option>
+                </select>
+            </label>
+            <label for="inp-exit">减仓溢价%
+                <input type="number" id="inp-exit" value="50" min="1" max="300" step="5">
+            </label>
+            <label for="inp-reenter">再进入溢价%
+                <input type="number" id="inp-reenter" value="10" min="0" max="299" step="5">
+            </label>
+            <label for="inp-ratio">减仓比例%
+                <input type="number" id="inp-ratio" value="100" min="1" max="100" step="10">
+            </label>
+            <button class="run-btn" id="btn-run" type="button">重算回测</button>
+        </div>
+        <div class="kpi-row" id="kpi-row"><div class="loading">加载中…（首次需拉取 20 年数据，约 30 秒）</div></div>
+        <div class="chart-card">
+            <h3>PE-TTM vs 滚动 10 年均值（含减仓/再进入标记）</h3>
+            <div id="pe-chart" role="img" aria-label="指数市盈率与其十年滚动均值的时间序列图，标注估值纪律的减仓与再进入时点"></div>
+        </div>
+        <div class="cmp-grid">
+            <div class="cmp-card me"><h4>估值回归纪律（复刻）</h4><div id="cmp-strategy" class="loading">—</div></div>
+            <div class="cmp-card"><h4>一直持有（基准）</h4><div id="cmp-hold" class="loading">—</div></div>
+        </div>
+        <div class="chart-card">
+            <h3>纪律事件（最近 30 条）</h3>
+            <table class="data-table">
+                <thead><tr><th>日期</th><th>动作</th><th>当时 PE</th><th>高于均值</th></tr></thead>
+                <tbody id="evt-tbody"><tr><td colspan="4" class="loading">加载中…</td></tr></tbody>
+            </table>
+        </div>
+        <p class="note">规则：PE 高于滚动 10 年均值 X% → 减仓（默认清仓）；溢价回落到 Y% 以内 → 再进入。信号日收盘决策、次日生效，单边费用 0.1%。PE 为乐咕乐股口径（整体法 TTM），月频快照前向填充到日频；滚动均值需 10 年样本，各指数回测起点不同。理论回撤 = 十年均值 ÷ 当前 PE − 1，即估值完全均值回归情形下的指数跌幅上限。</p>
+    </div>
+<script>
+const PWD = "{{ pwd }}";
+let chart = null;
+function $(id){ return document.getElementById(id); }
+function showErr(m){ const b=$('err-banner'); b.textContent=m; b.style.display='block'; }
+function pctCls(v){ return v > 0 ? 'gain' : (v < 0 ? 'loss' : ''); }
+function row(k,v,cls){ return `<div class="row"><span>${k}</span><b class="${cls||''}">${v}</b></div>`; }
+
+function renderKpi(s){
+    const hot = s.premium_pct > 30, cold = s.premium_pct < -15;
+    const cls = hot ? 'hot' : (cold ? 'cold' : '');
+    $('kpi-row').innerHTML = `
+        <div class="kpi"><div class="v ${cls}">${s.pe}</div><div class="l">当前 PE · ${s.date}</div></div>
+        <div class="kpi"><div class="v">${s.pe_10y_mean}</div><div class="l">滚动 10 年均值</div></div>
+        <div class="kpi"><div class="v ${cls}">${s.premium_pct > 0 ? '+' : ''}${s.premium_pct}%</div><div class="l">溢价 / 折价</div></div>
+        <div class="kpi"><div class="v">${s.percentile}%</div><div class="l">历史分位</div></div>
+        <div class="kpi"><div class="v ${pctCls(s.reversion_drawdown_pct)}">${s.reversion_drawdown_pct}%</div><div class="l">理论回归回撤</div></div>`;
+}
+
+function renderCmp(bt){
+    const s = bt.strategy, h = bt.buy_hold;
+    $('cmp-strategy').innerHTML =
+        row('总收益', `${s.total_return_pct}%`, pctCls(s.total_return_pct)) +
+        row('年化', `${s.cagr_pct}%`, pctCls(s.cagr_pct)) +
+        row('最大回撤', `${s.max_drawdown_pct}%`, 'loss') +
+        row('Sharpe', s.sharpe) +
+        row('在场时间', `${bt.time_in_market_pct}%`) +
+        row('区间', bt.period.split(' ~ ')[0] + ' 起');
+    $('cmp-hold').innerHTML =
+        row('总收益', `${h.total_return_pct}%`, pctCls(h.total_return_pct)) +
+        row('年化', `${h.cagr_pct}%`, pctCls(h.cagr_pct)) +
+        row('最大回撤', `${h.max_drawdown_pct}%`, 'loss') +
+        row('Sharpe', h.sharpe) +
+        row('在场时间', '100%') +
+        row('区间', bt.period.split(' ~ ')[0] + ' 起');
+    $('evt-tbody').innerHTML = (bt.event_marks.length ? bt.event_marks : []).map(e =>
+        `<tr><td>${e.date}</td><td class="${e.act==='减仓'?'loss':'gain'}">${e.act}</td><td>${e.pe}</td><td>${e.premium > 0 ? '+' : ''}${e.premium}%</td></tr>`
+    ).join('') || '<tr><td colspan="4" class="loading">区间内未触发任何事件</td></tr>';
+    // 表格里补 premium 列需要原 events（event_marks 无 premium 字段时回退）
+}
+
+function renderChart(data){
+    const el = $('pe-chart');
+    if (!chart) chart = echarts.init(el);
+    const root = getComputedStyle(document.documentElement);
+    const RED = root.getPropertyValue('--red').trim() || '#d92d20';
+    const marks = (data.backtest.event_marks || []).map(e => ({
+        coord: [e.date, e.pe], value: e.act,
+        itemStyle: { color: e.act === '减仓' ? RED : (root.getPropertyValue('--green').trim() || '#0b8f62') },
+        symbolSize: 9
+    }));
+    chart.setOption({
+        tooltip: { trigger: 'axis' },
+        legend: { data: ['PE-TTM', '10年均值'], top: 0 },
+        grid: { left: 44, right: 16, top: 30, bottom: 28 },
+        xAxis: { type: 'time' },
+        yAxis: { type: 'value', scale: true },
+        series: [
+            { name: 'PE-TTM', type: 'line', data: data.chart.map(p => [p.date, p.pe]), showSymbol: false, lineStyle: { width: 1.6, color: '#6366f1' },
+              markPoint: { data: marks, label: { fontSize: 10 } } },
+            { name: '10年均值', type: 'line', data: data.chart.map(p => [p.date, p.mean]), showSymbol: false, lineStyle: { width: 1.2, type: 'dashed', color: '#94a3b8' } }
+        ]
+    });
+    chart.resize();
+}
+
+async function load(){
+    const idx = $('sel-index').value;
+    const q = new URLSearchParams({ pwd: PWD, index: idx,
+        exit_p: $('inp-exit').value, reenter_p: $('inp-reenter').value, exit_ratio: $('inp-ratio').value });
+    $('err-banner').style.display = 'none';
+    $('btn-run').disabled = true;
+    try {
+        const r = await fetch('/api/research/valuation?' + q);
+        if (!r.ok) { const e = await r.json().catch(()=>({detail:r.status})); throw new Error(e.detail || r.status); }
+        const data = await r.json();
+        renderKpi(data.snapshot);
+        renderCmp(data.backtest);
+        renderChart(data);
+    } catch (e) { showErr('加载失败：' + e.message); }
+    $('btn-run').disabled = false;
+}
+$('btn-run').addEventListener('click', load);
+$('sel-index').addEventListener('change', load);
+load();
+window.addEventListener('resize', () => { if (chart) chart.resize(); });
+</script>
+</body>
+</html>

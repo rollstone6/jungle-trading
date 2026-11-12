@@ -743,6 +743,34 @@ async def research_pboc_page(request: Request, pwd: str = Depends(check_password
     )
 
 
+@app.get("/research/valuation", response_class=HTMLResponse)
+async def research_valuation_page(request: Request, pwd: str = Depends(check_password)):
+    """指数估值均值回归页"""
+    return templates.TemplateResponse(
+        request, "research_valuation.html", {"request": request, "pwd": pwd}
+    )
+
+
+@app.get("/api/research/valuation")
+async def research_valuation_api(request: Request, pwd: str = Depends(check_password),
+                                 index: str = "沪深300", exit_p: float = 50,
+                                 reenter_p: float = 10, exit_ratio: float = 100):
+    """估值体检 + 均值回归纪律复刻回测（参数可调，数据 6h 缓存）"""
+    from app.services import valuation as val
+    if index not in val.PE_INDEXES:
+        raise HTTPException(status_code=400, detail=f"不支持的指数，可选: {list(val.PE_INDEXES)}")
+    if not (0 < exit_p <= 300) or not (0 <= reenter_p < exit_p):
+        raise HTTPException(status_code=400, detail="参数范围：exit_p 1~300，reenter_p 0~exit_p")
+    try:
+        return await val.get_valuation(
+            index, exit_premium=exit_p / 100, reenter_premium=reenter_p / 100,
+            exit_ratio=min(max(exit_ratio, 1), 100) / 100)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"估值数据获取失败: {str(e)[:150]}")
+
+
 @app.get("/api/research/pboc")
 async def research_pboc_api(request: Request, pwd: str = Depends(check_password), refresh: int = 0):
     """央行公开市场操作：逆回购/买断式，投放到期净投放（缓存6小时）"""
