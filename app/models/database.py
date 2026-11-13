@@ -8,9 +8,13 @@ DB_PATH = Path(__file__).parent.parent.parent / "data" / "jungle.db"
 def get_db():
     # 直接调用 get_db（如 scripts/refresh.py）时也要保证目录存在
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(str(DB_PATH))
+    # timeout/busy_timeout：锁等待有上限（10s）后抛错，绝不无限挂起事件循环。
+    # 不再每连接执行 PRAGMA journal_mode=WAL —— 该 PRAGMA 需抢排他锁，是
+    # 2026-11-13 全站超时事故里 py-spy 抓到的事件循环卡死点。WAL 是持久
+    # 模式，只需在 init_db() 设置一次，后续连接自动继承。
+    conn = sqlite3.connect(str(DB_PATH), timeout=10)
     conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("PRAGMA busy_timeout=10000")
     return conn
 
 
@@ -48,6 +52,9 @@ def _migrate(conn):
 def init_db():
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     conn = get_db()
+    # WAL 只需在此设置一次（持久化到库文件），get_db() 不再每连接重复执行，
+    # 避免该 PRAGMA 抢排他锁阻塞事件循环（2026-11-13 全站超时事故根因）。
+    conn.execute("PRAGMA journal_mode=WAL")
     conn.executescript("""
         CREATE TABLE IF NOT EXISTS account (
             id INTEGER PRIMARY KEY CHECK (id = 1),

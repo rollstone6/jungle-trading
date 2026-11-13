@@ -35,7 +35,9 @@ _TIMEFRAME_BY_STRATEGY = {"accumulation": "60m"}
 #: 信号只保留最近 N 个自然日（全历史信号对网页没有意义）
 SIGNAL_LOOKBACK_DAYS = 30
 
-MAX_WORKERS = 8
+#: 3.4G 小内存主机安全线：workers≤4（原 8 线程×2 并发扫描曾把磁盘 IO 打满，
+#: 叠加每连接 WAL PRAGMA 抢锁导致 2026-11-13 全站超时）。网络取数为主，4 足够。
+MAX_WORKERS = 4
 
 #: 全市场模式：新浪全A快照按成交额粗筛的候选数量上限（3.4G 主机安全线）
 FULL_MARKET_LIMIT = 300

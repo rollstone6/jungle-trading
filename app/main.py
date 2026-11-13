@@ -327,6 +327,7 @@ async def index(request: Request, pwd: str = Depends(check_password)):
                       p["ma120"], p["ma250"], boll_upper, boll_lower,
                       kdj_k, kdj_d, kdj_j, macd_dif, macd_dea, macd_hist,
                       p["regime_label"], p["volume_ratio"], p["code"]))
+                conn.commit()  # 即写即提交：不跨后续网络 await 持有写锁
     conn.commit()
     conn.close()
 
@@ -338,6 +339,7 @@ async def index(request: Request, pwd: str = Depends(check_password)):
             if news:
                 p["news"] = news
                 conn.execute("UPDATE positions SET news=? WHERE code=?", (json.dumps(news), p["code"]))
+                conn.commit()  # 即写即提交：不跨后续网络 await 持有写锁
     conn.commit()
     conn.close()
 
