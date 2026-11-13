@@ -754,7 +754,7 @@ async def research_funds_api(request: Request, pwd: str = Depends(check_password
 
 @app.get("/api/research/funds/holdings")
 async def research_fund_holdings_api(request: Request, pwd: str = Depends(check_password), 
-                                      fund_code: str = None, refresh: int = 0):
+                                      fund_code: str | None = None, refresh: int = 0):
     """基金经理持仓和季度变化（缓存6小时）"""
     from app.services import research as rs
     
@@ -1069,4 +1069,4 @@ async def quant_chip_detail_api(request: Request, pwd: str = Depends(check_passw
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8888)
+    uvicorn.run(app, host="0.0.0.0", port=8090)

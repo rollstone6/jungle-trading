@@ -54,8 +54,8 @@ def handle_data(context, data):
 def run_zipline_backtest(
     klines: List[Dict],
     initial_cash: float = 100000.0,
-    start_date: str = None,
-    end_date: str = None,
+    start_date: str | None = None,
+    end_date: str | None = None,
 ) -> Dict:
     """
     运行 Zipline 回测

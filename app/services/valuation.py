@@ -1,7 +1,7 @@
 """指数估值均值回归 — 数据服务 + 策略复刻回测
 
 数据：乐咕乐股 PE 序列（akshare stock_index_pe_lg，月频快照，2005 至今）
-    + 东财指数日线收盘（index_zh_a_hist），PE 前向填充到日频。
+    + 新浪指数日线收盘（stock_zh_index_daily），PE 前向填充到日频。
 指标：当前 PE、滚动 10 年均值、溢价 %、历史分位、理论均值回归回撤 = 均值/当前 - 1。
 策略复刻：PE 高于滚动均值 X% → 减仓；溢价回落到 Y% 以内 → 再进入。对比一直持有。
 """
@@ -36,13 +36,16 @@ def _fetch_pe_monthly(symbol: str) -> pd.DataFrame:
 
 
 def _fetch_index_daily(code: str) -> pd.DataFrame:
-    """东财指数日线：date / close"""
+    """指数日线收盘：date / close。
+    2026-11-13 由东财 index_zh_a_hist 切换为新浪 stock_zh_index_daily：
+    东财源对本机持续 RemoteDisconnected（全区间/短区间均断连），新浪源 6 指数全验证可用。
+    新浪 symbol 需交易所前缀：399xxx 深市(sz)，其余沪市(sh)。"""
     import akshare as ak
-    df = ak.index_zh_a_hist(symbol=code, period="daily",
-                            start_date="20050101",
-                            end_date=datetime.now().strftime("%Y%m%d"))
-    out = df[["日期", "收盘"]].rename(columns={"日期": "date", "收盘": "close"})
+    prefix = "sz" if code.startswith("399") else "sh"
+    df = ak.stock_zh_index_daily(symbol=f"{prefix}{code}")
+    out = df[["date", "close"]].copy()
     out["date"] = pd.to_datetime(out["date"])
+    out = out[out["date"] >= pd.Timestamp("2005-01-01")]  # 与原东财口径一致（PE 序列亦自 2005）
     return out.sort_values("date").reset_index(drop=True)
 
 
