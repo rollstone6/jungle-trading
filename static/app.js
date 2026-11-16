@@ -767,6 +767,37 @@ function kCrossSignals(points) {
   return marks;
 }
 
+// ===== 策略K线（复刻同花顺GS策略指标版思路，规则透明可回测） =====
+// 状态机与回测引擎 MAStrategy 同口径：MA5×MA20 金叉转多持有、死叉转空观望。
+// K线颜色按策略状态染色（而非当日涨跌）；B/S 标在状态切换点；
+// T = 持仓期间偏离 MA5 过远的日内高抛低吸提示（正偏离高抛/负偏离低吸）。
+function kStrategyState(points, fast = 5, slow = 20) {
+  const mf = kSMA(points, fast), ms = kSMA(points, slow);
+  const n = points.length;
+  const state = new Array(n).fill(0); // 1=多头持有 0=空头观望
+  const marks = [];
+  let holding = false, entryIdx = -1;
+  for (let i = 1; i < n; i++) {
+    if (mf[i] == null || ms[i] == null || mf[i - 1] == null || ms[i - 1] == null) { state[i] = holding ? 1 : 0; continue; }
+    const prev = mf[i - 1] - ms[i - 1], cur = mf[i] - ms[i];
+    if (!holding && prev <= 0 && cur > 0) {
+      holding = true; entryIdx = i; marks.push({ i, type: "B" });
+    } else if (holding && prev >= 0 && cur < 0) {
+      holding = false; marks.push({ i, type: "S" }); entryIdx = -1;
+    }
+    state[i] = holding ? 1 : 0;
+    // T 提示：持仓中收盘偏离 MA5 ≥4%，且距入场/上个T ≥3根
+    if (holding && mf[i] > 0 && i - entryIdx >= 3) {
+      const dev = (points[i].close - mf[i]) / mf[i];
+      const lastT = marks.length && marks[marks.length - 1].type === "T" ? marks[marks.length - 1].i : -99;
+      if (Math.abs(dev) >= 0.04 && i - lastT >= 3) {
+        marks.push({ i, type: "T", side: dev > 0 ? "high" : "low" });
+      }
+    }
+  }
+  return { state, marks };
+}
+
 // 主图指标线组：返回 [{name,color,values}]，values 与 points 等长（不足期=null）
 function kIndicatorLines(points, mode) {
   const n = points.length;
@@ -801,7 +832,7 @@ function kIndicatorLines(points, mode) {
 
 // ===== K线设置（全局记忆，localStorage） =====
 const K_SETTINGS_KEY = "jungle-kline-settings-v1";
-const K_DEFAULTS = { indicator: "ma", nine: true, bs: false, chips: true };
+const K_DEFAULTS = { indicator: "ma", form: "basic", nine: true, bs: false, chips: true };
 let K_SETTINGS = (() => {
   try { return { ...K_DEFAULTS, ...JSON.parse(localStorage.getItem(K_SETTINGS_KEY) || "{}") }; }
   catch (_) { return { ...K_DEFAULTS }; }
@@ -834,6 +865,12 @@ function openKlineSettings() {
             <button type="button" data-k-ind="ene">ENE</button>
             <button type="button" data-k-ind="expma">EXPMA</button>
           </div>
+          <div class="k-sheet-group">K线形态</div>
+          <div class="k-sheet-grid k-sheet-grid-2" data-k-forms>
+            <button type="button" data-k-form="basic">基本K线</button>
+            <button type="button" data-k-form="strategy">策略指标版</button>
+          </div>
+          <div class="k-sheet-note" data-k-form-note hidden>按 MA5×MA20 策略状态染色：红=多头持有、绿=空头观望；B买/S卖/T做T。与回测页均线策略同口径。</div>
           <div class="k-sheet-group">提示信号</div>
           <div class="k-sheet-toggle-row"><span>神奇九转 <i class="k-info" title="连续9根收盘低于/高于4根前收盘：低九看多、高九看空">i</i></span><button type="button" class="k-switch" data-k-toggle="nine" role="switch" aria-label="神奇九转"></button></div>
           <div class="k-sheet-toggle-row"><span>多空信号 <i class="k-info" title="MA5 上穿 MA20 提示「多」，下穿提示「空」">i</i></span><button type="button" class="k-switch" data-k-toggle="bs" role="switch" aria-label="多空信号"></button></div>
@@ -847,6 +884,12 @@ function openKlineSettings() {
     sheet.querySelectorAll("[data-k-ind]").forEach((btn) => {
       btn.addEventListener("click", () => {
         K_SETTINGS.indicator = btn.dataset.kInd;
+        saveKSettings(); syncKSettingsUI(); rerenderAllKlines();
+      });
+    });
+    sheet.querySelectorAll("[data-k-form]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        K_SETTINGS.form = btn.dataset.kForm;
         saveKSettings(); syncKSettingsUI(); rerenderAllKlines();
       });
     });
@@ -872,6 +915,9 @@ function syncKSettingsUI() {
   const sheet = document.getElementById("k-settings-sheet");
   if (!sheet) return;
   sheet.querySelectorAll("[data-k-ind]").forEach((b) => b.classList.toggle("active", b.dataset.kInd === K_SETTINGS.indicator));
+  sheet.querySelectorAll("[data-k-form]").forEach((b) => b.classList.toggle("active", b.dataset.kForm === K_SETTINGS.form));
+  const note = sheet.querySelector("[data-k-form-note]");
+  if (note) note.hidden = K_SETTINGS.form !== "strategy";
   sheet.querySelectorAll("[data-k-toggle]").forEach((b) => {
     const on = !!K_SETTINGS[b.dataset.kToggle];
     b.classList.toggle("on", on);
@@ -1006,6 +1052,9 @@ function renderKlineChart(el) {
       .join("");
   }
 
+  // 策略K线形态：状态机染色 + B/S/T 标记（与基本K线互斥）
+  const strat = K_SETTINGS.form === "strategy" ? kStrategyState(points) : null;
+
   const candles = view
     .map((item, index) => {
       const x = pad.left + step * index + step / 2;
@@ -1013,7 +1062,7 @@ function renderKlineChart(el) {
       const closeY = priceY(item.close, minY, maxY, pad.top, plotH);
       const highY = priceY(item.high, minY, maxY, pad.top, plotH);
       const lowY = priceY(item.low, minY, maxY, pad.top, plotH);
-      const up = item.close >= item.open;
+      const up = strat ? strat.state[state.start + index] === 1 : item.close >= item.open;
       const cls = up ? "k-up" : "k-down";
       const bodyY = Math.min(openY, closeY);
       const bodyH = Math.max(2, Math.abs(closeY - openY));
@@ -1058,7 +1107,7 @@ function renderKlineChart(el) {
       }
     });
   }
-  if (K_SETTINGS.bs) {
+  if (K_SETTINGS.bs && !strat) {
     for (const m of kCrossSignals(points)) {
       if (m.i < state.start || m.i >= state.start + state.visible) continue;
       const i = m.i - state.start;
@@ -1068,6 +1117,21 @@ function renderKlineChart(el) {
       const y = isB ? priceY(item.low, minY, maxY, pad.top, plotH) + 14 : priceY(item.high, minY, maxY, pad.top, plotH) - 14;
       const cy = clamp(y, pad.top + 7, height - pad.bottom - 7);
       signalLayer += `<g class="k-bs ${isB ? "k-bs-b" : "k-bs-s"}"><circle cx="${x.toFixed(1)}" cy="${cy.toFixed(1)}" r="6.5"/><text x="${x.toFixed(1)}" y="${(cy + 3).toFixed(1)}" text-anchor="middle">${isB ? "多" : "空"}</text></g>`;
+    }
+  }
+  // 策略形态 B/S/T 标记（方块，仿同花顺）
+  if (strat) {
+    for (const m of strat.marks) {
+      if (m.i < state.start || m.i >= state.start + state.visible) continue;
+      const i = m.i - state.start;
+      const item = view[i];
+      const x = pad.left + step * i + step / 2;
+      let y, cls, label;
+      if (m.type === "B") { y = priceY(item.low, minY, maxY, pad.top, plotH) + 15; cls = "k-st-b"; label = "B"; }
+      else if (m.type === "S") { y = priceY(item.high, minY, maxY, pad.top, plotH) - 15; cls = "k-st-s"; label = "S"; }
+      else { y = m.side === "high" ? priceY(item.high, minY, maxY, pad.top, plotH) - 15 : priceY(item.low, minY, maxY, pad.top, plotH) + 15; cls = "k-st-t"; label = "T"; }
+      const cy = clamp(y, pad.top + 7, height - pad.bottom - 7);
+      signalLayer += `<g class="k-st ${cls}"><rect x="${(x - 6).toFixed(1)}" y="${(cy - 6).toFixed(1)}" width="12" height="12" rx="2.5"/><text x="${x.toFixed(1)}" y="${(cy + 3.2).toFixed(1)}" text-anchor="middle">${label}</text></g>`;
     }
   }
 
@@ -1090,6 +1154,10 @@ function renderKlineChart(el) {
       return `<span style="color:${l.color}">${l.name}:${v.toFixed(2)}</span>`;
     })
     .join("");
+  // 策略形态状态读数
+  const stratLegend = strat
+    ? `<span class="k-strat-state ${strat.state[selectedGlobal] === 1 ? "st-long" : "st-short"}">${strat.state[selectedGlobal] === 1 ? "策略·多头持有" : "策略·空头观望"}</span>`
+    : "";
 
   el.innerHTML = `
     <div class="kline-tip">
@@ -1101,7 +1169,7 @@ function renderKlineChart(el) {
       <span>低 ${fmtPrice(selected.low)}</span>
       ${chips.max > 0 ? `<span class="k-chip-hint">峰 ${chips.peakPrice.toFixed(2)} · 均 ${chips.avgCost.toFixed(2)}</span>` : ""}
     </div>
-    ${legend ? `<div class="k-legend">${legend}</div>` : ""}
+    ${legend || stratLegend ? `<div class="k-legend">${stratLegend}${legend}</div>` : ""}
     <svg viewBox="0 0 ${width} ${height}" role="img" aria-label="近期K线图（含主图指标与信号）">
       <rect x="0" y="0" width="${width}" height="${height}" class="k-bg"/>
       ${grid}

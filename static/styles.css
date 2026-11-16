@@ -1894,6 +1894,27 @@ li {
 .k-bs-b circle { fill: var(--red); }
 .k-bs-s circle { fill: var(--green); }
 
+/* 策略K线 B/S/T 方块标记（仿同花顺GS策略指标版） */
+.k-st rect { stroke: #ffffff; stroke-width: 1; }
+.k-st text {
+  fill: #ffffff;
+  font-size: 8.5px;
+  font-weight: 800;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+.k-st-b rect { fill: var(--red); }
+.k-st-s rect { fill: #2563eb; }
+.k-st-t rect { fill: #f97316; }
+
+.k-strat-state {
+  padding: 0 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 800;
+}
+.k-strat-state.st-long { background: rgba(217, 45, 32, 0.1); color: var(--red); }
+.k-strat-state.st-short { background: rgba(11, 143, 98, 0.1); color: var(--green); }
+
 /* ⚙ 设置入口（仅展开时可见） */
 .k-gear {
   margin-left: auto;
@@ -1986,6 +2007,17 @@ li {
   border-color: #fecaca;
   color: var(--red);
   font-weight: 700;
+}
+.k-sheet-grid-2 { grid-template-columns: repeat(2, 1fr); }
+.k-sheet-note {
+  margin: 6px 0 2px;
+  padding: 7px 10px;
+  border-radius: 8px;
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  color: #9a3412;
+  font-size: 11px;
+  line-height: 1.5;
 }
 .k-sheet-toggle-row {
   display: flex;
