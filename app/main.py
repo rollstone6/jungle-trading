@@ -982,6 +982,23 @@ async def run_backtest_api(request: Request, pwd: str = Depends(check_password))
     return result
 
 
+@app.get("/api/backtest/sweep")
+async def backtest_sweep_api(request: Request, pwd: str = Depends(check_password),
+                             scope: str = "pool", refresh: int = 0):
+    """均线策略参数扫描（scope=held/pool/market，当日缓存，后台任务+轮询）
+
+    对范围内每只股票跑 MA fast×slow 参数网格回测，聚合热力矩阵与最优参数。
+    首跑返回 status=scanning，前端轮询同一 URL（剥掉 refresh）直到 ready。
+    """
+    from app.services import quant_jobs
+    from app.services.param_sweep import compute_sweep_cached
+    if scope not in ("held", "pool", "market"):
+        raise HTTPException(status_code=400, detail="scope 可选: held / pool / market")
+    key = f"sweep_ma_{scope}"
+    return await quant_jobs.run(
+        key, lambda: compute_sweep_cached(scope), force=bool(refresh))
+
+
 # === 量化信号中心（app/quant 四大能力 Web 化：策略信号/趋势过滤/箱体/筹码） ===
 
 @app.get("/quant", response_class=HTMLResponse)

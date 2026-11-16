@@ -474,6 +474,58 @@
         .strategy-card.is-variant .sc-cat-tag { background: rgba(245, 158, 11, 0.13); color: #b45309; }
         .sc-del-var { border: none; background: none; color: #d92d20; font-size: 11.5px; cursor: pointer; padding: 0; margin-left: 8px; }
         @media (max-width: 480px) { .bt-chart-box { height: 380px; } }
+
+        /* ===== 参数扫描 ===== */
+        .sweep-card { padding: 18px 20px; }
+        .sweep-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
+        .sweep-head h2 { margin: 0; font-size: 16px; color: #1e293b; }
+        .sweep-head h2 small { font-size: 12px; color: #64748b; font-weight: 400; margin-left: 6px; }
+        .sweep-scopes { display: flex; gap: 6px; flex-wrap: wrap; }
+        .sweep-scope { border: 1.5px solid #e2e8f0; background: #fff; color: #475569; border-radius: 999px; padding: 5px 13px; font-size: 12.5px; font-weight: 600; cursor: pointer; transition: all .15s; }
+        .sweep-scope.on { border-color: var(--accent); background: rgba(102,126,234,.1); color: var(--accent); }
+        .sweep-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+        .sweep-run { width: auto; padding: 9px 22px; margin: 0; }
+        .sweep-status { font-size: 13px; color: #64748b; }
+        .sweep-status.err { color: var(--red); }
+        .sweep-body { margin-top: 16px; }
+        .sweep-summary { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+        .sweep-chip { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 8px 12px; font-size: 12.5px; color: #475569; line-height: 1.5; }
+        .sweep-chip b { font-size: 15px; color: #1e293b; }
+        .sweep-chip.best { background: #fef2f2; border-color: #fecaca; }
+        .sweep-chip.best b { color: var(--red); }
+        .sweep-chip .pos { color: var(--red); font-weight: 700; }
+        .sweep-chip .neg { color: var(--green); font-weight: 700; }
+        .sweep-heat-title { font-size: 13px; font-weight: 600; color: #334155; margin-bottom: 8px; }
+        .sweep-heat-title small { font-weight: 400; color: #94a3b8; margin-left: 6px; }
+        .sweep-heat-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+        .sweep-heat { border-collapse: collapse; min-width: 420px; width: 100%; }
+        .sweep-heat th, .sweep-heat td { padding: 7px 9px; font-size: 12.5px; text-align: center; border: 1px solid #f1f5f9; font-variant-numeric: tabular-nums; white-space: nowrap; }
+        .sweep-heat th { background: #f8fafc; color: #64748b; font-weight: 600; }
+        .sweep-heat td .hv { font-weight: 700; font-size: 13px; }
+        .sweep-heat td .hs { display: block; font-size: 10px; color: #94a3b8; margin-top: 1px; }
+        .sweep-heat td.star { outline: 2px solid var(--accent); outline-offset: -2px; }
+        .sweep-heat td.cur { box-shadow: inset 0 0 0 1.5px #f59e0b; }
+        .sweep-dist { display: flex; flex-wrap: wrap; gap: 6px; margin: 12px 0; font-size: 12px; }
+        .sweep-dist .sd-tag { background: #f1f5f9; border-radius: 999px; padding: 3px 10px; color: #475569; }
+        .sweep-dist .sd-tag b { color: var(--accent); }
+        .sweep-detail { margin-top: 6px; }
+        .sweep-detail summary { cursor: pointer; font-size: 13px; font-weight: 600; color: #334155; padding: 6px 0; }
+        .sweep-detail summary span { color: #94a3b8; font-weight: 400; }
+        .sweep-detail-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+        .sweep-stocks { border-collapse: collapse; width: 100%; min-width: 560px; }
+        .sweep-stocks th, .sweep-stocks td { padding: 7px 10px; font-size: 12.5px; text-align: right; border-bottom: 1px solid #f1f5f9; font-variant-numeric: tabular-nums; white-space: nowrap; }
+        .sweep-stocks th { background: #f8fafc; color: #64748b; font-weight: 600; }
+        .sweep-stocks th:first-child, .sweep-stocks td:first-child { text-align: left; }
+        .sweep-stocks td.pos { color: var(--red); font-weight: 600; }
+        .sweep-stocks td.neg { color: var(--green); font-weight: 600; }
+        .sweep-stocks .imp { font-size: 10.5px; padding: 1px 6px; border-radius: 999px; margin-left: 5px; }
+        .sweep-stocks .imp.up { background: rgba(217,45,32,.1); color: var(--red); }
+        .sweep-stocks .imp.same { background: #f1f5f9; color: #94a3b8; }
+        .sweep-note { font-size: 11.5px; color: #94a3b8; line-height: 1.6; margin: 12px 0 0; }
+        @media (max-width: 480px) {
+            .sweep-card { padding: 14px; }
+            .sweep-head { flex-direction: column; align-items: flex-start; }
+        }
     </style>
     <script src="/static/echarts.min.js"></script>
 </head>
@@ -560,6 +612,35 @@
             
             <button class="run-button" id="run-backtest" type="button">开始回测</button>
             <button class="run-button run-all" id="run-all" type="button" title="持仓+股票池全部股票 × 全部策略（含自定义变体）一键交叉回测"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 2 3 14h7l-1 8 10-12h-7z"/></svg> 全量回测（所有股票 × 所有策略）</button>
+        </div>
+
+        <!-- 参数扫描：MA均线策略 fast×slow 网格回测 -->
+        <div class="backtest-form sweep-card" id="sweep-card">
+            <div class="sweep-head">
+                <h2>参数扫描 <small>MA均线策略 · 找最优快慢线组合</small></h2>
+                <div class="sweep-scopes" role="tablist" aria-label="扫描范围">
+                    <button type="button" class="sweep-scope on" data-scope="held">持仓</button>
+                    <button type="button" class="sweep-scope" data-scope="pool">持仓+股票池</button>
+                    <button type="button" class="sweep-scope" data-scope="market">全市场Top300</button>
+                </div>
+            </div>
+            <div class="sweep-actions">
+                <button type="button" class="run-button sweep-run" id="sweep-run">开始扫描</button>
+                <span class="sweep-status" id="sweep-status"></span>
+            </div>
+            <div class="sweep-body" id="sweep-body" style="display:none;">
+                <div class="sweep-summary" id="sweep-summary"></div>
+                <div class="sweep-heat-wrap">
+                    <div class="sweep-heat-title">参数热力矩阵 <small>单元格=跨股票平均收益%（红赚绿亏），★=综合最优</small></div>
+                    <div class="sweep-heat-scroll"><table class="sweep-heat" id="sweep-heat"></table></div>
+                </div>
+                <div class="sweep-dist" id="sweep-dist"></div>
+                <details class="sweep-detail">
+                    <summary>个股最优参数明细 <span id="sweep-detail-count"></span></summary>
+                    <div class="sweep-detail-scroll"><table class="sweep-stocks" id="sweep-stocks"></table></div>
+                </details>
+                <p class="sweep-note" id="sweep-note"></p>
+            </div>
         </div>
 
         <!-- 回测历史（自动保留最近 10 次摘要，本机存储） -->
@@ -1598,6 +1679,152 @@
             });
         }
         
+        // ===== 参数扫描（MA均线策略 fast×slow 网格） =====
+        const sweepState = { scope: 'held', polling: false, timer: null };
+        const sweepStatus = document.getElementById('sweep-status');
+        const sweepBody = document.getElementById('sweep-body');
+
+        function sweepUrl(scope, refresh) {
+            let u = `/api/backtest/sweep?pwd=${pwd}&scope=${scope}`;
+            if (refresh) u += '&refresh=1';
+            return u;
+        }
+        function setSweepStatus(text, isErr) {
+            sweepStatus.textContent = text;
+            sweepStatus.classList.toggle('err', !!isErr);
+        }
+        function stopSweepPoll() {
+            sweepState.polling = false;
+            if (sweepState.timer) { clearTimeout(sweepState.timer); sweepState.timer = null; }
+        }
+        async function startSweep(refresh) {
+            stopSweepPoll();
+            const scope = sweepState.scope;
+            const btn = document.getElementById('sweep-run');
+            btn.disabled = true;
+            setSweepStatus('提交扫描任务…');
+            try {
+                const resp = await fetch(sweepUrl(scope, refresh));
+                const j = await resp.json();
+                if (!resp.ok) throw new Error(j.detail || '提交失败');
+                if (j.status === 'ready') { renderSweep(j); btn.disabled = false; return; }
+                if (j.status === 'error') throw new Error(j.error || '扫描失败');
+                sweepState.polling = true;
+                setSweepStatus('扫描中（后台跑，可离开本页）…');
+                pollSweep(scope);
+            } catch (e) {
+                setSweepStatus('扫描失败：' + e.message, true);
+                btn.disabled = false;
+            }
+        }
+        function pollSweep(scope) {
+            if (!sweepState.polling || scope !== sweepState.scope) return;
+            sweepState.timer = setTimeout(async () => {
+                try {
+                    const resp = await fetch(sweepUrl(scope, false));
+                    const j = await resp.json();
+                    if (j.status === 'ready') {
+                        stopSweepPoll();
+                        renderSweep(j);
+                        document.getElementById('sweep-run').disabled = false;
+                    } else if (j.status === 'error') {
+                        stopSweepPoll();
+                        setSweepStatus('扫描失败：' + (j.error || ''), true);
+                        document.getElementById('sweep-run').disabled = false;
+                    } else {
+                        const el = j.startedAt ? `（${j.startedAt} 开始）` : '';
+                        setSweepStatus(`扫描中${el}…`);
+                        pollSweep(scope);
+                    }
+                } catch (e) {
+                    pollSweep(scope);  // 网络抖动继续轮询
+                }
+            }, 3000);
+        }
+        function heatColor(ret, maxAbs) {
+            // 红赚绿亏（A股语义），按幅度插值背景
+            const t = Math.min(1, Math.abs(ret) / (maxAbs || 1));
+            const a = 0.06 + t * 0.3;
+            return ret >= 0 ? `rgba(217,45,32,${a.toFixed(3)})` : `rgba(11,143,98,${a.toFixed(3)})`;
+        }
+        function renderSweep(j) {
+            sweepBody.style.display = 'block';
+            setSweepStatus(`完成 · ${j.stock_count} 只 · 耗时 ${j.elapsed_sec}s · ${j.asOf}`);
+            const bg = j.best_global, cg = j.current_global;
+            const scopeName = { held: '持仓', pool: '持仓+股票池', market: '全市场Top300' }[j.scope] || j.scope;
+            const fmtRet = v => `<span class="${v >= 0 ? 'pos' : 'neg'}">${v >= 0 ? '+' : ''}${v}%</span>`;
+            let summary = `<div class="sweep-chip"><b>${j.stock_count}</b> 只 · ${scopeName}</div>`;
+            if (bg) summary += `<div class="sweep-chip best">综合最优 <b>MA${bg.fast}×${bg.slow}</b><br>均收益 ${fmtRet(bg.avg_return)} · 回撤 ${bg.avg_dd}% · 胜率 ${bg.avg_win}%</div>`;
+            if (cg) summary += `<div class="sweep-chip">当前 MA5×20<br>均收益 ${fmtRet(cg.avg_return)} · 回撤 ${cg.avg_dd}% · 胜率 ${cg.avg_win}%</div>`;
+            if (bg && cg) {
+                const delta = (bg.avg_return - cg.avg_return).toFixed(1);
+                summary += `<div class="sweep-chip">最优 vs 当前<br>收益差 <span class="${delta >= 0 ? 'pos' : 'neg'}">${delta >= 0 ? '+' : ''}${delta}pp</span></div>`;
+            }
+            if (j.skipped && j.skipped.length) summary += `<div class="sweep-chip">跳过 ${j.skipped.length} 只（数据不足）</div>`;
+            document.getElementById('sweep-summary').innerHTML = summary;
+
+            // 热力矩阵：行=fast，列=slow
+            const fasts = j.grid.fast, slows = j.grid.slow;
+            const cellMap = {};
+            let maxAbs = 1;
+            (j.matrix || []).forEach(c => { cellMap[`${c.fast}/${c.slow}`] = c; maxAbs = Math.max(maxAbs, Math.abs(c.avg_return)); });
+            let html = '<tr><th>快\\慢</th>' + slows.map(s => `<th>MA${s}</th>`).join('') + '</tr>';
+            fasts.forEach(f => {
+                html += `<tr><th>MA${f}</th>`;
+                slows.forEach(s => {
+                    const c = cellMap[`${f}/${s}`];
+                    if (!c || f >= s) { html += '<td style="color:#cbd5e1">—</td>'; return; }
+                    const isBest = bg && c.fast === bg.fast && c.slow === bg.slow;
+                    const isCur = f === 5 && s === 20;
+                    const cls = (isBest ? ' star' : '') + (isCur ? ' cur' : '');
+                    html += `<td class="${cls.trim()}" style="background:${heatColor(c.avg_return, maxAbs)}" title="MA${f}×${s}：均收益${c.avg_return}% 回撤${c.avg_dd}% 胜率${c.avg_win}% 盈利占比${c.pos_ratio}% 评分${c.score}">
+                        <span class="hv" style="color:${c.avg_return >= 0 ? 'var(--red)' : 'var(--green)'}">${isBest ? '★' : ''}${c.avg_return >= 0 ? '+' : ''}${c.avg_return}</span>
+                        <span class="hs">撤${c.avg_dd} · 胜${c.avg_win}</span></td>`;
+                });
+                html += '</tr>';
+            });
+            document.getElementById('sweep-heat').innerHTML = html;
+
+            // 个股最优分布
+            const dist = j.best_distribution || {};
+            document.getElementById('sweep-dist').innerHTML = '<span style="color:#64748b;font-weight:600">个股最优分布：</span>' +
+                Object.entries(dist).map(([k, n]) => `<span class="sd-tag">MA${k.replace('/', '×')} <b>${n}只</b></span>`).join('');
+
+            // 个股明细
+            const stocks = j.stocks || [];
+            document.getElementById('sweep-detail-count').textContent = `（${stocks.length} 只）`;
+            let st = '<tr><th>股票</th><th>最优参数</th><th>收益%</th><th>回撤%</th><th>胜率%</th><th>笔数</th><th>当前5/20收益%</th><th>提升</th></tr>';
+            stocks.forEach(s => {
+                const b = s.best, cur = s.current;
+                const imp = cur ? (b.return - cur.return) : null;
+                const impTag = imp == null ? '' : (imp > 0.5 ? `<span class="imp up">+${imp.toFixed(1)}pp</span>` : `<span class="imp same">≈当前</span>`);
+                st += `<tr><td>${s.name}<small style="color:#94a3b8"> ${s.code}</small></td>
+                    <td><b>MA${b.fast}×${b.slow}</b></td>
+                    <td class="${b.return >= 0 ? 'pos' : 'neg'}">${b.return >= 0 ? '+' : ''}${b.return}</td>
+                    <td>${b.dd}</td><td>${b.win}</td><td>${b.trades}</td>
+                    <td class="${cur && cur.return >= 0 ? 'pos' : 'neg'}">${cur ? (cur.return >= 0 ? '+' : '') + cur.return : '—'}</td>
+                    <td>${impTag}</td></tr>`;
+            });
+            document.getElementById('sweep-stocks').innerHTML = st;
+            document.getElementById('sweep-note').textContent = j.note || '';
+        }
+        document.querySelectorAll('.sweep-scope').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.sweep-scope').forEach(b => b.classList.remove('on'));
+                btn.classList.add('on');
+                sweepState.scope = btn.dataset.scope;
+                stopSweepPoll();
+                document.getElementById('sweep-run').disabled = false;
+                sweepBody.style.display = 'none';
+                setSweepStatus('');
+                // 切换范围自动尝试读当日缓存（不强制重扫）
+                startSweep(false);
+            });
+        });
+        document.getElementById('sweep-run').addEventListener('click', () => startSweep(true));
+        // 进页面自动读持仓范围缓存
+        startSweep(false);
+
         // 初始化
         document.getElementById('run-backtest').addEventListener('click', runBacktest);
         document.getElementById('run-all').addEventListener('click', runAllBacktest);
