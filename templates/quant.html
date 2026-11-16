@@ -7,6 +7,7 @@
     <link rel="stylesheet" href="/static/styles.css?v=20261116a">
     <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
     <script src="/static/lightweight-charts.standalone.production.js?v=20261106a"></script>
+    <script src="/static/echarts.min.js"></script>
     <style>
         .quant-container { max-width: 1280px; margin: 0 auto; padding: 20px; }
 
@@ -38,6 +39,49 @@
         }
         .sub-tab-btn.on { background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: #fff; border-color: transparent; }
         .scan-section[hidden] { display: none; }
+
+        /* ===== 大盘点金（智能点金） ===== */
+        .sent-kpi { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+        .sent-kpi .k { flex: 1 1 120px; min-width: 110px; background: #fff; border: 1.5px solid #e2e8f0; border-radius: 10px; padding: 8px 12px; }
+        .sent-kpi .k .l { font-size: 11px; color: #64748b; }
+        .sent-kpi .k .v { font-size: 17px; font-weight: 700; font-variant-numeric: tabular-nums; }
+        .sent-grid { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(280px, 1fr); gap: 14px; align-items: start; }
+        @media (max-width: 900px) { .sent-grid { grid-template-columns: 1fr; } }
+        .sent-card { background: #fff; border: 2px solid #e2e8f0; border-radius: 12px; padding: 12px 14px; min-width: 0; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+        .sent-card h3 { margin: 0 0 8px; font-size: 14px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+        .sent-card h3 .sub { font-size: 12px; color: #64748b; font-weight: 500; }
+        .sent-chart { width: 100%; height: 560px; }
+        @media (max-width: 640px) { .sent-chart { height: 500px; } }
+        .sent-legend { display: flex; gap: 12px; flex-wrap: wrap; font-size: 12px; color: #334155; margin-bottom: 6px; }
+        .sent-legend .dot { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; }
+        .sent-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+        .sent-table { border-collapse: collapse; font-size: 12px; white-space: nowrap; width: 100%; }
+        .sent-table th, .sent-table td { padding: 5px 7px; text-align: center; border-bottom: 1px solid #f1f5f9; font-variant-numeric: tabular-nums; }
+        .sent-table th { color: #64748b; font-weight: 600; background: #f8fafc; }
+        .sent-table td.rowlab { font-weight: 700; text-align: left; background: #f8fafc; position: sticky; left: 0; }
+        .sent-table tr.yang td { color: var(--red); }
+        .sent-table tr.yin td { color: var(--green); }
+        .sent-table tr.yang td.rowlab { color: var(--red); }
+        .sent-table tr.yin td.rowlab { color: var(--green); }
+        .sent-table td.hot { outline: 2px solid #f59e0b; outline-offset: -2px; border-radius: 4px; font-weight: 700; }
+        .sent-log { max-height: 430px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; scrollbar-width: thin; }
+        .sent-log-item { border: 1.5px solid #e2e8f0; border-radius: 10px; padding: 8px 10px; font-size: 12.5px; line-height: 1.55; background: #fafbff; }
+        .sent-log-item .head { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 3px; font-weight: 700; }
+        .sent-log-item .head .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+        .sent-log-item.opp .head .dot { background: var(--red); }
+        .sent-log-item.risk .head .dot { background: var(--green); }
+        .sent-log-item .tag { font-size: 11px; padding: 1px 7px; border-radius: 999px; font-weight: 700; }
+        .sent-log-item.opp .tag { background: rgba(217,45,32,0.10); color: var(--red); }
+        .sent-log-item.risk .tag { background: rgba(11,143,98,0.10); color: var(--green); }
+        .sent-log-item .finger { font-size: 11px; padding: 1px 7px; border-radius: 999px; background: #fff7ed; color: #b45309; border: 1px solid #fdba74; }
+        .sent-log-item .date { color: #64748b; font-weight: 600; font-size: 12px; }
+        .sent-bt { font-size: 12.5px; line-height: 1.8; }
+        .sent-bt .row { margin-bottom: 6px; }
+        .sent-bt b.up { color: var(--red); }
+        .sent-bt b.down { color: var(--green); }
+        .sent-note { font-size: 11.5px; color: #64748b; margin-top: 8px; line-height: 1.6; }
+        .sent-err { display: flex; align-items: center; gap: 8px; background: #fef2f2; border: 1.5px solid #fecaca; color: #b91c1c; border-radius: 10px; padding: 8px 12px; font-size: 13px; margin-bottom: 10px; }
+        .sent-err[hidden] { display: none; }
 
         .panel { display: none; }
         .panel.active { display: block; }
@@ -191,6 +235,7 @@
 
         <div class="tab-row" id="tab-row">
             <button class="tab-btn active" data-tab="signals" type="button"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20Z M12 18a6 6 0 1 0 0-12 6 6 0 0 0 0 12Z M12 14a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z"/></svg> 信号 · 趋势 · 箱体</button>
+            <button class="tab-btn" data-tab="sentiment" type="button"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2v3 M12 19v3 M2 12h3 M19 12h3 M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8Z M4.9 4.9l2.1 2.1 M17 17l2.1 2.1 M19.1 4.9L17 7 M7 17l-2.1 2.1"/></svg> 大盘点金</button>
             <button class="tab-btn" data-tab="chip" type="button"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 8h20 M2 16h20 M2 4v16 M22 4v16 M7 4v4 M17 8v4 M7 16v4 M12 4v4"/></svg> 筹码分布</button>
             <button class="tab-btn" data-tab="lab" type="button"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 3h6 M10 3v6l-5.5 9.5A2 2 0 0 0 6.2 21h11.6a2 2 0 0 0 1.7-3L14 9V3 M7.5 15h9"/></svg> 实验室</button>
         </div>
@@ -265,6 +310,41 @@
                 <tbody id="box-body"><tr><td colspan="11" class="loading">加载中...</td></tr></tbody>
             </table>
 </div>
+            </div>
+        </div>
+
+        <!-- ===== 大盘点金（智能点金：阳谱/阴谱 + 机构力道 + 金手指/银手指） ===== -->
+        <div class="panel" id="panel-sentiment">
+            <div class="scan-bar">
+                <span id="sent-meta">加载中...</span>
+                <button class="scan-btn" id="sent-refresh" type="button">重新计算</button>
+            </div>
+            <div class="sent-err" id="sent-err" hidden role="alert"><span id="sent-err-text"></span><button class="scan-btn" id="sent-retry" type="button">重试</button></div>
+            <div class="sent-kpi" id="sent-kpi"></div>
+            <div class="sent-grid">
+                <div style="display:flex;flex-direction:column;gap:14px;min-width:0">
+                    <div class="sent-card">
+                        <h3>上证指数 · 智能图谱 · 机构动向 <span class="sub" id="sent-chart-sub"></span></h3>
+                        <div class="sent-legend" id="sent-legend"></div>
+                        <div class="sent-chart" id="sent-chart" role="img" aria-label="上证指数K线与阳谱阴谱、机构力道联动图"></div>
+                    </div>
+                    <div class="sent-card">
+                        <h3>智能点金 <span class="sub">近14日 阳谱/阴谱（%）</span></h3>
+                        <div class="sent-table-wrap"><table class="sent-table" id="sent-table"></table></div>
+                        <div class="sent-note" id="sent-note"></div>
+                    </div>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:14px;min-width:0">
+                    <div class="sent-card">
+                        <h3>大盘机会 / 风险 <span class="sub" id="sent-log-sub"></span></h3>
+                        <div class="sent-log" id="sent-log"><div class="loading">加载中...</div></div>
+                    </div>
+                    <div class="sent-card">
+                        <h3>近三年大数据回测 <span class="sub" id="sent-bt-sub"></span></h3>
+                        <div class="sent-bt" id="sent-bt"><div class="loading">加载中...</div></div>
+                        <div class="sent-note">口径：每次金/银手指信号后 20 个交易日的指数真实涨跌统计，非预测。机构力道依赖东财大盘资金流（本机若被封锁则自动降级为趋势+阳谱双确认，全历史可算）。</div>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -382,6 +462,7 @@
             btn.classList.add('active');
             document.getElementById('panel-' + btn.dataset.tab).classList.add('active');
             if (btn.dataset.tab === 'lab') initLabIfNeeded();
+            if (btn.dataset.tab === 'sentiment') initSentIfNeeded();
         });
 
         // ---------- 扫描子标签（策略信号 / 趋势过滤 / 箱体检测） ----------
@@ -617,6 +698,166 @@
             }
         }
         document.getElementById('chip-refresh').addEventListener('click', () => loadChip(true));
+
+        // ---------- 5. 大盘点金（智能点金） ----------
+        let sentInited = false, sentChart = null, sentData = null;
+        const SENT_RED = getComputedStyle(document.documentElement).getPropertyValue('--red').trim() || '#d92d20';
+        const SENT_GREEN = getComputedStyle(document.documentElement).getPropertyValue('--green').trim() || '#0b8f62';
+        function initSentIfNeeded() {
+            if (sentInited) { if (sentChart) sentChart.resize(); return; }
+            sentInited = true;
+            loadSentiment(false);
+        }
+        async function loadSentiment(refresh) {
+            const meta = document.getElementById('sent-meta');
+            const btn = document.getElementById('sent-refresh');
+            const url = `/api/quant/sentiment?pwd=${pwd}` + (refresh ? '&refresh=1' : '');
+            return pollScan('sentiment', url, renderSentiment, meta, btn, '首次约10-30秒');
+        }
+        function renderSentiment(d) {
+            sentData = d;
+            document.getElementById('sent-err').hidden = true;
+            const meta = document.getElementById('sent-meta');
+            meta.textContent = `数据截至 ${d.asOf} · ${d.index} · 窗口 ${d.series.length} 个交易日`;
+            const L = d.latest;
+            const noForce = d.forceSource === 'none';
+            const forceTxt = L.force == null ? (noForce ? '源不可达' : '—') : (L.force > 0 ? '+' : '') + L.force.toFixed(2) + '%';
+            document.getElementById('sent-kpi').innerHTML = `
+                <div class="k"><div class="l">收盘（${L.date.slice(5)}）</div><div class="v">${L.close}</div></div>
+                <div class="k"><div class="l">趋势线（MA20）</div><div class="v" style="color:${L.trendRed ? SENT_RED : SENT_GREEN}">${L.trendRed ? '红 · 多头' : '绿 · 空头'}</div></div>
+                <div class="k"><div class="l">阳谱 / 阴谱</div><div class="v"><span style="color:${SENT_RED}">${L.yang.toFixed(0)}%</span> / <span style="color:${SENT_GREEN}">${L.yin.toFixed(0)}%</span></div></div>
+                <div class="k"><div class="l">机构力道（3日EMA）</div><div class="v" style="color:${L.force == null ? '#64748b' : (L.force > 0 ? SENT_RED : SENT_GREEN)};${noForce ? 'font-size:13px' : ''}">${forceTxt}</div></div>`;
+            document.getElementById('sent-legend').innerHTML = noForce ? `
+                <span><span class="dot" style="background:${SENT_RED}"></span>阳谱 ${L.yang.toFixed(2)}%</span>
+                <span><span class="dot" style="background:${SENT_GREEN}"></span>阴谱 ${L.yin.toFixed(2)}%</span>
+                <span style="color:#b45309">▲金手指 / ▼银手指（趋势+阳谱双确认）</span>
+                <span style="color:#64748b">机构力道源暂不可达</span>` : `
+                <span><span class="dot" style="background:${SENT_RED}"></span>阳谱 ${L.yang.toFixed(2)}%</span>
+                <span><span class="dot" style="background:${SENT_GREEN}"></span>阴谱 ${L.yin.toFixed(2)}%</span>
+                <span><span class="dot" style="background:${SENT_RED}"></span>机构吸筹力道</span>
+                <span><span class="dot" style="background:${SENT_GREEN}"></span>机构抛压力道</span>
+                <span style="color:#b45309">▲金手指 / ▼银手指</span>`;
+            renderSentChart(d);
+            // 智能点金表（近14日，最新两列高亮圈注）
+            const tb = d.table;
+            let html = '<tr><th>日期</th>' + tb.map(r => `<th>${r.date.slice(5).replace('-', '')}</th>`).join('') + '</tr>';
+            html += '<tr class="yang"><td class="rowlab">阳谱</td>' + tb.map((r, i) =>
+                `<td class="${i >= tb.length - 2 ? 'hot' : ''}">${r.yang.toFixed(0)}%</td>`).join('') + '</tr>';
+            html += '<tr class="yin"><td class="rowlab">阴谱</td>' + tb.map((r, i) =>
+                `<td class="${i >= tb.length - 2 ? 'hot' : ''}">${r.yin.toFixed(0)}%</td>`).join('') + '</tr>';
+            document.getElementById('sent-table').innerHTML = html;
+            // 默认滚到最右：最新两列（高亮）首屏可见
+            const tw = document.querySelector('.sent-table-wrap');
+            if (tw) tw.scrollLeft = tw.scrollWidth;
+            document.getElementById('sent-note').textContent = d.note || '';
+            // 信号日志
+            document.getElementById('sent-log-sub').textContent = `共 ${d.signals.length} 条`;
+            document.getElementById('sent-log').innerHTML = d.signals.length ? d.signals.map(s => `
+                <div class="sent-log-item ${s.type === 'risk' ? 'risk' : 'opp'}">
+                    <div class="head"><span class="dot"></span>${s.type === 'risk' ? '大盘风险' : '大盘机会'}
+                        <span class="tag">【${esc(s.tag)}】</span>${s.finger ? `<span class="finger">${esc(s.finger)}</span>` : ''}
+                        <span class="date">${s.date}</span></div>
+                    <div>${esc(s.text)}</div>
+                </div>`).join('') : '<div class="loading">窗口内暂无信号</div>';
+            // 近三年回测
+            const bt = d.backtest;
+            document.getElementById('sent-bt-sub').textContent = `${d.index} · ${bt.sample_start} ~ ${bt.sample_end}`;
+            const g = bt.gold, s = bt.silver;
+            const fmt = (x) => (x > 0 ? '+' : '') + x.toFixed(2) + '%';
+            document.getElementById('sent-bt').innerHTML = `
+                <div class="row">出现<b class="up">金手指</b>共 <b class="up">${g.count || 0}</b> 次，后市上涨概率为 <b class="up">${g.count ? g.up_prob.toFixed(2) : '—'}%</b>，平均上涨幅度为 <b class="up">${g.count ? fmt(g.avg_up) : '—'}</b>，最大涨幅为 <b class="up">${g.count ? fmt(g.max_up) : '—'}</b>，最小涨幅为 <b class="up">${g.count ? fmt(g.min_up) : '—'}</b>。</div>
+                <div class="row">出现<b class="down">银手指</b>共 <b class="down">${s.count || 0}</b> 次，后市下跌概率为 <b class="down">${s.count ? s.down_prob.toFixed(2) : '—'}%</b>，平均下跌幅度为 <b class="down">${s.count ? fmt(s.avg_down) : '—'}</b>，最大跌幅为 <b class="down">${s.count ? fmt(s.max_down) : '—'}</b>，最小跌幅为 <b class="down">${s.count ? fmt(s.min_down) : '—'}</b>。</div>
+                ${(!g.count || !s.count) ? '<div class="sent-note">样本偏少：窗口内信号次数有限，统计仅供参考。</div>' : ''}`;
+        }
+        function renderSentChart(d) {
+            const el = document.getElementById('sent-chart');
+            if (!sentChart) sentChart = echarts.init(el);
+            const rows = d.series;
+            const dates = rows.map(r => r.date);
+            // ECharts candlestick 数据序：[open, close, low, high]
+            const ohlc = rows.map(r => [r.open, r.close, r.low, r.high]);
+            const yang = rows.map(r => r.yang);
+            const yin = rows.map(r => r.yin);
+            const force = rows.map(r => r.force);
+            const fingers = rows.map((r, i) => r.finger ? {
+                coord: [r.date, r.close], value: r.finger === 'gold' ? '▲' : '▼',
+                itemStyle: { color: r.finger === 'gold' ? '#f59e0b' : '#64748b' },
+                label: { color: r.finger === 'gold' ? '#b45309' : '#475569' }
+            } : null).filter(Boolean);
+            const trendAreas = [];
+            let segStart = null, segRed = null;
+            rows.forEach((r, i) => {
+                if (segRed === null || r.trendRed !== segRed) {
+                    if (segStart !== null) trendAreas.push([{ xAxis: dates[segStart], itemStyle: { color: segRed ? 'rgba(217,45,32,0.06)' : 'rgba(11,143,98,0.06)' } }, { xAxis: dates[i - 1] }]);
+                    segStart = i; segRed = r.trendRed;
+                }
+            });
+            if (segStart !== null) trendAreas.push([{ xAxis: dates[segStart], itemStyle: { color: segRed ? 'rgba(217,45,32,0.06)' : 'rgba(11,143,98,0.06)' } }, { xAxis: dates[dates.length - 1] }]);
+            const markPtsAll = rows.map((r, i) => r.mark ? {
+                coord: [r.date, r.force], value: r.mark,
+                itemStyle: { color: r.mark === '吸' ? SENT_RED : (r.mark === '减' ? SENT_GREEN : '#f59e0b') }
+            } : null).filter(Boolean);
+            // 窄屏抽稀标注防重叠（保留最近一个），桌面全显
+            const narrow = el.clientWidth < 560;
+            sentNarrow = narrow;
+            const markPts = narrow ? markPtsAll.filter((_, i) => i % 3 === 0 || i === markPtsAll.length - 1) : markPtsAll;
+            sentChart.setOption({
+                animation: false,
+                axisPointer: { link: [{ xAxisIndex: 'all' }] },
+                tooltip: { trigger: 'axis', axisPointer: { type: 'cross' }, confine: true,
+                    formatter: (ps) => {
+                        const i = ps[0].dataIndex, r = rows[i];
+                        let t = `<b>${r.date}</b><br>收盘 ${r.close} · MA20 ${r.ma20 ?? '—'}<br>`;
+                        t += `<span style="color:${SENT_RED}">阳谱 ${r.yang.toFixed(1)}%</span> / <span style="color:${SENT_GREEN}">阴谱 ${r.yin.toFixed(1)}%</span><br>`;
+                        t += `机构力道 ${r.force == null ? '—（无资金流数据）' : r.force.toFixed(2) + '%'}`;
+                        if (r.mark) t += ` · 标记【${r.mark}】`;
+                        if (r.finger) t += `<br><b style="color:#b45309">${r.finger === 'gold' ? '▲ 金手指' : '▼ 银手指'}</b>`;
+                        return t;
+                    } },
+                grid: [
+                    { left: 52, right: 14, top: 24, height: '34%' },
+                    { left: 52, right: 14, top: '48%', height: '18%' },
+                    { left: 52, right: 14, top: '72%', height: '20%' }
+                ],
+                xAxis: [
+                    { type: 'category', data: dates, gridIndex: 0, axisLabel: { show: false }, axisTick: { show: false }, boundaryGap: true },
+                    { type: 'category', data: dates, gridIndex: 1, axisLabel: { show: false }, axisTick: { show: false }, boundaryGap: true },
+                    { type: 'category', data: dates, gridIndex: 2, axisLabel: { fontSize: 10, color: '#64748b', formatter: v => v.slice(5) }, boundaryGap: true }
+                ],
+                yAxis: [
+                    { gridIndex: 0, scale: true, axisLabel: { fontSize: 10, color: '#64748b' }, splitLine: { lineStyle: { color: '#f1f5f9' } } },
+                    { gridIndex: 1, min: 0, max: 100, axisLabel: { fontSize: 10, color: '#64748b', formatter: '{value}%' }, splitLine: { lineStyle: { color: '#f1f5f9' } } },
+                    { gridIndex: 2, scale: true, axisLabel: { fontSize: 10, color: '#64748b', formatter: '{value}%' }, splitLine: { lineStyle: { color: '#f1f5f9' } } }
+                ],
+                dataZoom: [
+                    { type: 'inside', xAxisIndex: [0, 1, 2], start: 0, end: 100 },
+                    { type: 'slider', xAxisIndex: [0, 1, 2], bottom: 2, height: 16, borderColor: '#e2e8f0', fillerColor: 'rgba(102,126,234,0.12)' }
+                ],
+                series: [
+                    { name: '上证指数', type: 'candlestick', data: ohlc, xAxisIndex: 0, yAxisIndex: 0,
+                      itemStyle: { color: SENT_RED, color0: SENT_GREEN, borderColor: SENT_RED, borderColor0: SENT_GREEN },
+                      markArea: { silent: true, data: trendAreas },
+                      markPoint: { symbol: 'triangle', symbolSize: 11, data: fingers.map(f => ({ ...f, symbolRotate: f.value === '▼' ? 180 : 0 })), label: { show: false } } },
+                    { name: 'MA20', type: 'line', data: rows.map(r => r.ma20), xAxisIndex: 0, yAxisIndex: 0, symbol: 'none', lineStyle: { width: 1.2, color: '#f59e0b', type: 'dashed' } },
+                    { name: '阳谱', type: 'line', data: yang, xAxisIndex: 1, yAxisIndex: 1, symbol: 'none', lineStyle: { width: 1, color: SENT_RED }, areaStyle: { color: 'rgba(217,45,32,0.30)' }, stack: 'spec' },
+                    { name: '阴谱', type: 'line', data: yin, xAxisIndex: 1, yAxisIndex: 1, symbol: 'none', lineStyle: { width: 0 }, areaStyle: { color: 'rgba(11,143,98,0.30)' }, stack: 'spec' },
+                    { name: '机构力道', type: 'bar', data: force.map(v => v == null ? null : { value: v, itemStyle: { color: v >= 0 ? SENT_RED : SENT_GREEN } }), xAxisIndex: 2, yAxisIndex: 2, barMaxWidth: 7,
+                      markPoint: { symbol: 'circle', symbolSize: 1, data: markPts, label: { show: true, position: 'top', fontSize: 10, fontWeight: 700, formatter: p => p.value, color: '#334155' } },
+                      markLine: { silent: true, symbol: 'none', lineStyle: { color: '#cbd5e1', type: 'dashed' }, data: [{ yAxis: 0 }], label: { show: false } } }
+                ]
+            }, true);
+            document.getElementById('sent-chart-sub').textContent = `日K + MA20 · 红带=趋势多头区 绿带=空头区`;
+        }
+        document.getElementById('sent-refresh').addEventListener('click', () => loadSentiment(true));
+        document.getElementById('sent-retry').addEventListener('click', () => { document.getElementById('sent-err').hidden = true; loadSentiment(true); });
+        let sentNarrow = null;
+        window.addEventListener('resize', () => {
+            if (!sentChart || !document.getElementById('panel-sentiment').classList.contains('active')) return;
+            sentChart.resize();
+            const n = document.getElementById('sent-chart').clientWidth < 560;
+            if (sentData && sentNarrow !== null && n !== sentNarrow) renderSentChart(sentData);
+            sentNarrow = n;
+        });
 
         // 单股筹码分布图
         window.showChipDetail = async function(symbol, name) {

@@ -1036,6 +1036,19 @@ async def quant_signals_api(request: Request, pwd: str = Depends(check_password)
         force=bool(refresh))
 
 
+@app.get("/api/quant/sentiment")
+async def quant_sentiment_api(request: Request, pwd: str = Depends(check_password),
+                              refresh: int = 0):
+    """大盘情绪·智能点金（阳谱/阴谱+机构力道+金手指/银手指+信号日志+近3年回测）
+
+    当日缓存+后台任务：首跑返回 status=scanning，前端轮询同一 URL（剥 refresh）。
+    """
+    from app.services import quant_jobs
+    from app.services.market_sentiment import compute_sentiment_cached
+    return await quant_jobs.run(
+        "market_sentiment", compute_sentiment_cached, force=bool(refresh))
+
+
 @app.get("/api/quant/trend")
 async def quant_trend_api(request: Request, pwd: str = Depends(check_password),
                           mode: str = "strong", refresh: int = 0, full: int = 0):
