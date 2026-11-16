@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>持仓工作台</title>
-    <link rel="stylesheet" href="/static/styles.css?v=20261111b">
+    <link rel="stylesheet" href="/static/styles.css?v=20261113b">
     <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
     <!-- ===== 量化回测实验室 UI 风格覆盖层 ===== -->
     <style>
@@ -246,6 +246,11 @@
         }
         .kline-card:not(.collapsed) .kline-toggle { border-bottom: 1px solid #e9e6ff; }
         .kline-card:not(.collapsed) .mini-kline { padding: 8px 12px 10px; min-height: 0; }
+        /* 读数/图例占位：tip 与 legend 绝对定位，需预留顶部空间避免压图 */
+        .kline-card:not(.collapsed) .mini-kline { padding-top: 60px; }
+        .kline-card:not(.collapsed) .mini-kline:has(.k-legend) { padding-top: 92px; }
+        .kline-card .kline-tip { left: 12px; right: 12px; }
+        .kline-card .k-legend { left: 12px; right: 12px; top: 56px; }
 
         /* 消息链接 */
         .cost-fix-link { display: inline-block; padding: 6px 4px; min-height: 24px; }
@@ -873,6 +878,6 @@
         <script id="position-edit-data" type="application/json">{{ edit_json | safe }}</script>
     </div>
 
-    <script src="/static/app.js?v=20261111a"></script>
+    <script src="/static/app.js?v=20261113b"></script>
 </body>
 </html>

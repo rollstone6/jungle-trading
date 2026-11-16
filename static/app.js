@@ -62,7 +62,7 @@ function bindManualPositionForm() {
   })();
   const ORIGINAL = new Map(EDIT.positions.map((p) => [p.code, p]));
   const POOL = EDIT.pool || [];
-  const DRAFT_KEY = "jungl…t-v1";
+  const DRAFT_KEY = "jungle-pm-draft-v1";
 
   let searchTimer = null;
   let searchSeq = 0;
@@ -686,6 +686,7 @@ function readKlinePoints(el) {
       high: Number(item.high),
       low: Number(item.low),
       close: Number(item.close),
+      volume: Number(item.volume) || 0,
     }))
     .filter(
       (item) =>
@@ -695,6 +696,187 @@ function readKlinePoints(el) {
         Number.isFinite(item.low) &&
         Number.isFinite(item.close),
     );
+}
+
+// ===== K线主图指标：计算（纯前端，基于已加载的日K序列） =====
+const K_MA_COLORS = { 5: "#111827", 10: "#8b5cf6", 20: "#f59e0b", 60: "#3b82f6", 120: "#a16207", 250: "#64748b" };
+const K_MA_PERIODS = [5, 10, 20, 60, 120, 250];
+
+function kSMA(points, period) {
+  const out = new Array(points.length).fill(null);
+  let sum = 0;
+  for (let i = 0; i < points.length; i++) {
+    sum += points[i].close;
+    if (i >= period) sum -= points[i - period].close;
+    if (i >= period - 1) out[i] = sum / period;
+  }
+  return out;
+}
+
+function kEMA(points, period) {
+  const out = new Array(points.length).fill(null);
+  if (!points.length) return out;
+  const k = 2 / (period + 1);
+  let prev = points[0].close;
+  out[0] = prev;
+  for (let i = 1; i < points.length; i++) {
+    prev = points[i].close * k + prev * (1 - k);
+    out[i] = prev;
+  }
+  return out;
+}
+
+function kSTDEV(points, period, maArr) {
+  const out = new Array(points.length).fill(null);
+  for (let i = period - 1; i < points.length; i++) {
+    let s = 0;
+    for (let j = i - period + 1; j <= i; j++) {
+      const d = points[j].close - maArr[i];
+      s += d * d;
+    }
+    out[i] = Math.sqrt(s / period);
+  }
+  return out;
+}
+
+// 神奇九转（TD Setup 简化版）：连续9根收盘低于/高于4根前收盘 → 低九(看多)/高九(看空)
+function kNineTurn(points) {
+  const low = new Array(points.length).fill(0);
+  const high = new Array(points.length).fill(0);
+  let lc = 0, hc = 0;
+  for (let i = 0; i < points.length; i++) {
+    if (i < 4) { lc = 0; hc = 0; continue; }
+    if (points[i].close < points[i - 4].close) { lc++; hc = 0; }
+    else if (points[i].close > points[i - 4].close) { hc++; lc = 0; }
+    else { lc = 0; hc = 0; }
+    low[i] = lc; high[i] = hc;
+  }
+  return { low, high };
+}
+
+// 多空信号：MA5 上穿 MA20 → 多；下穿 → 空
+function kCrossSignals(points) {
+  const m5 = kSMA(points, 5), m20 = kSMA(points, 20);
+  const marks = [];
+  for (let i = 1; i < points.length; i++) {
+    if (m5[i] == null || m20[i] == null || m5[i - 1] == null || m20[i - 1] == null) continue;
+    const prev = m5[i - 1] - m20[i - 1], cur = m5[i] - m20[i];
+    if (prev <= 0 && cur > 0) marks.push({ i, type: "B" });
+    else if (prev >= 0 && cur < 0) marks.push({ i, type: "S" });
+  }
+  return marks;
+}
+
+// 主图指标线组：返回 [{name,color,values}]，values 与 points 等长（不足期=null）
+function kIndicatorLines(points, mode) {
+  const n = points.length;
+  const lines = [];
+  if (!n) return lines;
+  if (mode === "ma") {
+    for (const p of K_MA_PERIODS) lines.push({ name: `MA${p}`, color: K_MA_COLORS[p], values: kSMA(points, p) });
+  } else if (mode === "boll") {
+    const mid = kSMA(points, 20), sd = kSTDEV(points, 20, mid);
+    const up = mid.map((v, i) => (v == null ? null : v + 2 * sd[i]));
+    const dn = mid.map((v, i) => (v == null ? null : v - 2 * sd[i]));
+    lines.push({ name: "上轨", color: "#ef4444", values: up });
+    lines.push({ name: "中轨", color: "#f59e0b", values: mid });
+    lines.push({ name: "下轨", color: "#22c55e", values: dn });
+  } else if (mode === "ene") {
+    const mid = kSMA(points, 25);
+    const up = mid.map((v) => (v == null ? null : v * 1.06));
+    const dn = mid.map((v) => (v == null ? null : v * 0.94));
+    lines.push({ name: "上轨", color: "#ef4444", values: up });
+    lines.push({ name: "中轨", color: "#f59e0b", values: mid });
+    lines.push({ name: "下轨", color: "#22c55e", values: dn });
+  } else if (mode === "expma") {
+    lines.push({ name: "EMA12", color: "#111827", values: kEMA(points, 12) });
+    lines.push({ name: "EMA50", color: "#f59e0b", values: kEMA(points, 50) });
+  } else if (mode === "bullbear") {
+    const m20 = kSMA(points, 20), m60 = kSMA(points, 60);
+    const bb = m20.map((v, i) => (v == null || m60[i] == null ? null : (v + m60[i]) / 2));
+    lines.push({ name: "牛熊线", color: "#8b5cf6", values: bb, width: 2 });
+  }
+  return lines;
+}
+
+// ===== K线设置（全局记忆，localStorage） =====
+const K_SETTINGS_KEY = "jungle-kline-settings-v1";
+const K_DEFAULTS = { indicator: "ma", nine: true, bs: false, chips: true };
+let K_SETTINGS = (() => {
+  try { return { ...K_DEFAULTS, ...JSON.parse(localStorage.getItem(K_SETTINGS_KEY) || "{}") }; }
+  catch (_) { return { ...K_DEFAULTS }; }
+})();
+function saveKSettings() { try { localStorage.setItem(K_SETTINGS_KEY, JSON.stringify(K_SETTINGS)); } catch (_) {} }
+function rerenderAllKlines() {
+  document.querySelectorAll(".mini-kline").forEach((c) => {
+    const card = c.closest(".kline-card");
+    if (!card || !card.classList.contains("collapsed")) renderKlineChart(c);
+  });
+}
+
+// 底部抽屉：K线主图快捷设置（仿同花顺交互，单例）
+function openKlineSettings() {
+  let sheet = document.getElementById("k-settings-sheet");
+  if (!sheet) {
+    sheet = document.createElement("div");
+    sheet.id = "k-settings-sheet";
+    sheet.className = "k-sheet-backdrop";
+    sheet.innerHTML = `
+      <div class="k-sheet" role="dialog" aria-modal="true" aria-label="K线主图快捷设置">
+        <div class="k-sheet-head"><strong>K线主图快捷设置</strong><button type="button" class="k-sheet-close" data-k-close aria-label="关闭">×</button></div>
+        <div class="k-sheet-body">
+          <div class="k-sheet-group">主图指标</div>
+          <div class="k-sheet-grid" data-k-indicators>
+            <button type="button" data-k-ind="none">不显示指标</button>
+            <button type="button" data-k-ind="ma">均线</button>
+            <button type="button" data-k-ind="bullbear">牛熊线</button>
+            <button type="button" data-k-ind="boll">BOLL</button>
+            <button type="button" data-k-ind="ene">ENE</button>
+            <button type="button" data-k-ind="expma">EXPMA</button>
+          </div>
+          <div class="k-sheet-group">提示信号</div>
+          <div class="k-sheet-toggle-row"><span>神奇九转 <i class="k-info" title="连续9根收盘低于/高于4根前收盘：低九看多、高九看空">i</i></span><button type="button" class="k-switch" data-k-toggle="nine" role="switch" aria-label="神奇九转"></button></div>
+          <div class="k-sheet-toggle-row"><span>多空信号 <i class="k-info" title="MA5 上穿 MA20 提示「多」，下穿提示「空」">i</i></span><button type="button" class="k-switch" data-k-toggle="bs" role="switch" aria-label="多空信号"></button></div>
+          <div class="k-sheet-toggle-row"><span>筹码分布 <i class="k-info" title="按成交量分布估算的持仓成本峰，铺在K线背后">i</i></span><button type="button" class="k-switch" data-k-toggle="chips" role="switch" aria-label="筹码分布"></button></div>
+          <div class="k-sheet-foot">设置自动保存，对所有持仓K线生效</div>
+        </div>
+      </div>`;
+    document.body.appendChild(sheet);
+    sheet.addEventListener("click", (e) => { if (e.target === sheet) closeKlineSettings(); });
+    sheet.querySelector("[data-k-close]").addEventListener("click", closeKlineSettings);
+    sheet.querySelectorAll("[data-k-ind]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        K_SETTINGS.indicator = btn.dataset.kInd;
+        saveKSettings(); syncKSettingsUI(); rerenderAllKlines();
+      });
+    });
+    sheet.querySelectorAll("[data-k-toggle]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const key = btn.dataset.kToggle;
+        K_SETTINGS[key] = !K_SETTINGS[key];
+        saveKSettings(); syncKSettingsUI(); rerenderAllKlines();
+      });
+    });
+    document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeKlineSettings(); });
+  }
+  syncKSettingsUI();
+  sheet.classList.add("open");
+  document.body.style.overflow = "hidden";
+}
+function closeKlineSettings() {
+  const sheet = document.getElementById("k-settings-sheet");
+  if (sheet) sheet.classList.remove("open");
+  document.body.style.overflow = "";
+}
+function syncKSettingsUI() {
+  const sheet = document.getElementById("k-settings-sheet");
+  if (!sheet) return;
+  sheet.querySelectorAll("[data-k-ind]").forEach((b) => b.classList.toggle("active", b.dataset.kInd === K_SETTINGS.indicator));
+  sheet.querySelectorAll("[data-k-toggle]").forEach((b) => {
+    const on = !!K_SETTINGS[b.dataset.kToggle];
+    b.classList.toggle("on", on);
+    b.setAttribute("aria-checked", on ? "true" : "false");
+  });
 }
 
 function ensureKlineState(el) {
@@ -716,7 +898,7 @@ function ensureKlineState(el) {
 
 function klineGeometry(el, state) {
   const width = Math.max(300, Math.floor(el.clientWidth || 320));
-  const height = 120;
+  const height = 176;
   const pad = { top: 8, right: 6, bottom: 20, left: 36 };
   const plotW = width - pad.left - pad.right;
   const plotH = height - pad.top - pad.bottom;
@@ -773,12 +955,22 @@ function renderKlineChart(el) {
   state.visible = geom.visible;
   state.start = geom.start;
 
-  const { width, height, pad, plotW, plotH } = geom;
+  const { width, pad, plotW, plotH } = geom;
+  const height = 176;
   const view = points.slice(state.start, state.start + state.visible);
   const lows = view.map((item) => item.low);
   const highs = view.map((item) => item.high);
-  const min = Math.min(...lows);
-  const max = Math.max(...highs);
+  let min = Math.min(...lows);
+  let max = Math.max(...highs);
+
+  // 主图指标线（全序列计算，视窗切片绘制；MA250 等长周期依赖完整历史）
+  const indLines = kIndicatorLines(points, K_SETTINGS.indicator);
+  const viewLines = indLines.map((l) => ({ ...l, slice: l.values.slice(state.start, state.start + state.visible) }));
+  for (const l of viewLines) {
+    for (const v of l.slice) {
+      if (v != null && Number.isFinite(v)) { min = Math.min(min, v); max = Math.max(max, v); }
+    }
+  }
   const range = max - min || Math.max(max * 0.02, 1);
   const minY = min - range * 0.08;
   const maxY = max + range * 0.08;
@@ -794,8 +986,8 @@ function renderKlineChart(el) {
     })
     .join("");
 
-  // 筹码峰层：用全部可见+历史数据算分布，灰度横条铺在K线背后，与当前视窗价格区间对齐
-  const chips = calcChipDistribution(points, 40);
+  // 筹码峰层：灰度横条铺在K线背后（可在设置中关闭）
+  const chips = K_SETTINGS.chips ? calcChipDistribution(points, 40) : { dist: [], max: 0, lo: 0, hi: 0, width: 0, peakPrice: 0, avgCost: 0 };
   let chipLayer = "";
   if (chips.max > 0) {
     const maxBarW = plotW * 0.62;
@@ -832,6 +1024,53 @@ function renderKlineChart(el) {
     })
     .join("");
 
+  // 指标线层（画在蜡烛之上）
+  const indicatorLayer = viewLines
+    .map((l) => {
+      const pts = [];
+      l.slice.forEach((v, i) => {
+        if (v == null || !Number.isFinite(v)) return;
+        const x = pad.left + step * i + step / 2;
+        const y = priceY(v, minY, maxY, pad.top, plotH);
+        pts.push(`${x.toFixed(1)},${y.toFixed(1)}`);
+      });
+      if (pts.length < 2) return "";
+      return `<polyline points="${pts.join(" ")}" fill="none" stroke="${l.color}" stroke-width="${l.width || 1.2}" stroke-linejoin="round" stroke-linecap="round" opacity="0.9"/>`;
+    })
+    .join("");
+
+  // 提示信号层：神奇九转（1-8 小数字，9 高亮）+ 多空 B/S
+  let signalLayer = "";
+  const nine = K_SETTINGS.nine ? kNineTurn(points) : null;
+  if (nine) {
+    view.forEach((item, i) => {
+      const gi = state.start + i;
+      const x = pad.left + step * i + step / 2;
+      const lc = nine.low[gi], hc = nine.high[gi];
+      if (lc > 0) {
+        const y = priceY(item.low, minY, maxY, pad.top, plotH) + (lc === 9 ? 13 : 10);
+        const big = lc === 9;
+        signalLayer += `<text x="${x.toFixed(1)}" y="${Math.min(y, height - pad.bottom - 2).toFixed(1)}" text-anchor="middle" class="k-nine k-nine-low${big ? " nine-big" : ""}">${lc}</text>`;
+      } else if (hc > 0) {
+        const y = priceY(item.high, minY, maxY, pad.top, plotH) - (hc === 9 ? 8 : 5);
+        const big = hc === 9;
+        signalLayer += `<text x="${x.toFixed(1)}" y="${Math.max(y, pad.top + 8).toFixed(1)}" text-anchor="middle" class="k-nine k-nine-high${big ? " nine-big" : ""}">${hc}</text>`;
+      }
+    });
+  }
+  if (K_SETTINGS.bs) {
+    for (const m of kCrossSignals(points)) {
+      if (m.i < state.start || m.i >= state.start + state.visible) continue;
+      const i = m.i - state.start;
+      const item = view[i];
+      const x = pad.left + step * i + step / 2;
+      const isB = m.type === "B";
+      const y = isB ? priceY(item.low, minY, maxY, pad.top, plotH) + 14 : priceY(item.high, minY, maxY, pad.top, plotH) - 14;
+      const cy = clamp(y, pad.top + 7, height - pad.bottom - 7);
+      signalLayer += `<g class="k-bs ${isB ? "k-bs-b" : "k-bs-s"}"><circle cx="${x.toFixed(1)}" cy="${cy.toFixed(1)}" r="6.5"/><text x="${x.toFixed(1)}" y="${(cy + 3).toFixed(1)}" text-anchor="middle">${isB ? "多" : "空"}</text></g>`;
+    }
+  }
+
   const selectedIndex = state.selected === null ? -1 : state.selected - state.start;
   const selected = selectedIndex >= 0 && selectedIndex < view.length ? view[selectedIndex] : last;
   const selectedLocal = selectedIndex >= 0 && selectedIndex < view.length ? selectedIndex : view.length - 1;
@@ -843,6 +1082,15 @@ function renderKlineChart(el) {
   const selectedY = priceY(selected.close, minY, maxY, pad.top, plotH);
   const lastY = priceY(last.close, minY, maxY, pad.top, plotH);
 
+  // 指标读数图例（跟随选中K线）
+  const legend = viewLines
+    .map((l) => {
+      const v = l.slice[selectedLocal];
+      if (v == null || !Number.isFinite(v)) return "";
+      return `<span style="color:${l.color}">${l.name}:${v.toFixed(2)}</span>`;
+    })
+    .join("");
+
   el.innerHTML = `
     <div class="kline-tip">
       <strong>${selected.date}</strong>
@@ -853,11 +1101,14 @@ function renderKlineChart(el) {
       <span>低 ${fmtPrice(selected.low)}</span>
       ${chips.max > 0 ? `<span class="k-chip-hint">峰 ${chips.peakPrice.toFixed(2)} · 均 ${chips.avgCost.toFixed(2)}</span>` : ""}
     </div>
-    <svg viewBox="0 0 ${width} ${height}" role="img" aria-label="近期K线图（含筹码分布）">
+    ${legend ? `<div class="k-legend">${legend}</div>` : ""}
+    <svg viewBox="0 0 ${width} ${height}" role="img" aria-label="近期K线图（含主图指标与信号）">
       <rect x="0" y="0" width="${width}" height="${height}" class="k-bg"/>
       ${grid}
       ${chipLayer}
       ${candles}
+      ${indicatorLayer}
+      ${signalLayer}
       <line x1="${pad.left}" y1="${lastY.toFixed(1)}" x2="${width - pad.right}" y2="${lastY.toFixed(1)}" class="k-last"/>
       <text x="${width - pad.right - 4}" y="${(lastY - 5).toFixed(1)}" text-anchor="end" class="k-last-label">${last.close.toFixed(2)}</text>
       <line x1="${selectedX.toFixed(1)}" y1="${pad.top}" x2="${selectedX.toFixed(1)}" y2="${height - pad.bottom}" class="k-select"/>
@@ -984,7 +1235,7 @@ function bindKlineInteraction(el) {
 function bindKlineCharts() {
   const charts = [...document.querySelectorAll(".mini-kline")];
   if (!charts.length) return;
-  const KEY = "jungle-kl…nd-v1";
+  const KEY = "jungle-kline-expand-v1";
   let expanded = {};
   try { expanded = JSON.parse(localStorage.getItem(KEY) || "{}"); } catch (e) { expanded = {}; }
   const save = () => { try { localStorage.setItem(KEY, JSON.stringify(expanded)); } catch (e) {} };
@@ -993,6 +1244,22 @@ function bindKlineCharts() {
     chart._klineInteractBound = true;
     bindKlineInteraction(chart);
   };
+
+  // ⚙ 设置入口：展开时才显示，点击打开底部抽屉（不触发折叠）
+  charts.forEach((chart) => {
+    const card = chart.closest(".kline-card");
+    const head = card && card.querySelector(".kline-head");
+    if (head && !head.querySelector(".k-gear")) {
+      const gear = document.createElement("span");
+      gear.className = "k-gear";
+      gear.setAttribute("role", "button");
+      gear.setAttribute("aria-label", "K线主图快捷设置");
+      gear.title = "K线主图快捷设置";
+      gear.textContent = "⚙";
+      gear.addEventListener("click", (e) => { e.stopPropagation(); openKlineSettings(); });
+      head.appendChild(gear);
+    }
+  });
 
   charts.forEach((chart) => {
     const card = chart.closest(".kline-card");
@@ -1159,7 +1426,7 @@ loadETFFlow();
 const REGIME_LABELS = { squeeze: '挤压待变', trending: '趋势型', ranging: '区间型', neutral: '中性' };
 
 /* ===== 持仓走势分类筛选 ===== */
-const RF_FILTER_KEY = 'jungl…r-v1';
+const RF_FILTER_KEY = 'jungle-rf-filter-v1';
 
 function initRegimeFilter() {
     const bar = document.querySelector('.regime-filter');

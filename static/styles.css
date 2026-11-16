@@ -1746,11 +1746,12 @@ li {
 .mini-kline {
   position: relative;
   min-height: 180px;
-  padding-top: 42px;
+  padding-top: 64px;
   cursor: crosshair;
   touch-action: none;
   user-select: none;
 }
+.mini-kline:has(.k-legend) { padding-top: 82px; }
 
 .mini-kline svg {
   display: block;
@@ -1817,18 +1818,15 @@ li {
 .kline-tip {
   position: absolute;
   top: 0;
+  left: 0;
   right: 0;
   z-index: 2;
   display: flex;
   flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 4px 6px;
+  justify-content: flex-start;
+  gap: 2px 8px;
   max-width: 100%;
-  padding: 5px 6px;
-  border: 1px solid rgba(17, 24, 39, 0.12);
-  border-radius: 7px;
-  background: rgba(255, 255, 255, 0.94);
-  box-shadow: 0 5px 14px rgba(15, 23, 42, 0.1);
+  padding: 3px 2px;
   color: #25324a;
   font-size: 10px;
   line-height: 1.45;
@@ -1839,7 +1837,7 @@ li {
   flex: 1 0 100%;
   color: #111827;
   font-size: 11px;
-  text-align: right;
+  text-align: left;
 }
 
 .kline-tip span {
@@ -1847,8 +1845,6 @@ li {
 }
 
 .kline-tip .k-chip-hint {
-  flex: 1 0 100%;
-  text-align: right;
   color: #6b7280;
   font-weight: 600;
   font-size: 9px;
@@ -1856,6 +1852,210 @@ li {
 
 .kline-hint {
   color: var(--muted);
+}
+
+/* ===== K线主图：指标图例 / 九转 / 多空信号 ===== */
+.k-legend {
+  position: absolute;
+  top: 46px;
+  left: 0;
+  right: 0;
+  z-index: 1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 8px;
+  padding: 2px 2px 4px;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.4;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  pointer-events: none;
+}
+
+.k-nine {
+  font-size: 8px;
+  font-weight: 700;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  paint-order: stroke;
+  stroke: #ffffff;
+  stroke-width: 2px;
+}
+.k-nine-low { fill: var(--red); }
+.k-nine-high { fill: var(--green); }
+.k-nine.nine-big { font-size: 11px; font-weight: 900; }
+
+.k-bs circle { stroke: #ffffff; stroke-width: 1; }
+.k-bs text {
+  fill: #ffffff;
+  font-size: 8px;
+  font-weight: 800;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+.k-bs-b circle { fill: var(--red); }
+.k-bs-s circle { fill: var(--green); }
+
+/* ⚙ 设置入口（仅展开时可见） */
+.k-gear {
+  margin-left: auto;
+  padding: 2px 8px;
+  font-size: 14px;
+  line-height: 1;
+  color: var(--muted);
+  cursor: pointer;
+  border-radius: 6px;
+  transition: background 0.15s, color 0.15s;
+}
+.k-gear:hover { background: rgba(99, 102, 241, 0.12); color: var(--accent, #6366f1); }
+.kline-card.collapsed .k-gear { display: none; }
+
+/* ===== K线设置底部抽屉（仿同花顺） ===== */
+.k-sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 65;
+  display: none;
+  background: rgba(15, 23, 42, 0.45);
+}
+.k-sheet-backdrop.open { display: block; }
+.k-sheet {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  max-height: 78vh;
+  overflow-y: auto;
+  background: #ffffff;
+  border-radius: 16px 16px 0 0;
+  box-shadow: 0 -8px 30px rgba(15, 23, 42, 0.18);
+  padding-bottom: env(safe-area-inset-bottom, 0);
+  animation: k-sheet-up 0.22s ease-out;
+}
+@keyframes k-sheet-up {
+  from { transform: translateY(40%); opacity: 0.6; }
+  to { transform: translateY(0); opacity: 1; }
+}
+.k-sheet-head {
+  position: sticky;
+  top: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 14px 16px 10px;
+  background: #ffffff;
+  border-bottom: 1px solid #f1f5f9;
+}
+.k-sheet-head strong { font-size: 15px; color: #111827; }
+.k-sheet-close {
+  position: absolute;
+  right: 12px;
+  top: 10px;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 50%;
+  background: #f1f5f9;
+  color: #64748b;
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+}
+.k-sheet-body { padding: 12px 16px 18px; }
+.k-sheet-group {
+  margin: 10px 0 8px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #64748b;
+}
+.k-sheet-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+.k-sheet-grid button {
+  padding: 9px 4px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #f8fafc;
+  color: #334155;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.k-sheet-grid button.active {
+  background: #fef2f2;
+  border-color: #fecaca;
+  color: var(--red);
+  font-weight: 700;
+}
+.k-sheet-toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 2px;
+  border-bottom: 1px solid #f8fafc;
+  font-size: 14px;
+  color: #1f2937;
+}
+.k-info {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  margin-left: 4px;
+  border-radius: 50%;
+  border: 1px solid #cbd5e1;
+  color: #94a3b8;
+  font-size: 9px;
+  font-style: normal;
+  cursor: help;
+  vertical-align: 1px;
+}
+.k-switch {
+  position: relative;
+  width: 44px;
+  height: 24px;
+  flex: 0 0 auto;
+  border: none;
+  border-radius: 999px;
+  background: #e2e8f0;
+  cursor: pointer;
+  transition: background 0.18s;
+}
+.k-switch::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.25);
+  transition: transform 0.18s;
+}
+.k-switch.on { background: var(--red); }
+.k-switch.on::after { transform: translateX(20px); }
+.k-sheet-foot {
+  margin-top: 14px;
+  text-align: center;
+  font-size: 11px;
+  color: #94a3b8;
+}
+@media (min-width: 640px) {
+  .k-sheet {
+    left: 50%;
+    right: auto;
+    transform: translateX(-50%);
+    width: 460px;
+    border-radius: 16px;
+    bottom: 24px;
+    max-height: 70vh;
+  }
+  @keyframes k-sheet-up {
+    from { transform: translate(-50%, 30px); opacity: 0.6; }
+    to { transform: translate(-50%, 0); opacity: 1; }
+  }
 }
 
 .kline-metrics {
