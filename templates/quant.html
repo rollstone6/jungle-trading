@@ -120,6 +120,12 @@
         }
 
         .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 16px; margin-bottom: 20px; }
+        /* 按卡数固定等宽列（auto-fit 空轨道塌陷会致宽度失衡）；窄屏 media 回退 auto-fit 自动换行 */
+        .kpi-grid.cols-2 { grid-template-columns: repeat(2, 1fr); }
+        .kpi-grid.cols-3 { grid-template-columns: repeat(3, 1fr); }
+        .kpi-grid.cols-4 { grid-template-columns: repeat(4, 1fr); }
+        /* loading/空态占位跨全列，避免被当成 grid item 挤占首列致卡片宽度失衡 */
+        .kpi-grid > .loading, .kpi-grid > .empty-state { grid-column: 1 / -1; }
         .kpi-card {
             background: white; border: 2px solid #e2e8f0; border-radius: 12px;
             padding: 18px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); text-align: center;
@@ -129,6 +135,8 @@
         .kpi-card.pass .v { color: var(--green); }
         .kpi-card.box .v { color: #f59e0b; }
         .kpi-card.score .v { color: var(--accent); }
+        /* 全局 .score 是持仓页小徽章（justify-self:end+小padding），会污染同名 KPI 卡，此处重置 */
+        .kpi-card.score { justify-self: stretch; align-self: stretch; padding: 18px; border: 2px solid #e2e8f0; border-radius: 12px; background: white; color: inherit; }
 
         .data-table {
             width: 100%; border-collapse: collapse; background: white;
@@ -265,6 +273,9 @@
         .lab-subtab-btn.on { background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: #fff; border-color: transparent; }
         .lab-panel-card { background: white; border: 2px solid #e2e8f0; border-radius: 12px; padding: 14px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-bottom: 16px; min-width: 0; }
         .lab-panel-card[hidden] { display: none; }
+        /* 筹码列表收缩：默认前10，展开行用 class 控制（不用 hidden 属性，避免被 td display 覆盖） */
+        #chip-body tr.chip-extra { display: none; }
+        #chip-body.show-all tr.chip-extra { display: table-row; }
         .lab-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; min-width: 0; }
         table.lab-table { width: 100%; border-collapse: collapse; font-size: 12.5px; white-space: nowrap; }
         .lab-table th { background: #f6f7f9; color: #475569; font-weight: 600; padding: 7px 9px; text-align: right; position: sticky; top: 0; }
@@ -319,6 +330,11 @@
         /* 移动端 KPI 大数字降档，防拥挤 */
         @media (max-width: 640px) {
             .kpi-grid { gap: 10px; margin-bottom: 14px; grid-template-columns: repeat(auto-fit, minmax(104px, 1fr)); }
+            .kpi-grid.cols-2, .kpi-grid.cols-4 { grid-template-columns: repeat(auto-fit, minmax(104px, 1fr)); }
+            /* 3 卡窄屏强制单行三等分，避免 2+1 错位留白 */
+            .kpi-grid.cols-3 { grid-template-columns: repeat(3, 1fr); }
+            .kpi-grid.cols-3 .kpi-card { padding: 10px 6px; }
+            .kpi-grid.cols-3 .kpi-card .v { font-size: 22px; }
             .kpi-card { padding: 12px 10px; }
             .kpi-card .v { font-size: 24px; }
             .kpi-card .l { font-size: 11.5px; }
@@ -434,7 +450,7 @@
                 </div>
                 <span class="scan-meta" id="trend-meta" aria-live="polite">加载中...</span>
             </div>
-            <div class="kpi-grid" id="trend-kpi"><div class="loading">加载中...</div></div>
+            <div class="kpi-grid cols-3" id="trend-kpi"><div class="loading">加载中...</div></div>
             <div class="scroll-fade">
             <div class="table-scroll">
 <table class="data-table">
@@ -458,7 +474,7 @@
                 </div>
                 <span class="scan-meta" id="box-meta" aria-live="polite">加载中...</span>
             </div>
-            <div class="kpi-grid" id="box-kpi"><div class="loading">加载中...</div></div>
+            <div class="kpi-grid cols-2" id="box-kpi"><div class="loading">加载中...</div></div>
             <div class="scroll-fade">
             <div class="table-scroll">
 <table class="data-table">
@@ -522,7 +538,7 @@
                 </div>
                 <span class="scan-meta" id="chip-meta" aria-live="polite">加载中...</span>
             </div>
-            <div class="kpi-grid" id="chip-kpi"><div class="loading">加载中...</div></div>
+            <div class="kpi-grid cols-3" id="chip-kpi"><div class="loading">加载中...</div></div>
             <div class="scroll-fade">
             <div class="table-scroll">
 <table class="data-table">
@@ -535,6 +551,9 @@
 </div>
             </div>
             <div class="scroll-hint">← 左右滑动查看更多列</div>
+            <div style="text-align:center;margin:10px 0 2px">
+                <button type="button" class="lab-subtab-btn" id="chip-more" hidden aria-expanded="false"></button>
+            </div>
             <div class="detail-box" id="chip-detail">
                 <button type="button" class="detail-close" id="chip-detail-close" aria-label="收起筹码分布详情"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18 M6 6l12 12"/></svg></button>
                 <h4 id="chip-detail-title"></h4>
@@ -734,7 +753,7 @@
         const mkState = JSON.parse(localStorage.getItem(MK_KEY) || '{}');
         function mkOn(id) { return !!document.getElementById(id).checked; }
         function mkScopeTag(d) {
-            return d.scope === 'market' ? `全市场粗筛 ${d.poolSize || 300} 只（展示top${d.stocks ? Math.min(d.stocks.length,200) : d.total || 0}）· ` : `股票池 ${d.poolSize || ''} 只 · `;
+            return d.scope === 'market' ? `全市场粗筛 ${d.poolSize || 300} 只（展示top${d.stocks ? Math.min(d.stocks.length,200) : d.total || 0}）` : `股票池 ${d.poolSize || ''} 只`;
         }
         document.querySelectorAll('.mk-toggle input').forEach(inp => {
             const id = inp.id.replace('mk-', '');
@@ -943,15 +962,20 @@
             return pollScan('chip', url, renderChip, meta, btn,
                 mkOn('mk-chip') ? '全市场粗筛，首次约2-5分钟' : '全池模式');
         }
+        const CHIP_TOP_N = 10;
+        let chipExpanded = false;  // 会话内记忆展开态，重扫后保持
         function renderChip(d) {
             const meta = document.getElementById('chip-meta');
             {
+                const total = d.stocks.length;
+                const shown = chipExpanded ? total : Math.min(CHIP_TOP_N, total);
                 document.getElementById('chip-kpi').innerHTML = `
-                    <div class="kpi-card score"><div class="v">${d.stocks.length}</div><div class="l">完成扫描</div></div>
-                    <div class="kpi-card pass"><div class="v">${d.passedCount}</div><div class="l">集中度达标</div></div>`;
-                document.getElementById('chip-body').innerHTML = d.stocks.length ? d.stocks.map((s, i) => {
+                    <div class="kpi-card score"><div class="v">${total}</div><div class="l">完成扫描</div></div>
+                    <div class="kpi-card pass"><div class="v">${d.passedCount}</div><div class="l">集中度达标</div></div>
+                    <div class="kpi-card"><div class="v">${shown}</div><div class="l">当前展示</div></div>`;
+                document.getElementById('chip-body').innerHTML = total ? d.stocks.map((s, i) => {
                     const m = s.metrics;
-                    return `<tr>
+                    return `<tr class="${i >= CHIP_TOP_N ? 'chip-extra' : ''}">
                         <td style="font-weight:600">${esc(s.name)}</td>
                         <td class="mono">${s.symbol}</td>
                         <td class="mono">${s.close}</td>
@@ -963,13 +987,42 @@
                         <td><button type="button" class="link-btn" onclick="showChipDetail('${s.symbol}', '${esc(s.name)}')">查看分布</button></td>
                     </tr>`;
                 }).join('') : emptyRow(9, '暂无筹码数据', '点击「重新扫描」计算股票池筹码分布');
+                // 收缩/展开按钮：≤10 只不显示
+                const moreBtn = document.getElementById('chip-more');
+                const body = document.getElementById('chip-body');
+                body.classList.toggle('show-all', chipExpanded);
+                if (total > CHIP_TOP_N) {
+                    moreBtn.hidden = false;
+                    moreBtn.setAttribute('aria-expanded', String(chipExpanded));
+                    moreBtn.innerHTML = chipExpanded
+                        ? `收起 ▴ 仅看前 ${CHIP_TOP_N}`
+                        : `展开其余 ${total - CHIP_TOP_N} 只 ▾（按评分降序）`;
+                } else {
+                    moreBtn.hidden = true;
+                }
                 meta.innerHTML = metaHTML([
                     `数据日期 <b>${d.asOf}</b>`, `更新于 ${d.fetchedAt}`,
-                    mkScopeTag(d).replace(/ · $/, ''), '按综合评分降序',
+                    mkScopeTag(d).replace(/ · $/, ''),
+                    total > CHIP_TOP_N ? `按综合评分降序 · 默认前${CHIP_TOP_N}` : '按综合评分降序',
                 ]);
                 updateScrollHints();
             }
         }
+        document.getElementById('chip-more').addEventListener('click', () => {
+            chipExpanded = !chipExpanded;
+            const body = document.getElementById('chip-body');
+            body.classList.toggle('show-all', chipExpanded);
+            const btn = document.getElementById('chip-more');
+            const total = body.querySelectorAll('tr').length;
+            btn.setAttribute('aria-expanded', String(chipExpanded));
+            btn.innerHTML = chipExpanded
+                ? `收起 ▴ 仅看前 ${CHIP_TOP_N}`
+                : `展开其余 ${total - CHIP_TOP_N} 只 ▾（按评分降序）`;
+            // KPI「当前展示」同步
+            const kpis = document.querySelectorAll('#chip-kpi .kpi-card .v');
+            if (kpis.length >= 3) kpis[2].textContent = chipExpanded ? total : Math.min(CHIP_TOP_N, total);
+            updateScrollHints();
+        });
         document.getElementById('chip-refresh').addEventListener('click', () => loadChip(true));
         document.getElementById('chip-detail-close').addEventListener('click', () => {
             document.getElementById('chip-detail').style.display = 'none';
