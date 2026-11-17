@@ -1,5 +1,7 @@
 """持仓服务 - 风控计算和数据处理"""
 import json
+import math
+import statistics
 from app.models.database import get_db
 
 
@@ -171,8 +173,88 @@ def build_tech_pills(positions: list[dict]) -> list[dict]:
                 "glow": None, "title": "放量" if alert else "",
             })
 
+        # --- 波动率观察（HV20 年化 + 一年分位；高波动/剧烈扩张才警示） ---
+        vol = p.get("vol") or {}
+        if vol.get("hv20"):
+            pct = vol.get("pctile")
+            v_alert = bool(vol.get("alert")) and vol.get("state_cls") in ("expand", "flat")
+            title = f"HV20年化{vol['hv20']}%"
+            if pct is not None:
+                title += f" · 一年{pct}%分位"
+            if vol.get("atr_pct"):
+                title += f" · ATR14 {vol['atr_pct']}%"
+            pills.append({
+                "label": "波动", "val": "%.0f%%" % vol["hv20"], "alert": v_alert,
+                "prio": 2 if v_alert else 6, "prox": 0,
+                "cls": "high" if v_alert else "", "glow": None, "title": title,
+            })
+
         pills.sort(key=lambda x: (0 if x["alert"] else 1, x["prio"], -x["prox"]))
         p["tech_pills"] = pills
+    return positions
+
+
+def calc_volatility_watch(positions: list[dict]) -> list[dict]:
+    """波动率观察：HV20/HV60（年化历史波动率）+ 一年分位 + ATR14% + 扩张/收敛状态。
+
+    口径全透明：
+    - HV_n = 近 n 日对数收益样本标准差 × √252（年化）
+    - 分位 = 当前 HV20 在近一年（≤250 个滚动值）中的百分位排名
+    - ATR14% = Wilder 平滑真实波幅 / 现价（日均波动幅度，可直接对照止损距离）
+    - 状态：HV20 ≥ 1.25×HV60 → 扩张；≤ 0.75×HV60 → 收敛（挤压）；否则平稳
+    - 警示：分位 ≥80%（高波动区）或扩张且 HV20 ≥40%；收敛且分位 ≤25% 提示变盘窗口
+    """
+    for p in positions:
+        kl = p.get("kline") or []
+        v = {"hv20": None, "hv60": None, "pctile": None, "atr_pct": None,
+             "state": "数据不足", "state_cls": "flat", "alert": False, "alert_text": ""}
+        closes = [float(k["close"]) for k in kl if k.get("close")]
+        if len(closes) >= 22:
+            rets = [math.log(closes[i] / closes[i - 1]) for i in range(1, len(closes))]
+
+            def hv(n):
+                if len(rets) < n:
+                    return None
+                return round(statistics.stdev(rets[-n:]) * math.sqrt(252) * 100, 1)
+
+            v["hv20"], v["hv60"] = hv(20), hv(60)
+            # HV20 滚动序列（近一年）→ 当前值分位
+            if len(rets) >= 20:
+                roll = [statistics.stdev(rets[i - 20:i]) * math.sqrt(252) * 100
+                        for i in range(20, len(rets) + 1)]
+                roll = roll[-250:]
+                cur = roll[-1]
+                v["pctile"] = round(sum(1 for x in roll if x <= cur) / len(roll) * 100)
+            # ATR14（Wilder 平滑）
+            if len(kl) >= 15:
+                trs = []
+                for i in range(1, len(kl)):
+                    h, l, pc = float(kl[i]["high"]), float(kl[i]["low"]), float(kl[i - 1]["close"])
+                    trs.append(max(h - l, abs(h - pc), abs(l - pc)))
+                atr = statistics.mean(trs[:14])
+                for tr in trs[14:]:
+                    atr = (atr * 13 + tr) / 14
+                price = float(closes[-1])
+                if price > 0:
+                    v["atr_pct"] = round(atr / price * 100, 2)
+            # 状态与警示
+            h20, h60 = v["hv20"], v["hv60"]
+            if h20 and h60:
+                ratio = h20 / h60
+                if ratio >= 1.25:
+                    v["state"], v["state_cls"] = "扩张", "expand"
+                elif ratio <= 0.75:
+                    v["state"], v["state_cls"] = "收敛", "squeeze"
+                else:
+                    v["state"], v["state_cls"] = "平稳", "flat"
+            pct = v["pctile"]
+            if pct is not None and pct >= 80:
+                v["alert"], v["alert_text"] = True, f"波动率处一年高位（{pct}%分位），注意回撤与仓位"
+            elif v["state"] == "扩张" and h20 and h20 >= 40:
+                v["alert"], v["alert_text"] = True, f"波动快速放大（HV20 {h20}%），振幅加剧"
+            elif v["state"] == "收敛" and pct is not None and pct <= 25:
+                v["alert"], v["alert_text"] = True, f"波动收敛至低位（{pct}%分位），留意变盘窗口"
+        p["vol"] = v
     return positions
 
 

@@ -327,6 +327,112 @@
             border-radius: 12px;
             padding: 14px 16px;
         }
+        /* 波动率观察面板 */
+        .vol-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(min(210px, 100%), 1fr));
+            gap: 10px;
+        }
+        .vol-grid > * { min-width: 0; }
+        .vol-chip {
+            border-radius: 10px;
+            padding: 10px 12px;
+            border: 1.5px solid #e2e8f0;
+            background: #f8fafc;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            min-width: 0;
+        }
+        .vol-chip.expand { border-color: rgba(217, 45, 32, 0.45); background: #fef2f2; }
+        .vol-chip.squeeze { border-color: rgba(245, 158, 11, 0.5); background: #fffbeb; }
+        .vol-chip .vc-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            gap: 6px;
+        }
+        .vol-chip .vc-name {
+            font-weight: 700;
+            font-size: 13.5px;
+            color: #1e293b;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .vol-chip .vc-state {
+            font-size: 11px;
+            font-weight: 700;
+            padding: 1px 8px;
+            border-radius: 999px;
+            white-space: nowrap;
+            color: #fff;
+            background: linear-gradient(135deg, #64748b, #94a3b8);
+        }
+        .vol-chip.expand .vc-state { background: linear-gradient(135deg, #ef4444, #f97316); }
+        .vol-chip.squeeze .vc-state { background: linear-gradient(135deg, #f59e0b, #eab308); }
+        .vol-chip .vc-hv { display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; }
+        .vol-chip .vc-hv strong {
+            font-size: 19px;
+            font-variant-numeric: tabular-nums;
+            color: #334155;
+        }
+        .vol-chip.expand .vc-hv strong { color: var(--red); }
+        .vol-chip.squeeze .vc-hv strong { color: #b45309; }
+        .vol-chip .vc-hv small { font-size: 11px; color: #64748b; }
+        .vol-chip .vc-barwrap {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .vol-chip .vc-bar {
+            flex: 1;
+            min-width: 0;
+            height: 10px;
+            border-radius: 5px;
+            background: #e2e8f0;
+            overflow: hidden;
+        }
+        .vol-chip .vc-fill {
+            height: 100%;
+            border-radius: 5px;
+            background: linear-gradient(90deg, #94a3b8, #64748b);
+        }
+        .vol-chip .vc-fill.hot { background: linear-gradient(90deg, #f97316, #ef4444); }
+        .vol-chip .vc-fill.cold { background: linear-gradient(90deg, #38bdf8, #3b82f6); }
+        .vol-chip .vc-pct {
+            font-size: 10px;
+            font-weight: 700;
+            color: #475569;
+            white-space: nowrap;
+            font-variant-numeric: tabular-nums;
+        }
+        .vol-chip .vc-foot {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 6px;
+            font-size: 11px;
+            color: #64748b;
+        }
+        .vol-chip .vc-link {
+            color: var(--accent);
+            text-decoration: none;
+            white-space: nowrap;
+            display: inline-block;
+            padding: 2px 4px;
+            min-height: 24px;
+        }
+        .vol-chip .vc-link:hover { text-decoration: underline; }
+        .vol-note {
+            margin-top: 10px;
+            font-size: 11px;
+            color: #64748b;
+            line-height: 1.6;
+        }
+        @media (max-width: 380px) {
+            .vol-grid { grid-template-columns: 1fr; }
+        }
         .regime-panel-header {
             display: flex;
             align-items: baseline;
@@ -783,6 +889,51 @@
                     {% endif %}
                 </article>
                 {% endfor %}
+            </div>
+
+            <!-- 波动率观察（HV20/HV60 年化 + 一年分位 + ATR14% · 扩张/收敛状态） -->
+            <div class="regime-panel vol-panel" id="position-vol">
+                <div class="regime-panel-header">
+                    <h3><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12h4l3-8 4 16 3-8h6"/></svg> 波动率观察 <small>HV20/HV60 年化 · 一年分位 · ATR14 日均波幅</small></h3>
+                    <span class="regime-panel-time">日线口径 · 随行情刷新</span>
+                </div>
+                {% set vol_alerts = positions | selectattr('vol.alert') | list %}
+                {% if vol_alerts %}
+                <div class="regime-alerts">
+                    {% for p in vol_alerts %}
+                    <div class="ra-row {% if p.vol.state_cls == 'expand' %}up{% elif p.vol.state_cls == 'squeeze' %}down{% endif %}"><strong>{{ p.name }}</strong>：{{ p.vol.alert_text }}</div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+                <div class="vol-grid">
+                    {% for p in positions | sort(attribute='vol.hv20', reverse=True) %}
+                    {% if p.vol.hv20 %}
+                    <div class="vol-chip {{ p.vol.state_cls }}">
+                        <div class="vc-top">
+                            <span class="vc-name" title="{{ p.name }} {{ p.code }}">{{ p.name }}</span>
+                            <span class="vc-state">{{ p.vol.state }}</span>
+                        </div>
+                        <div class="vc-hv">
+                            <strong>{{ p.vol.hv20 }}%</strong>
+                            <small>HV20 年化{% if p.vol.hv60 %} · HV60 {{ p.vol.hv60 }}%{% endif %}</small>
+                        </div>
+                        {% if p.vol.pctile is not none %}
+                        <div class="vc-barwrap" title="当前 HV20 在近一年滚动值中的分位：{{ p.vol.pctile }}%">
+                            <div class="vc-bar">
+                                <div class="vc-fill {% if p.vol.pctile >= 80 %}hot{% elif p.vol.pctile <= 25 %}cold{% endif %}" style="width: {{ p.vol.pctile }}%"></div>
+                            </div>
+                            <span class="vc-pct">{{ p.vol.pctile }}%分位</span>
+                        </div>
+                        {% endif %}
+                        <div class="vc-foot">
+                            {% if p.vol.atr_pct %}<span title="ATR14 / 现价：日均真实波幅，可对照止损距离">日均波幅 {{ p.vol.atr_pct }}%</span>{% endif %}
+                            <a href="#pos-{{ p.code }}" class="vc-link">看持仓 ↗</a>
+                        </div>
+                    </div>
+                    {% endif %}
+                    {% endfor %}
+                </div>
+                <div class="vol-note">口径：HV=对数收益标准差×√252 年化；分位=当前 HV20 在近一年滚动值中的排名；扩张/收敛=HV20 相对 HV60 ≥1.25× / ≤0.75×。高波动≠必跌，提示的是振幅与回撤风险。</div>
             </div>
 
             <!-- 走势分类扫描（日线+30分钟双周期共振 · 股票池+持仓合并） -->

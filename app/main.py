@@ -24,7 +24,7 @@ from app.services import etf_flow
 from app.services.portfolio import (
     get_account, get_all_positions, calc_position_metrics, calc_boundary_proximity,
     build_tech_pills,
-    calc_risk, get_summary
+    calc_risk, get_summary, calc_volatility_watch
 )
 from app.services.reports import get_available_dates, get_report
 # 量化策略统一股票池（与 app/quant 各策略共用同一份）
@@ -346,6 +346,7 @@ async def index(request: Request, pwd: str = Depends(check_password)):
     # Calculate metrics
     positions = calc_position_metrics(positions, account)
     positions = calc_boundary_proximity(positions)
+    positions = calc_volatility_watch(positions)
     positions = build_tech_pills(positions)
     positions = calc_risk(positions)
     # 注意力入口：高风险置顶，其余按仓位从大到小
