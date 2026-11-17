@@ -3,7 +3,7 @@
 把 app/quant 模块的四大能力包装成 Web 可直接消费的 JSON 扫描结果：
 
 - 策略信号扫描：突破回踩 / 均值回归 / 主力吸筹（引擎来自 STRATEGY_REGISTRY）
-- 趋势过滤：强趋势 / 宽松 / 超卖 三种模式（TrendFilter）
+- 趋势过滤：强趋势 / 超卖 两种模式（TrendFilter；宽松模式 2026-11-17 应用户要求从扫描入口移除，引擎内部 filter_mode_* 仍用 loose 作策略预筛默认）
 - 箱体检测：箱体参数、价格位置、质量评分（BoxDetector）
 - 筹码分布：池扫描评分排名 + 单股分布明细（ChipDistributionAnalyzer）
 
@@ -310,7 +310,7 @@ def list_strategies() -> list[dict]:
 # 2. 趋势过滤
 # ----------------------------------------------------------------------
 
-_TREND_MODES = {"strong", "loose", "oversold"}
+_TREND_MODES = {"strong", "oversold"}
 
 
 def scan_trend(mode: str = "strong", refresh: bool = False, full: bool = False) -> dict:

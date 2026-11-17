@@ -1053,7 +1053,7 @@ async def quant_sentiment_api(request: Request, pwd: str = Depends(check_passwor
 @app.get("/api/quant/trend")
 async def quant_trend_api(request: Request, pwd: str = Depends(check_password),
                           mode: str = "strong", refresh: int = 0, full: int = 0):
-    """趋势过滤（strong/loose/oversold，full=1 全市场粗筛池）"""
+    """趋势过滤（strong/oversold，full=1 全市场粗筛池）"""
     from app.services import quant_jobs
     from app.services.quant_scan import _TREND_MODES, scan_trend
     if mode not in _TREND_MODES:
