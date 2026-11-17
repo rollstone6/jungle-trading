@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>估值均值回归 - 持仓工作台</title>
-    <link rel="stylesheet" href="/static/styles.css?v=20261116a">
+    <link rel="stylesheet" href="/static/styles.css?v=20261117a">
     <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
     <script src="/static/echarts.min.js"></script>
     <style>
@@ -152,7 +152,7 @@ function renderChart(data){
     const RED = root.getPropertyValue('--red').trim() || '#d92d20';
     const marks = (data.backtest.event_marks || []).map(e => ({
         coord: [e.date, e.pe], value: e.act,
-        itemStyle: { color: e.act === '减仓' ? RED : (root.getPropertyValue('--green').trim() || '#0b8f62') },
+        itemStyle: { color: e.act === '减仓' ? RED : (root.getPropertyValue('--green').trim() || '#0a7d57') },
         symbolSize: 9
     }));
     chart.setOption({

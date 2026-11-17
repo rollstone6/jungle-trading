@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>持仓工作台</title>
-    <link rel="stylesheet" href="/static/styles.css?v=20261116a">
+    <link rel="stylesheet" href="/static/styles.css?v=20261117a">
     <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
     <!-- ===== 量化回测实验室 UI 风格覆盖层 ===== -->
     <style>
@@ -87,7 +87,7 @@
         .pnl-chip.gain { background: rgba(217, 45, 32, 0.10); }
         .pnl-chip.gain .dot { background: #d92d20; box-shadow: 0 0 6px rgba(217, 45, 32, 0.55); }
         .pnl-chip.loss { background: rgba(11, 143, 98, 0.10); }
-        .pnl-chip.loss .dot { background: #0b8f62; box-shadow: 0 0 6px rgba(11, 143, 98, 0.55); }
+        .pnl-chip.loss .dot { background: #0a7d57; box-shadow: 0 0 6px rgba(11, 143, 98, 0.55); }
         .account-item .label {
             color: #64748b;
             font-size: 12px;
@@ -99,7 +99,7 @@
             color: #1e293b;
         }
         .account-item.gain .value { color: #d92d20; }
-        .account-item.loss .value { color: #0b8f62; }
+        .account-item.loss .value { color: #0a7d57; }
         .account-item .value small {
             font-size: 12px;
             font-weight: 600;
@@ -114,7 +114,7 @@
 
         /* 涨跌配色 —— 全站统一：A股语义 红涨绿跌。引用公用变量 --red/--green */
         .gain { color: var(--red, #d92d20); }
-        .loss { color: var(--green, #0b8f62); }
+        .loss { color: var(--green, #0a7d57); }
 
         /* 区块标题 */
         .positions-section h2,

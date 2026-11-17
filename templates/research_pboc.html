@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>央行公开市场操作 · 流动性追踪面板 - 持仓工作台</title>
-    <link rel="stylesheet" href="/static/styles.css?v=20261116a">
+    <link rel="stylesheet" href="/static/styles.css?v=20261117a">
     <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
     <script src="/static/echarts.min.js"></script>
     <style>
@@ -163,7 +163,7 @@
         // echarts/canvas 不认 CSS 变量：从 :root 取涨跌色字面值（单一真源仍是 styles.css token）
         const _cs = getComputedStyle(document.documentElement);
         const RED = _cs.getPropertyValue('--red').trim() || '#d92d20';
-        const GREEN = _cs.getPropertyValue('--green').trim() || '#0b8f62';
+        const GREEN = _cs.getPropertyValue('--green').trim() || '#0a7d57';
         const fmt = n => n == null ? '-' : Number(n).toLocaleString('zh-CN', { maximumFractionDigits: 0 });
         let D = null;
 

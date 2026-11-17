@@ -7,7 +7,7 @@
   --line: #d9e2ec;
   --blue: #1764d8;
   --cyan: #0e8aa8;
-  --green: #0b8f62;
+  --green: #0a7d57;
   --red: #d92d20;
   --accent: #667eea;
   --accent-2: #764ba2;
@@ -1716,7 +1716,7 @@ li {
   background: #d1fae5;
   color: #065f46;
 }
-.tech-pills span.down b { color: #0b8f62; }
+.tech-pills span.down b { color: #0a7d57; }
 
 .kline-card {
   margin-top: 10px;
@@ -3022,5 +3022,5 @@ h1 svg.ic, h2 svg.ic, h3 svg.ic { width: 1.05em; height: 1.05em; }
   border-radius: 7px;
 }
 .net-verdict.tone-bull { color: var(--red, #d92d20); background: rgba(217,45,32,0.07); }
-.net-verdict.tone-bear { color: var(--green, #0b8f62); background: rgba(11,143,98,0.08); }
+.net-verdict.tone-bear { color: var(--green, #0a7d57); background: rgba(11,143,98,0.08); }
 .net-verdict.tone-neutral { color: #4b5563; background: rgba(107,114,128,0.09); }

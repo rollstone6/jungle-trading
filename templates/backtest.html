@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>量化回测 - 持仓工作台</title>
-    <link rel="stylesheet" href="/static/styles.css?v=20261116a">
+    <link rel="stylesheet" href="/static/styles.css?v=20261117a">
     <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
     <style>
         .backtest-container {
@@ -1437,7 +1437,7 @@
         let btChartResults = [];
 
         function buildBtChartOption(ch) {
-            const RED = '#d92d20', GREEN = '#0b8f62';   // A股语义：红涨绿跌
+            const RED = '#d92d20', GREEN = '#0a7d57';   // A股语义：红涨绿跌
             let lo = Infinity, hi = -Infinity;
             ch.ohlc.forEach(o => { if (o[2] < lo) lo = o[2]; if (o[3] > hi) hi = o[3]; });
             const pad = Math.max((hi - lo) * 0.035, 0.01);
