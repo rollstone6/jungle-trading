@@ -721,7 +721,7 @@ async def fetch_pboc_liquidity() -> dict:
                                f"{o.get('term') or ''}买断式逆回购到期，需关注续作安排。"})
 
     return {
-        "fetchedAt": datetime.now().strftime("%Y-%m-%d %H:%M"),
+        "fetchedAt": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "today": {
             "date": latest_op["date"] if latest_op else today_s,
             "inflow": round(infl_rr.get(today_s, 0.0) + infl_bo.get(today_s, 0.0), 1),
