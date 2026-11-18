@@ -10,9 +10,11 @@
 import asyncio
 import statistics as st
 import sys
+from pathlib import Path
 
-sys.path.insert(0, "/root/workspace/jungle-trading")
-sys.path.insert(0, "/root/workspace/jungle-trading/scripts")
+REPO = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(REPO))
+sys.path.insert(0, str(REPO / "scripts"))
 
 from app.services.market import fetch_kline_tencent  # noqa: E402
 from app.services.regime import classify_regime  # noqa: E402

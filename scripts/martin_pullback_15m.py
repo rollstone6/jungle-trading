@@ -17,8 +17,10 @@ T+1说明: A股当日买入不能当日卖出。提供两种模式:
 """
 import asyncio
 import sys
+from pathlib import Path
 
-sys.path.insert(0, "/root/workspace/jungle-trading")
+REPO = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(REPO))
 from app.services.market import fetch_kline_sina_minute, fetch_kline_tencent  # noqa: E402
 
 POOL = {

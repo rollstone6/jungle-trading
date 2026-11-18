@@ -15,8 +15,10 @@ import os
 import statistics
 import sys
 from datetime import date
+from pathlib import Path
 
-sys.path.insert(0, "/root/workspace/jungle-trading")
+REPO = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(REPO))
 from app.services.market import fetch_kline_tencent  # noqa: E402
 
 POOL = {
@@ -447,7 +449,7 @@ async def main():
             print(f"  [{cname}] {t['name']} {t['buy_date']}买{t['buy']} → {t['sell_date']}卖{t['sell']} "
                   f"{t['ret']:+6.1f}% ({t['r']:+.1f}R) [{t['why']}] 持{t['days']}日")
 
-    out = f"/root/workspace/jungle-trading/reports/multi_backtest_{date.today()}.json"
+    out = str(REPO / "reports" / f"multi_backtest_{date.today()}.json")
     with open(out, "w", encoding="utf-8") as f:
         json.dump(report, f, ensure_ascii=False, indent=1)
     print(f"\n明细已存: {out}")

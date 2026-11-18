@@ -1,6 +1,7 @@
 """单股 sanity check：新浪日K + 流通股本 + 筹码峰切割。"""
 import sys, json, re, time
-sys.path.insert(0, "/root/workspace/jungle-trading")
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import numpy as np
 import pandas as pd
 import requests
