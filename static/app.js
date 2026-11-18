@@ -1,3 +1,34 @@
+// ===== 批次0：集中色板（唯一色值字面量来源；语义色读 :root token） =====
+// canvas/SVG/echarts 不认 CSS 变量，必须内联的字面量统一在此管理，禁散落。
+// 语义色（gain/loss/warn/info）运行时读 styles.css token，单一真源仍是共享层。
+const PALETTE = (() => {
+  const cs = getComputedStyle(document.documentElement);
+  const t = (name, fallback) => (cs.getPropertyValue(name).trim() || fallback);
+  const grad = (a, b) => `linear-gradient(135deg,${a},${b})`;
+  const p = {
+    ink: "#111827",          // K线主图深色线（MA5/EMA12）
+    purple: "#8b5cf6",       // MA10/牛熊线
+    gold: "#a16207",         // MA120
+    slate: "#64748b",        // MA250/中性渐变起色
+    slateLight: "#94a3b8",   // 中性渐变止色
+    redBright: "#ef4444",    // 轨道上沿/squeeze 渐变（比 --gain 亮的图表用红）
+    greenBright: "#22c55e",  // 轨道下沿（比 --loss 亮的图表用绿）
+    emerald: "#10b981", sky: "#0ea5e9", indigo: "#6366f1", // trending/ranging 渐变
+    white: "#fff",
+    gain: t("--gain", "#d92d20"),
+    loss: t("--loss", "#0a7d57"),
+    warn: t("--warn", "#f59e0b"),
+    info: t("--info", "#3b82f6"),
+  };
+  p.regimeGrad = {
+    squeeze: grad(p.warn, p.redBright),
+    trending: grad(p.emerald, p.sky),
+    ranging: grad(p.info, p.indigo),
+    neutral: grad(p.slate, p.slateLight),
+  };
+  return p;
+})();
+
 function pad(value) {
   return String(value).padStart(2, "0");
 }
@@ -699,7 +730,7 @@ function readKlinePoints(el) {
 }
 
 // ===== K线主图指标：计算（纯前端，基于已加载的日K序列） =====
-const K_MA_COLORS = { 5: "#111827", 10: "#8b5cf6", 20: "#f59e0b", 60: "#3b82f6", 120: "#a16207", 250: "#64748b" };
+const K_MA_COLORS = { 5: PALETTE.ink, 10: PALETTE.purple, 20: PALETTE.warn, 60: PALETTE.info, 120: PALETTE.gold, 250: PALETTE.slate };
 const K_MA_PERIODS = [5, 10, 20, 60, 120, 250];
 
 function kSMA(points, period) {
@@ -809,23 +840,23 @@ function kIndicatorLines(points, mode) {
     const mid = kSMA(points, 20), sd = kSTDEV(points, 20, mid);
     const up = mid.map((v, i) => (v == null ? null : v + 2 * sd[i]));
     const dn = mid.map((v, i) => (v == null ? null : v - 2 * sd[i]));
-    lines.push({ name: "上轨", color: "#ef4444", values: up });
-    lines.push({ name: "中轨", color: "#f59e0b", values: mid });
-    lines.push({ name: "下轨", color: "#22c55e", values: dn });
+    lines.push({ name: "上轨", color: PALETTE.redBright, values: up });
+    lines.push({ name: "中轨", color: PALETTE.warn, values: mid });
+    lines.push({ name: "下轨", color: PALETTE.greenBright, values: dn });
   } else if (mode === "ene") {
     const mid = kSMA(points, 25);
     const up = mid.map((v) => (v == null ? null : v * 1.06));
     const dn = mid.map((v) => (v == null ? null : v * 0.94));
-    lines.push({ name: "上轨", color: "#ef4444", values: up });
-    lines.push({ name: "中轨", color: "#f59e0b", values: mid });
-    lines.push({ name: "下轨", color: "#22c55e", values: dn });
+    lines.push({ name: "上轨", color: PALETTE.redBright, values: up });
+    lines.push({ name: "中轨", color: PALETTE.warn, values: mid });
+    lines.push({ name: "下轨", color: PALETTE.greenBright, values: dn });
   } else if (mode === "expma") {
-    lines.push({ name: "EMA12", color: "#111827", values: kEMA(points, 12) });
-    lines.push({ name: "EMA50", color: "#f59e0b", values: kEMA(points, 50) });
+    lines.push({ name: "EMA12", color: PALETTE.ink, values: kEMA(points, 12) });
+    lines.push({ name: "EMA50", color: PALETTE.warn, values: kEMA(points, 50) });
   } else if (mode === "bullbear") {
     const m20 = kSMA(points, 20), m60 = kSMA(points, 60);
     const bb = m20.map((v, i) => (v == null || m60[i] == null ? null : (v + m60[i]) / 2));
-    lines.push({ name: "牛熊线", color: "#8b5cf6", values: bb, width: 2 });
+    lines.push({ name: "牛熊线", color: PALETTE.purple, values: bb, width: 2 });
   }
   return lines;
 }
@@ -1647,14 +1678,9 @@ async function loadPositionRegime(refresh = false) {
             if (badge) {
                 badge.textContent = s.label;
                 badge.dataset.fallback = s.label;
-                const grad = {
-                    squeeze: 'linear-gradient(135deg,#f59e0b,#ef4444)',
-                    trending: 'linear-gradient(135deg,#10b981,#0ea5e9)',
-                    ranging: 'linear-gradient(135deg,#3b82f6,#6366f1)',
-                    neutral: 'linear-gradient(135deg,#64748b,#94a3b8)',
-                }[s.regime] || 'linear-gradient(135deg,#64748b,#94a3b8)';
+                const grad = PALETTE.regimeGrad[s.regime] || PALETTE.regimeGrad.neutral;
                 badge.style.background = grad;
-                badge.style.color = '#fff';
+                badge.style.color = PALETTE.white;
             }
             if (sub) sub.textContent = `日K ${s.label_daily || '-'} / 30分 ${s.label_30m}`;
             card.dataset.regime = s.label;   // 双周期结果同步给筛选条
@@ -1665,7 +1691,7 @@ async function loadPositionRegime(refresh = false) {
     } catch (err) {
         console.error('加载走势分类失败:', err);
         listEl.innerHTML = '<div class="etf-loading">加载失败，稍后自动重试</div>';
-        if (countEl) countEl.innerHTML = '<span style="font-size:12px;color:#ef4444">扫描数据未就绪 · <button type="button" class="regime-mini-btn" onclick="loadPositionRegime(true)">重试</button></span>';
+        if (countEl) countEl.innerHTML = '<span class="regime-not-ready">扫描数据未就绪 · <button type="button" class="regime-mini-btn" onclick="loadPositionRegime(true)">重试</button></span>';
         // 回退：保留 SSR 渲染的日线徽章
         document.querySelectorAll('.regime-badge[data-fallback]').forEach(b => {
             if (!b.textContent.trim()) b.textContent = b.dataset.fallback;
