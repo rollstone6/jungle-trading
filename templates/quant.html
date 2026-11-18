@@ -130,13 +130,13 @@
             background: white; border: 2px solid #e2e8f0; border-radius: 12px;
             padding: 18px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); text-align: center;
         }
-        .kpi-card .v { font-size: 32px; font-weight: 800; }
+        .kpi-card .v { font-size: 32px; font-weight: 800; font-variant-numeric: normal; }
         .kpi-card .l { font-size: 13px; color: #64748b; margin-top: 4px; }
         .kpi-card.pass .v { color: var(--green); }
         .kpi-card.box .v { color: #f59e0b; }
-        .kpi-card.score .v { color: var(--accent); }
-        /* 全局 .score 是持仓页小徽章（justify-self:end+小padding），会污染同名 KPI 卡，此处重置 */
-        .kpi-card.score { justify-self: stretch; align-self: stretch; padding: 18px; border: 2px solid #e2e8f0; border-radius: 12px; background: white; color: inherit; }
+        .kpi-card.score-badge .v { color: var(--accent); }
+        /* 全局 .score-badge 是持仓页小徽章（justify-self:end+小padding），会污染同名 KPI 卡，此处重置 */
+        .kpi-card.score-badge { justify-self: stretch; align-self: stretch; padding: 18px; border: 2px solid #e2e8f0; border-radius: 12px; background: white; color: inherit; }
 
         .data-table {
             width: 100%; border-collapse: collapse; background: white;
@@ -970,7 +970,7 @@
                 const total = d.stocks.length;
                 const shown = chipExpanded ? total : Math.min(CHIP_TOP_N, total);
                 document.getElementById('chip-kpi').innerHTML = `
-                    <div class="kpi-card score"><div class="v">${total}</div><div class="l">完成扫描</div></div>
+                    <div class="kpi-card score-badge"><div class="v">${total}</div><div class="l">完成扫描</div></div>
                     <div class="kpi-card pass"><div class="v">${d.passedCount}</div><div class="l">集中度达标</div></div>
                     <div class="kpi-card"><div class="v">${shown}</div><div class="l">当前展示</div></div>`;
                 document.getElementById('chip-body').innerHTML = total ? d.stocks.map((s, i) => {

@@ -3016,7 +3016,7 @@ h1 svg.ic, h2 svg.ic, h3 svg.ic { width: 1.05em; height: 1.05em; }
    （实测 pboc +33px/valuation +4px），批次0 用 body 标记类排除保零变化；
    批次2 迁移内联后删除 body 标记类即自动接管。 */
 body:not(.pboc-page):not(.valuation-page) table.data-table { width: 100%; border-collapse: collapse; background: var(--panel); border: 2px solid #e2e8f0; border-radius: var(--r-card); overflow: hidden; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1); }
-body:not(.pboc-page):not(.valuation-page) .data-table th { background: var(--neutral-bg); color: #475569; font-weight: 600; padding: 10px 12px; font-size: var(--fs-body); text-align: left; }
+body:not(.pboc-page):not(.valuation-page) .data-table th { background: var(--neutral-bg); color: #475569; font-weight: 700; padding: 10px 12px; font-size: var(--fs-body); text-align: left; }
 body:not(.pboc-page):not(.valuation-page) .data-table td { padding: 9px 12px; font-size: var(--fs-body); border-bottom: 1px solid #f1f5f9; font-variant-numeric: tabular-nums; }
 body:not(.pboc-page):not(.valuation-page) .data-table tr:hover td { background: #f8f7ff; }
 
