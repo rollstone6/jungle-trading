@@ -56,11 +56,13 @@ pip install -r requirements.txt
 
 # 1) 启动 Web 工作台
 python scripts/run.py
-# 访问 http://localhost:8090/?pwd=0mGecaPX3duCfVXhEb
+# 访问 http://localhost:8090/?pwd=<你的站点口令>
 
 # 2) 量化信号扫描 / 回测（另一个终端，仓库根目录执行）
 python -m app.cli        # 交互式菜单：1-8 扫描，9 回测，10 筹码分析
 ```
+
+> 站点口令统一配置在服务器仓库根目录 `.env` 的 `SITE_PASSWORD`（不入库、不写入文档），访问时把 `<你的站点口令>` 替换为该值。
 
 单独跑回测（两种方式都可以，均在仓库根目录执行）：
 
@@ -136,8 +138,8 @@ akshare ──┴──────► quant/data/fetcher.py（级联降级，�
 
 | 方法 | 路径 | 说明 |
 |---|---|---|
-| GET | `/?pwd=xxx` | 主页面 |
-| GET | `/?pwd=xxx&update=1` | 维护模式（更新持仓） |
+| GET | `/?pwd=<你的站点口令>` | 主页面 |
+| GET | `/?pwd=<你的站点口令>&update=1` | 维护模式（更新持仓） |
 | POST | `/api/positions/manual` | 手动更新持仓 |
 | GET | `/api/reports/strategies?date=YYYY-MM-DD` | 获取 AI 策略报告 |
 | GET | `/backtest` | 回测页面 |
