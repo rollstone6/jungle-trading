@@ -5,7 +5,7 @@ import csv
 import sys
 from pathlib import Path
 
-REPO = Path(r"D:\store_for_prgram\py_program\jungle-trading")
+REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO))
 
 from app.quant.config import STOCK_LIST  # noqa: E402
@@ -59,7 +59,9 @@ def main():
     results.sort(key=lambda x: x["total_return"], reverse=True)
 
     # CSV
-    csv_path = Path(r"D:\store_for_prgram\boll_60m_sweep.csv")
+    out_dir = REPO / "backtest_results"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    csv_path = out_dir / "boll_60m_sweep.csv"
     with csv_path.open("w", newline="", encoding="utf-8-sig") as f:
         w = csv.writer(f)
         w.writerow(["排名", "代码", "名称", "总收益率%", "胜率%", "交易次数", "最大回撤%",
@@ -100,7 +102,7 @@ h2{{font-size:16px;color:#1e293b;border-left:4px solid #667eea;padding-left:10px
 {rows}</table>
 <div class="fail"><h2>跳过/失败（{len(failures)}）</h2><ul>{fail_html}</ul></div>
 </div></body></html>"""
-    html_path = Path(r"D:\store_for_prgram\boll_60m_sweep.html")
+    html_path = out_dir / "boll_60m_sweep.html"
     html_path.write_text(html, encoding="utf-8")
 
     print(f"OK {len(results)} / FAIL {len(failures)}")
