@@ -1,6 +1,5 @@
 """vnpy 集成服务 - 实盘交易和回测"""
-from typing import List, Dict, Optional
-from datetime import datetime
+from typing import List, Dict
 import pandas as pd
 
 # vnpy imports
@@ -66,6 +65,8 @@ class MACDStrategy(CTAStrategy):
         self.slow_period = slow_period
         self.signal_period = signal_period
         self.bars: List[BarData] = []
+        # DEA 信号线所需的 MACD 线历史（标准口径：signal = EMA(macd, signal_period)）
+        self.macd_history: List[float] = []
     
     def _calc_ema(self, prices: List[float], period: int) -> float:
         """计算 EMA"""
@@ -93,8 +94,9 @@ class MACDStrategy(CTAStrategy):
         ema_slow = self._calc_ema(closes, self.slow_period)
         macd_line = ema_fast - ema_slow
         
-        # 计算信号线（简化处理）
-        signal_line = macd_line * 0.9
+        # 计算信号线 DEA：MACD 线的 signal_period 日 EMA（标准 MACD 口径）
+        self.macd_history.append(macd_line)
+        signal_line = self._calc_ema(self.macd_history, self.signal_period)
         
         # 交易逻辑
         if macd_line > signal_line and self.pos == 0:
@@ -136,60 +138,23 @@ def run_vnpy_backtest(
             'error': 'K线数据不足，至少需要30天数据'
         }
     
-    try:
-        # 创建回测引擎
-        engine = BacktestingEngine()
-        
-        # 设置回测参数
-        engine.set_parameters(
-            vt_symbol="TEST.A",
-            interval=Interval.DAILY,
-            start=datetime.now().year,  # 简化处理
-            rate=commission,
-            slippage=0,
-            size=1,
-            pricetick=0.01,
-            capital=initial_cash,
-        )
-        
-        # 选择策略（这里简化处理，实际应该注册策略类）
-        # vnpy 的回测需要 BarData 列表
-        
-        # 返回简化结果
-        # 数据区间（MM-DD 格式补当前年份）
-        _year = datetime.now().year
-        _dates = [
-            d if len(d) >= 10 else f"{_year}-{d}"
-            for d in (str(k.get('date', '')) for k in klines)
-            if d
-        ]
-        result = {
-            'success': True,
-            'strategy': f'vnpy_{strategy_name}',
-            'initial_cash': initial_cash,
-            'final_value': initial_cash * 1.02,  # 示例值
-            'total_return': 2.0,
-            'sharpe_ratio': 0.8,
-            'max_drawdown': -5.5,
-            'total_trades': 8,
-            'win_rate': 62.5,
-            'start_date': min(_dates) if _dates else '',
-            'end_date': max(_dates) if _dates else '',
-            'total_days': len(klines),
-            'note': 'vnpy 回测需要配置真实数据源和策略类'
-        }
-        
-        return result
-        
-    except Exception as e:
-        return {
-            'success': False,
-            'error': str(e)
-        }
+    # P0 诚实性降级（审计 t_edf48869 P0-2）：原实现虽创建 BacktestingEngine，
+    # 但从不调用 load_data()/calculate_result()——引擎空转，set_parameters 的
+    # start 传 int 年份（非法参数类型），返回的指标是写死的示例值
+    # （cash*1.02 / sharpe=0.8 / win_rate=62.5），与输入 K 线完全无关。
+    # 在接入真实数据源与策略加载之前一律显式报告不可用，
+    # 不得返回任何数值指标字段。
+    return {
+        'success': False,
+        'error': 'vnpy 引擎未接数据源，暂不可用',
+    }
 
 
 def get_vnpy_strategies() -> List[Dict]:
-    """获取 vnpy 可用策略"""
+    """获取 vnpy 可用策略（按可用性过滤：vnpy 未安装时不展示卡片，
+    避免前端出现点了必报错的死路策略，审计 t_edf48869 P0-2）。"""
+    if not VNPY_AVAILABLE:
+        return []
     return [
         {
             'name': 'vnpy_ma',

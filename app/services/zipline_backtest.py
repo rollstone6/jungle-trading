@@ -1,7 +1,6 @@
 """Zipline 回测服务 - 集成 zipline-reloaded"""
 import pandas as pd
 import numpy as np
-from datetime import datetime, timedelta
 from typing import List, Dict
 import warnings
 warnings.filterwarnings('ignore')
@@ -81,53 +80,14 @@ def run_zipline_backtest(
             'error': 'K线数据不足，至少需要30天数据'
         }
     
-    try:
-        # 转换为 DataFrame
-        df = pd.DataFrame(klines)
-        
-        # 处理日期 - 假设是当前年份
-        current_year = datetime.now().year
-        df['date'] = pd.to_datetime(df['date'].apply(lambda x: f"{current_year}-{x}"), format='%Y-%m-%d')
-        df.set_index('date', inplace=True)
-        df = df[['open', 'high', 'low', 'close', 'volume']].astype(float)
-        
-        # 设置回测时间范围
-        if start_date is None:
-            start = df.index[0].to_pydatetime()
-        else:
-            start = pd.to_datetime(start_date)
-        
-        if end_date is None:
-            end = df.index[-1].to_pydatetime()
-        else:
-            end = pd.to_datetime(end_date)
-        
-        # 注意：Zipline 需要真实的市场数据bundle
-        # 这里简化处理，实际使用需要配置数据源
-        
-        result = {
-            'success': True,
-            'strategy': 'zipline_ma',
-            'initial_cash': initial_cash,
-            'final_value': initial_cash * 1.05,  # 示例值
-            'total_return': 5.0,
-            'sharpe_ratio': 1.2,
-            'max_drawdown': -8.5,
-            'total_trades': 10,
-            'win_rate': 60.0,
-            'start_date': start_date or '',
-            'end_date': end_date or '',
-            'total_days': len(klines),
-            'note': 'Zipline 需要配置真实数据源才能运行完整回测'
-        }
-        
-        return result
-        
-    except Exception as e:
-        return {
-            'success': False,
-            'error': str(e)
-        }
+    # P0 诚实性降级（审计 t_edf48869 P0-1）：本函数从未接入真实市场数据
+    # bundle（run_algorithm 从未被调用），此前返回与输入 K 线完全无关的硬编码
+    # 示例指标（cash*1.05 / sharpe=1.2 / win_rate=60）。在接入真实数据源之前，
+    # 一律显式报告不可用，不得返回任何数值指标字段。
+    return {
+        'success': False,
+        'error': 'zipline 引擎未接数据源，暂不可用',
+    }
 
 
 def analyze_performance(returns: pd.Series) -> Dict:

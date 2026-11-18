@@ -277,6 +277,10 @@ def scan_signals(strategy: str, refresh: bool = False, full: bool = False) -> di
               reverse=True)
     if scope == "market":
         rows = rows[:200]  # 全市场结果截断，页面展示 top
+    # 筹码数据异常透传（审计 t_edf48869 P0-3）：行级标记在
+    # signals[].metadata.data_error（True=该信号未经筹码门控校验），
+    # 此处汇总计数供前端展示"数据异常"数量，与正常"通过"区分。
+    data_error_count = sum(1 for r in rows if r["metadata"].get("data_error"))
     payload = _native({
         "asOf": _today(),
         "fetchedAt": _now(),
@@ -287,6 +291,7 @@ def scan_signals(strategy: str, refresh: bool = False, full: bool = False) -> di
         "poolSize": len(pool),
         "signals": rows,
         "failures": failures,
+        "dataErrors": data_error_count,
         "total": len(rows),
     })
     _save_cache(cache_key, payload)
