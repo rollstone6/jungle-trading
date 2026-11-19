@@ -661,12 +661,13 @@ def run_accumulation(config):
         def progress_callback(completed, total, symbol):
             progress.update(1)
         
-        # 并行获取所有数据
+        # 并行获取所有数据（资源红线 workers≤4：3 个数据源 × 每源 1 = 3；
+        # 原 per_source=10 → 30 线程，审计 P2-1 漏报的同类违规，一并收口）
         data_dict = parallel_fetch_dispatch(
             stock_pool,
             start_date=start_date,
             timeframe="60m",
-            max_workers_per_source=10,
+            max_workers_per_source=1,
             verbose=verbose,
             progress_callback=progress_callback if not verbose else None,
         )
