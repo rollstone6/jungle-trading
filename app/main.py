@@ -245,7 +245,7 @@ async def index(request: Request, pwd: str = Depends(check_password)):
 
     # Update positions with latest data
     conn = get_db()
-    quote_time = ""
+    page_quote_time = ""  # 页面级展示用：各标的中最新一个有效行情时间戳
     for p in positions:
         code = p["code"]
         q = quotes.get(code, {})
@@ -256,10 +256,14 @@ async def index(request: Request, pwd: str = Depends(check_password)):
             p["low"] = q.get("low", p["low"])
             p["open_price"] = q.get("open_price", p["open_price"])
             p["volume"] = q.get("volume", p["volume"])
+            # P1-1 修复：时间戳为每标的局部变量；自身取不到就保持原值，
+            # 绝不继承上一只股票的行情时间（停牌/无报价票曾显示别家时间戳）
             qt = q.get("quote_time", "")
             if qt and len(qt) >= 14:
-                quote_time = f"{qt[:4]}-{qt[4:6]}-{qt[6:8]} {qt[8:10]}:{qt[10:12]}:{qt[12:14]}"
-            p["quote_time"] = quote_time or p["quote_time"]
+                qt_fmt = f"{qt[:4]}-{qt[4:6]}-{qt[6:8]} {qt[8:10]}:{qt[10:12]}:{qt[12:14]}"
+                p["quote_time"] = qt_fmt
+                if qt_fmt > page_quote_time:
+                    page_quote_time = qt_fmt
 
             # Update DB
             conn.execute("""
@@ -385,7 +389,7 @@ async def index(request: Request, pwd: str = Depends(check_password)):
             "summary": summary,
             "positions": positions,
             "risk_alerts": alerts,
-            "quote_time": quote_time or "暂无",
+            "quote_time": page_quote_time or "暂无",
             "available_dates": ",".join(available_dates),
             "current_date": current_date,
             "report_time": report_time,
@@ -445,13 +449,21 @@ async def update_manual(data: ManualUpdate, request: Request, pwd: str = Depends
             sector = ""
         qty = max(int(pos.quantity or 0), 0)
         cost = max(float(pos.cost_price or 0), 0)
-        conn.execute("""
-            INSERT OR REPLACE INTO positions (code, name, sector, quantity, cost_price, kline_data, news, updated_at)
-            VALUES (?, ?, ?, ?, ?,
-                COALESCE((SELECT kline_data FROM positions WHERE code=?), '[]'),
-                COALESCE((SELECT news FROM positions WHERE code=?), '[]'),
-                CURRENT_TIMESTAMP)
-        """, (pos.code, name, sector, qty, cost, pos.code, pos.code))
+        # P1-2 修复：原 INSERT OR REPLACE 是"先删后插"，未列出的 13 个
+        # 指标/行情列（latest_price/change_pct/ma*/kdj_*/macd_*/regime_label/
+        # volume_ratio/quote_time 等）全部回落 DEFAULT 被清零。
+        # 改为：已存在 → UPDATE 仅改用户可编辑字段；不存在 → INSERT 新行。
+        if existing:
+            conn.execute("""
+                UPDATE positions SET name=?, sector=?, quantity=?, cost_price=?,
+                    updated_at=CURRENT_TIMESTAMP
+                WHERE code=?
+            """, (name, sector, qty, cost, pos.code))
+        else:
+            conn.execute("""
+                INSERT INTO positions (code, name, sector, quantity, cost_price, updated_at)
+                VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+            """, (pos.code, name, sector, qty, cost))
         if not existing:
             added.append(name)
         elif existing["quantity"] != qty or abs(float(existing["cost_price"] or 0) - cost) > 1e-6:
