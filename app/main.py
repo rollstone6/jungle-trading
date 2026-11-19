@@ -1,6 +1,8 @@
 """持仓工作台 - FastAPI 主应用"""
 import os
 import json
+import logging
+import re
 import asyncio
 from datetime import datetime
 from pathlib import Path
@@ -10,7 +12,7 @@ from dotenv import load_dotenv
 load_dotenv(Path(__file__).resolve().parents[1] / ".env")
 
 from fastapi import FastAPI, Request, HTTPException, Depends
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
@@ -131,7 +133,19 @@ def _load_backtest_engine(engine: str):
     raise HTTPException(status_code=400, detail="不支持的回测引擎")
 
 # Config
+logger = logging.getLogger("app.main")
+
+# SITE_PASSWORD 缺失/空串时 fail-fast（审计 P2-3）：空口令会让
+# check_password 里 `pwd != ""` 对任意 pwd 值都成立、唯独空 pwd 放行，
+# 生产全站数据匿名可读且无任何告警 —— 宁可在启动阶段立即崩溃暴露
+# 漏配（uvicorn 起不来，进程级信号，比每请求 403+ERROR log 刷屏更
+# 早发现且零性能损耗），也不带着敞口跑。生产 .env 已配，不受影响。
 SITE_PASSWORD = os.environ.get("SITE_PASSWORD", "")
+if not SITE_PASSWORD:
+    raise RuntimeError(
+        "SITE_PASSWORD 未配置：请在仓库根 .env 设置 SITE_PASSWORD 后再启动"
+        "（空口令启动等于全站匿名开放）"
+    )
 BASE_DIR = Path(__file__).parent.parent
 
 app = FastAPI(title="Jungle Genius Trading Desktop")
@@ -157,10 +171,16 @@ def check_password(request: Request):
 
 # --- Let's Encrypt 验证路由（无需密码） ---
 from fastapi.responses import PlainTextResponse
-import os as _os
+
+# token 白名单正则（纵深防御，审计 P2-4）：Starlette 路由层已规范化拦截
+# ../ 穿越（审计实测 404 不可利用），此处再收一层，杜绝未来改动绕过路由
+# 规范化后 Path / 拼接读任意文件的可能。ACME token 字符集即 base64url。
+_ACME_TOKEN_RE = re.compile(r"^[A-Za-z0-9_-]+$")
 
 @app.get("/.well-known/acme-challenge/{token}")
 async def acme_challenge(token: str):
+    if not _ACME_TOKEN_RE.match(token):
+        raise HTTPException(status_code=404)
     certbot_path = Path("/var/www/certbot/.well-known/acme-challenge") / token
     if certbot_path.exists():
         return PlainTextResponse(certbot_path.read_text())
@@ -245,7 +265,7 @@ async def index(request: Request, pwd: str = Depends(check_password)):
 
     # Update positions with latest data
     conn = get_db()
-    quote_time = ""
+    page_quote_time = ""  # 页面级展示用：各标的中最新一个有效行情时间戳
     for p in positions:
         code = p["code"]
         q = quotes.get(code, {})
@@ -256,10 +276,14 @@ async def index(request: Request, pwd: str = Depends(check_password)):
             p["low"] = q.get("low", p["low"])
             p["open_price"] = q.get("open_price", p["open_price"])
             p["volume"] = q.get("volume", p["volume"])
+            # P1-1 修复：时间戳为每标的局部变量；自身取不到就保持原值，
+            # 绝不继承上一只股票的行情时间（停牌/无报价票曾显示别家时间戳）
             qt = q.get("quote_time", "")
             if qt and len(qt) >= 14:
-                quote_time = f"{qt[:4]}-{qt[4:6]}-{qt[6:8]} {qt[8:10]}:{qt[10:12]}:{qt[12:14]}"
-            p["quote_time"] = quote_time or p["quote_time"]
+                qt_fmt = f"{qt[:4]}-{qt[4:6]}-{qt[6:8]} {qt[8:10]}:{qt[10:12]}:{qt[12:14]}"
+                p["quote_time"] = qt_fmt
+                if qt_fmt > page_quote_time:
+                    page_quote_time = qt_fmt
 
             # Update DB
             conn.execute("""
@@ -314,7 +338,7 @@ async def index(request: Request, pwd: str = Depends(check_password)):
                 p["macd_hist"] = macd_hist
                 
                 # 走势分类
-                from app.services.regime import classify_regime, REGIME_LABEL
+                from app.services.regime import classify_regime
                 regime_info = classify_regime(klines)
                 p["regime_label"] = regime_info.get("label", "")
                 
@@ -385,7 +409,7 @@ async def index(request: Request, pwd: str = Depends(check_password)):
             "summary": summary,
             "positions": positions,
             "risk_alerts": alerts,
-            "quote_time": quote_time or "暂无",
+            "quote_time": page_quote_time or "暂无",
             "available_dates": ",".join(available_dates),
             "current_date": current_date,
             "report_time": report_time,
@@ -445,13 +469,21 @@ async def update_manual(data: ManualUpdate, request: Request, pwd: str = Depends
             sector = ""
         qty = max(int(pos.quantity or 0), 0)
         cost = max(float(pos.cost_price or 0), 0)
-        conn.execute("""
-            INSERT OR REPLACE INTO positions (code, name, sector, quantity, cost_price, kline_data, news, updated_at)
-            VALUES (?, ?, ?, ?, ?,
-                COALESCE((SELECT kline_data FROM positions WHERE code=?), '[]'),
-                COALESCE((SELECT news FROM positions WHERE code=?), '[]'),
-                CURRENT_TIMESTAMP)
-        """, (pos.code, name, sector, qty, cost, pos.code, pos.code))
+        # P1-2 修复：原 INSERT OR REPLACE 是"先删后插"，未列出的 13 个
+        # 指标/行情列（latest_price/change_pct/ma*/kdj_*/macd_*/regime_label/
+        # volume_ratio/quote_time 等）全部回落 DEFAULT 被清零。
+        # 改为：已存在 → UPDATE 仅改用户可编辑字段；不存在 → INSERT 新行。
+        if existing:
+            conn.execute("""
+                UPDATE positions SET name=?, sector=?, quantity=?, cost_price=?,
+                    updated_at=CURRENT_TIMESTAMP
+                WHERE code=?
+            """, (name, sector, qty, cost, pos.code))
+        else:
+            conn.execute("""
+                INSERT INTO positions (code, name, sector, quantity, cost_price, updated_at)
+                VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+            """, (pos.code, name, sector, qty, cost))
         if not existing:
             added.append(name)
         elif existing["quantity"] != qty or abs(float(existing["cost_price"] or 0) - cost) > 1e-6:
@@ -619,7 +651,7 @@ async def regime_page(request: Request, pwd: str = Depends(check_password)):
 @app.get("/api/regime/latest")
 async def regime_latest(request: Request, pwd: str = Depends(check_password), refresh: int = 0):
     """最新全池分类扫描结果：当天已有缓存直接返回，否则现场扫描并落盘到 data/regime_scan.json"""
-    from app.services.regime import classify_regime, combine_timeframes, REGIME_LABEL, REGIME_ADVICE
+    from app.services.regime import classify_regime, combine_timeframes, REGIME_LABEL
 
     today = datetime.now().strftime("%Y-%m-%d")
     if not refresh and REGIME_CACHE_FILE.exists():
@@ -632,8 +664,8 @@ async def regime_latest(request: Request, pwd: str = Depends(check_password), re
             if (cached.get("asOf") == today and cached.get("stocks")
                     and pos_codes <= cached_codes):
                 return cached
-        except Exception:
-            pass  # 缓存损坏则重新扫描
+        except Exception as exc:
+            logger.warning("regime 行情缓存读取失败，重新扫描: %s", exc)  # 缓存损坏则重新扫描
 
     from app.services.market import fetch_kline_tencent, fetch_kline_sina_minute
 
@@ -891,10 +923,13 @@ async def search_stock(q: str, request: Request, pwd: str = Depends(check_passwo
     """按 名称/代码/拼音首字母 模糊搜索全市场 A 股（新浪 suggest 接口，GBK 解码）"""
     import httpx as _httpx
     import re as _re
+    from urllib.parse import quote as _urlquote
     q = q.strip()
     if len(q) < 1:
         return {"results": []}
-    url = f"https://suggest3.sinajs.cn/suggest/type=11&key={_re.escape(q)}"
+    # P1-6（审计 t_edf48869）：URL query 值必须 percent-encoding（quote），
+    # 旧代码误用 re.escape —— 给空格/& 插反斜杠（'A&B'→'A\&B'），& 还会截断参数。
+    url = f"https://suggest3.sinajs.cn/suggest/type=11&key={_urlquote(q)}"
     async with _httpx.AsyncClient(timeout=6) as client:
         r = await client.get(url, headers={"User-Agent": "Mozilla/5.0", "Referer": "https://finance.sina.com.cn"})
         r.raise_for_status()

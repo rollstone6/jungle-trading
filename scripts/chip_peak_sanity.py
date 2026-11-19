@@ -1,5 +1,5 @@
 """单股 sanity check：新浪日K + 流通股本 + 筹码峰切割。"""
-import sys, json, re, time
+import sys, json, re
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import numpy as np
@@ -37,7 +37,6 @@ def funnel(df, fs, rules=DEFAULT_RULES):
     p = chip_path(df, fs)
     if p is None:
         return None
-    n = len(df)
     valid = ~np.isnan(p["conc_90"])
     c1 = valid & (p["conc_90"] < rules["conc90_max"])
     c2 = c1 & (p["peak_ratio"] > rules["peak_ratio_min"])
@@ -68,6 +67,4 @@ if __name__ == "__main__":
         print(f"  首次满足信号日: {[dates[i] for i in sig][-8:]}")
         # 手工验证最后一天 conc90：用现有 numpy 重算
         chip = p  # already path
-        # 打印峰附近分布形态检查（主峰段边界）
-        from app.quant.utils.chip_peaks import price_grid, _triangle_row
         print(f"  网格={p['n_grid']}档")

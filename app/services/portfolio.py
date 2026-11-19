@@ -260,8 +260,10 @@ def calc_volatility_watch(positions: list[dict]) -> list[dict]:
 
 def calc_position_metrics(positions: list[dict], account: dict) -> list[dict]:
     """计算每个持仓的市值、盈亏、仓位占比"""
-    principal = account["principal"]
-    total_asset = account["total_asset"]
+    # 审计 t_edf48869 §四.2 判定：语义正确非漏用，保守保留。
+    # 仓位占比口径为"占总市值"（前端 index.html 明示），非本金/总资产口径。
+    principal = account["principal"]  # noqa: F841
+    total_asset = account["total_asset"]  # noqa: F841
     total_market_value = 0
 
     for p in positions:

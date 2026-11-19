@@ -15,6 +15,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from pathlib import Path
@@ -26,6 +27,8 @@ from app.quant.config import STOCK_LIST, StrategyConfig
 from app.quant.data import load_real_data
 from app.quant.strategies import STRATEGY_REGISTRY
 from app.quant.utils import BoxDetector, ChipDistributionAnalyzer, TrendFilter
+
+logger = logging.getLogger(__name__)
 
 DATA_DIR = Path(__file__).resolve().parents[2] / "data"
 
@@ -154,8 +157,9 @@ def _load_cache(key: str) -> dict | None:
         cached = json.loads(file.read_text(encoding="utf-8"))
         if cached.get("asOf") == _today():
             return cached
-    except Exception:
-        pass
+    except Exception as exc:
+        # 扫描结果缓存损坏静默 → 结果缺票不可见（审计 P2-5）
+        logger.warning("quant_scan 缓存读取失败 %s: %s", key, exc)
     return None
 
 
@@ -182,8 +186,9 @@ def invalidate_pool_cache() -> None:
             _DATA_CACHE.pop(key, None)
             try:
                 os.remove(os.path.join(CACHE_DIR, today, f"{key}.pkl"))
-            except OSError:
-                pass
+            except OSError as exc:
+                # 删除失败=盘中快照缓存未清干净，预热结果可能吃旧数据
+                logger.warning("失效缓存删除失败 %s: %s", key, exc)
 
 
 def _save_cache(key: str, payload: dict) -> None:
@@ -192,8 +197,8 @@ def _save_cache(key: str, payload: dict) -> None:
         (DATA_DIR / f"quant_scan_{key}.json").write_text(
             json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8"
         )
-    except Exception:
-        pass  # 落盘失败不影响返回
+    except Exception as exc:
+        logger.warning("quant_scan 结果落盘失败 %s: %s", key, exc)  # 落盘失败不影响返回
 
 
 def _fetch_daily(symbol: str) -> pd.DataFrame:

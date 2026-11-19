@@ -12,12 +12,10 @@ from __future__ import annotations
 import asyncio
 import json
 import math
-import sqlite3
 from datetime import datetime
 from pathlib import Path
 
 import duckdb
-import numpy as np
 import pandas as pd
 import vectorbt as vbt
 

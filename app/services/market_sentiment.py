@@ -19,10 +19,12 @@
 """
 from __future__ import annotations
 
-import asyncio
+import logging
 from datetime import datetime, timedelta
 
 import pandas as pd
+
+logger = logging.getLogger(__name__)
 
 HORIZON = 20          # 信号后评估窗口（交易日）
 SPECTRUM_WIN = 20     # 阳谱统计窗口
@@ -78,12 +80,16 @@ def compute_sentiment() -> dict:
     try:
         mf = ak.stock_market_fund_flow()
         mf_map = {}
+        bad_rows = 0
         for _, r in mf.iterrows():
             d = str(r["日期"])[:10]
             try:
                 mf_map[d] = float(r["主力净流入-净占比"])
             except (TypeError, ValueError):
-                pass
+                # 脏行跳过（逐行不 log 防刷屏）；全表皆脏时下面聚合告警
+                bad_rows += 1
+        if bad_rows and not mf_map:
+            logger.warning("东财大盘资金流 %d 行全部解析失败，机构力道留空", bad_rows)
         idx_dates = dates
         vals, start_i = [], None
         for i, d in enumerate(idx_dates):
@@ -98,8 +104,8 @@ def compute_sentiment() -> dict:
             for k, i in enumerate(range(start_i, n)):
                 force[i] = round(sm[k], 2)
             force_source = "eastmoney"
-    except Exception:
-        pass  # 资金流失败不阻塞，力道留空→前端降级提示
+    except Exception as exc:
+        logger.warning("东财大盘资金流拉取失败，机构力道留空(前端降级): %s", exc)  # 资金流失败不阻塞
 
     # 柱标记：吸/减/弹
     marks = [None] * n

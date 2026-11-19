@@ -11,7 +11,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from app.models.database import get_db, init_db
 from app.services.market import (
-    fetch_realtime_tencent, fetch_kline_baidu, fetch_news_eastmoney,
+    fetch_realtime_tencent, fetch_kline_baidu,
     calc_ma, calc_volume_ratio, calc_boll, calc_kdj, calc_macd,
 )
 

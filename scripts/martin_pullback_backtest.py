@@ -11,7 +11,6 @@
 """
 import asyncio
 import sys
-import math
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
@@ -218,7 +217,6 @@ def stats(trades, kl):
         eq_curve.append(equity)
         peak = max(peak, equity)
         maxdd = max(maxdd, (peak - equity) / peak)
-    first, last = kl[0]["date"], kl[-1]["date"]
     yrs = len(kl) / 244
     cagr = (equity ** (1 / yrs) - 1) * 100 if yrs > 0 else 0
     bh = (kl[-1]["close"] / kl[0]["close"] - 1) * 100

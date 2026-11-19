@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import logging
 import os
 import pickle
 import shutil
@@ -13,6 +14,8 @@ from datetime import datetime
 from typing import Any
 
 import pandas as pd
+
+logger = logging.getLogger(__name__)
 
 # 内存缓存
 _DATA_CACHE: dict[str, Any] = {}
@@ -74,8 +77,9 @@ def load_disk_cache(cache_key: str) -> pd.DataFrame | None:
         if os.path.exists(cache_file):
             with open(cache_file, "rb") as f:
                 return pickle.load(f)
-    except Exception:
-        pass
+    except Exception as exc:
+        # 缓存损坏静默 → 上层表现为冷启动假象（审计 P2-5）
+        logger.warning("磁盘缓存读取失败 %s: %s", cache_key, exc)
     return None
 
 
@@ -87,8 +91,8 @@ def save_disk_cache(cache_key: str, data: Any) -> None:
         cache_file = os.path.join(_get_cache_dir(), f"{cache_key}.pkl")
         with open(cache_file, "wb") as f:
             pickle.dump(data, f)
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.warning("磁盘缓存写入失败 %s: %s", cache_key, exc)
 
 
 def clear_disk_cache() -> None:

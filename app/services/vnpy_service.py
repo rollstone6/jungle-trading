@@ -1,11 +1,8 @@
 """vnpy 集成服务 - 实盘交易和回测"""
 from typing import List, Dict
-import pandas as pd
 
 # vnpy imports
 try:
-    from vnpy_ctastrategy.backtesting import BacktestingEngine, OptimizationSetting
-    from vnpy.trader.constant import Interval, Exchange
     from vnpy.trader.object import BarData
     VNPY_AVAILABLE = True
 except ImportError:

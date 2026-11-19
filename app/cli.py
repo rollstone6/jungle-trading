@@ -11,9 +11,12 @@
 import os
 import sys
 import time
+import logging
 import pandas as pd
 from datetime import datetime, timedelta
 from concurrent.futures import ThreadPoolExecutor, as_completed
+
+logger = logging.getLogger("app.cli")
 
 from app.quant.config import (
     StrategyConfig,
@@ -40,8 +43,9 @@ from app.quant.backtesting import run_backtest
 from app.quant.utils import run_box_detection, TrendFilter, ChipDistributionAnalyzer
 
 
-# 全量处理时的并发线程数（可根据网络情况调整）
-MAX_WORKERS = 50
+# 全量处理时的并发线程数（资源红线：3.4G 小机并发 workers ≤ 4，
+# 50 并发全市场扫描有 OOM / 行情源风控风险，审计 P2-1）
+MAX_WORKERS = 4
 
 # 结果输出文件
 RESULT_FILE = os.path.join(os.path.dirname(os.path.dirname(__file__)), "result.txt")
@@ -347,8 +351,9 @@ def _run_parallel(stock_pool, scan_func, verbose, max_workers,
                     result = future.result()
                     if result is not None:
                         all_signals.append(result)
-                except Exception:
-                    pass
+                except Exception as exc:
+                    # 静默跳票=漏数据（审计 P2-5）：批处理单票失败必须可见
+                    logger.warning("并行扫描单票失败: %s", exc)
 
         progress.finish()
 
@@ -656,12 +661,13 @@ def run_accumulation(config):
         def progress_callback(completed, total, symbol):
             progress.update(1)
         
-        # 并行获取所有数据
+        # 并行获取所有数据（资源红线 workers≤4：3 个数据源 × 每源 1 = 3；
+        # 原 per_source=10 → 30 线程，审计 P2-1 漏报的同类违规，一并收口）
         data_dict = parallel_fetch_dispatch(
             stock_pool,
             start_date=start_date,
             timeframe="60m",
-            max_workers_per_source=10,
+            max_workers_per_source=1,
             verbose=verbose,
             progress_callback=progress_callback if not verbose else None,
         )
@@ -685,7 +691,7 @@ def run_accumulation(config):
             return None
         
         # 使用线程池并发计算信号
-        print(f"  [并行优化] 并发计算信号...")
+        print("  [并行优化] 并发计算信号...")
         progress2 = ProgressBar(len(stock_pool), label="信号计算")
         
         with ThreadPoolExecutor(max_workers=workers) as executor:
@@ -699,8 +705,9 @@ def run_accumulation(config):
                     result = future.result()
                     if result is not None:
                         all_signals.append(result)
-                except Exception:
-                    pass
+                except Exception as exc:
+                    # 静默跳票=漏数据（审计 P2-5）：批处理单票失败必须可见
+                    logger.warning("并行扫描单票失败: %s", exc)
         
         progress2.finish()
         return all_signals

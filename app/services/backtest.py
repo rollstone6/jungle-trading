@@ -1,9 +1,9 @@
 """回测服务 - Backtrader 集成"""
 import backtrader as bt
 import pandas as pd
-from datetime import datetime
-from typing import List, Dict, Optional
-import json
+from typing import List, Dict
+
+from app.services.dates import parse_bar_date
 
 
 class MAStrategy(bt.Strategy):
@@ -520,22 +520,17 @@ def kline_to_dataframe(klines: List[Dict]) -> pd.DataFrame:
     """将 kline 数据转换为 backtrader 需要的 DataFrame
 
     兼容两种日期格式：
-    - MM-DD（持仓缓存格式，补当前年份）
-    - YYYY-MM-DD（实时拉取的长周期数据，跨年安全）
+    - MM-DD（持仓缓存格式，按单调性倒推年份，跨年安全）
+    - YYYY-MM-DD（实时拉取的长周期数据，原样解析）
     """
     if not klines:
         return pd.DataFrame()
 
     df = pd.DataFrame(klines)
-    current_year = datetime.now().year
+    # P1-5（审计 t_edf48869）：MM-DD 短日期统一走 parse_bar_date 单调性推年。
+    # 旧实现朴素补"当前年"，跨年样本（12-31 后接 01-02）被赋同年，sort 后时序颠倒。
+    df["date"] = pd.to_datetime(parse_bar_date(df["date"]))
 
-    def _parse_date(x):
-        x = str(x)
-        if len(x) >= 10:
-            return pd.to_datetime(x)
-        return pd.to_datetime(f"{current_year}-{x}", format="%Y-%m-%d")
-
-    df["date"] = df["date"].apply(_parse_date)
     df = df.sort_values("date")
     df.set_index("date", inplace=True)
     df = df[["open", "high", "low", "close", "volume"]]
@@ -616,7 +611,10 @@ def run_backtest(
     cerebro.broker.setcommission(commission=commission)
     
     # 添加分析器
-    cerebro.addanalyzer(bt.analyzers.SharpeRatio, _name='sharpe')
+    # P1-7（审计 t_edf48869）：SharpeRatio 必须显式 timeframe=Days + annualize=True。
+    # 裸默认按 Years 聚合，样本<1年时 std 退化返回 None，旧代码 `or 0` 伪装成 0.000。
+    cerebro.addanalyzer(bt.analyzers.SharpeRatio, _name='sharpe',
+                        timeframe=bt.TimeFrame.Days, annualize=True)
     cerebro.addanalyzer(bt.analyzers.DrawDown, _name='drawdown')
     cerebro.addanalyzer(bt.analyzers.TradeAnalyzer, _name='trades')
     cerebro.addanalyzer(bt.analyzers.Returns, _name='returns')
@@ -640,9 +638,15 @@ def run_backtest(
     returns = strat.analyzers.returns.get_analysis()
     
     # 计算胜率
+    # P1-8（审计 t_edf48869）：分母统一为已平仓 closed（与 param_sweep.py 同口径）。
+    # total.total 含期末未平仓单，同一持仓末端会让回测页/扫描页胜率矛盾。
+    closed_trades = trades.get('total', {}).get('closed', 0) or 0
     total_trades = trades.get('total', {}).get('total', 0)
     won_trades = trades.get('won', {}).get('total', 0)
-    win_rate = (won_trades / total_trades * 100) if total_trades > 0 else 0
+    win_rate = (won_trades / closed_trades * 100) if closed_trades > 0 else 0
+    # P1-7：sharperatio 为 None（样本不足以计算/零波动）时透传 None，前端显示"—"，
+    # 不再 `or 0` 伪装成计算过的 0.000。
+    sharpe_ratio = sharpe.get('sharperatio')
     
     def _fmt_date(ts):
         # 分钟数据带时间，日线只显示日期
@@ -656,7 +660,7 @@ def run_backtest(
         'initial_cash': initial_cash,
         'final_value': round(end_value, 2),
         'total_return': round(total_return, 2),
-        'sharpe_ratio': round(sharpe.get('sharperatio', 0) or 0, 3),
+        'sharpe_ratio': (round(sharpe_ratio, 3) if sharpe_ratio is not None else None),
         'max_drawdown': round(drawdown.get('max', {}).get('drawdown', 0), 2),
         'total_trades': total_trades,
         'win_rate': round(win_rate, 2),
