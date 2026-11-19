@@ -9,10 +9,13 @@
 """
 import asyncio
 import json
+import logging
 import re
 import threading
 from datetime import date, datetime, timedelta
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 import httpx
 
@@ -98,26 +101,31 @@ async def _fetch_quote_tencent(codes: list[str]) -> dict[str, dict]:
                         if len(fields) < 79:
                             continue
                         item = {}
+                        bad = []
                         try:
                             item["price"] = float(fields[3])
-                        except (ValueError, IndexError):
-                            pass
+                        except (ValueError, IndexError) as exc:
+                            bad.append(f"price:{exc}")
                         try:
                             item["change_pct"] = float(fields[32])
-                        except (ValueError, IndexError):
-                            pass
+                        except (ValueError, IndexError) as exc:
+                            bad.append(f"change_pct:{exc}")
                         try:
                             nav = float(fields[78])
                             if nav > 0:
                                 item["nav"] = nav
-                        except (ValueError, IndexError):
-                            pass
+                        except (ValueError, IndexError) as exc:
+                            bad.append(f"nav:{exc}")
+                        if bad:
+                            # 字段缺=数据源改版/截断，ETF 流向页会静默出空图（审计 P2-5）
+                            logger.warning("ETF %s 行情字段解析失败 %s", m.group(1), bad)
                         quotes[m.group(1)] = item
                         got += 1
                     if got >= len(batch) * 0.5:
                         break
-                except Exception:
-                    pass
+                except Exception as exc:
+                    # 整批拉取失败（重试后仍失败=该批 ETF 行情缺失）
+                    logger.warning("ETF 行情批量拉取失败(%d只,attempt%d): %s", len(batch), attempt, exc)
                 await asyncio.sleep(1.0 * (attempt + 1))
     return quotes
 

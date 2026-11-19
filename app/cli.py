@@ -11,9 +11,12 @@
 import os
 import sys
 import time
+import logging
 import pandas as pd
 from datetime import datetime, timedelta
 from concurrent.futures import ThreadPoolExecutor, as_completed
+
+logger = logging.getLogger("app.cli")
 
 from app.quant.config import (
     StrategyConfig,
@@ -348,8 +351,9 @@ def _run_parallel(stock_pool, scan_func, verbose, max_workers,
                     result = future.result()
                     if result is not None:
                         all_signals.append(result)
-                except Exception:
-                    pass
+                except Exception as exc:
+                    # 静默跳票=漏数据（审计 P2-5）：批处理单票失败必须可见
+                    logger.warning("并行扫描单票失败: %s", exc)
 
         progress.finish()
 
@@ -700,8 +704,9 @@ def run_accumulation(config):
                     result = future.result()
                     if result is not None:
                         all_signals.append(result)
-                except Exception:
-                    pass
+                except Exception as exc:
+                    # 静默跳票=漏数据（审计 P2-5）：批处理单票失败必须可见
+                    logger.warning("并行扫描单票失败: %s", exc)
         
         progress2.finish()
         return all_signals

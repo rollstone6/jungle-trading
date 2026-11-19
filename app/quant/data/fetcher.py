@@ -5,9 +5,12 @@
 
 from __future__ import annotations
 
+import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import pandas as pd
+
+logger = logging.getLogger(__name__)
 
 from app.quant.data.cache import (
     get_mem_cache,
@@ -196,8 +199,9 @@ def _fetch_single_stock(stock, start_date, timeframe, source_name, fetch_func):
             set_mem_cache_safe(mem_cache_key, df)
             save_disk_cache(disk_cache_key, df)
             return (symbol, df, True, source_name)
-    except Exception:
-        pass
+    except Exception as exc:
+        # 源失败静默 → 上层把空数据当正常（审计 P2-5）
+        logger.warning("数据源 %s 拉取 %s 失败: %s", source_name, symbol, exc)
 
     return (symbol, pd.DataFrame(), False, source_name)
 
@@ -365,8 +369,8 @@ def parallel_fetch_simple(
                 sym, df = future.result()
                 if df is not None and not df.empty:
                     results[sym] = df
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.warning("并行获取 %s 失败: %s", symbol, exc)
 
             completed += 1
             if progress_callback:

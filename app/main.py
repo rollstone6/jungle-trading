@@ -665,8 +665,8 @@ async def regime_latest(request: Request, pwd: str = Depends(check_password), re
             if (cached.get("asOf") == today and cached.get("stocks")
                     and pos_codes <= cached_codes):
                 return cached
-        except Exception:
-            pass  # 缓存损坏则重新扫描
+        except Exception as exc:
+            logger.warning("regime 行情缓存读取失败，重新扫描: %s", exc)  # 缓存损坏则重新扫描
 
     from app.services.market import fetch_kline_tencent, fetch_kline_sina_minute
 

@@ -7,11 +7,14 @@
 """
 import asyncio
 import json
+import logging
 import re
 import time
 from datetime import datetime, timedelta
 
 import httpx
+
+logger = logging.getLogger(__name__)
 
 UA = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
@@ -64,8 +67,9 @@ async def fetch_fund_nav() -> dict:
         try:
             c = float(r.get("chg") or 0)
             chgs.append((c, r))
-        except (TypeError, ValueError):
-            pass
+        except (TypeError, ValueError) as exc:
+            # chg 脏数据会让该基金缺席 best/worst 排名（数据链路，审计 P2-5）
+            logger.warning("基金 %s chg 解析失败: %s", r.get("name"), exc)
     if chgs:
         best = max(chgs, key=lambda x: x[0])[1]
         worst = min(chgs, key=lambda x: x[0])[1]

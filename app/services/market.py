@@ -1,8 +1,12 @@
 """行情数据服务 - 腾讯财经 + 东方财富"""
+import logging
+
 import httpx
 import json
 import re
 from datetime import datetime, timedelta
+
+logger = logging.getLogger(__name__)
 
 
 async def fetch_realtime_tencent(codes: list[str]) -> dict:
@@ -121,8 +125,8 @@ async def fetch_kline_baidu(code: str, days: int = 120) -> list[dict]:
             # 空结果必须落到备用源，不能直接 return
             if klines:
                 return klines
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.warning("百度K线拉取失败 %s，转腾讯备用源: %s", code, exc)
 
     # Fallback: tencent kline
     return await fetch_kline_tencent(code, days)
