@@ -267,7 +267,10 @@ class UnifiedBacktester:
             })
 
         if calendar:
-            last_date = calendar[-1]
+            # 审计 t_edf48869 §四.2 判定：保守保留。期末平仓用
+            # last_price_dates[symbol]（停牌股取最后有价日），last_date 仅作日历尾日
+            # 记录占位，非漏用。
+            last_date = calendar[-1]  # noqa: F841
             for symbol, position in list(positions.items()):
                 if symbol not in last_prices:
                     continue

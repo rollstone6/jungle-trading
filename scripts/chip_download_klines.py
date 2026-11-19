@@ -1,5 +1,5 @@
 """全量池日K下载器：新浪 scale=240，1023根，磁盘缓存到 /tmp/chip_klines.pkl。"""
-import json, os, pickle, re, sys, time
+import json, os, pickle, re, time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import pandas as pd

@@ -4,7 +4,6 @@ import logging
 import httpx
 import json
 import re
-from datetime import datetime, timedelta
 
 logger = logging.getLogger(__name__)
 
@@ -101,8 +100,10 @@ async def fetch_kline_sina_minute(code: str, scale: int = 60, datalen: int = 102
 
 async def fetch_kline_baidu(code: str, days: int = 120) -> list[dict]:
     """百度股市通日K线"""
-    prefix = "sh" if code.startswith(("6", "5", "9")) else "sz"
-    market = "SH" if code.startswith(("6", "5", "9")) else "SZ"
+    # 审计 t_edf48869 §四.2 判定：保守保留。百度源已 403 停用（README 有记），
+    # 前缀推断仅留作恢复该数据源时的参考，URL 本身不依赖这两值。
+    prefix = "sh" if code.startswith(("6", "5", "9")) else "sz"  # noqa: F841
+    market = "SH" if code.startswith(("6", "5", "9")) else "SZ"  # noqa: F841
     url = f"https://finance.pae.baidu.com/vapi/v1/getquotation?srcid=5353&pointType=string&group=quotation_kline_ab&query={code}&code={code}&market_type=stock&newFormat=1&finClientType=pc&ktype=day&start_time=&end_time=&count={days}"
 
     async with httpx.AsyncClient(timeout=15) as client:
@@ -171,13 +172,6 @@ async def fetch_kline_tencent(code: str, days: int = 120, full_date: bool = Fals
 async def fetch_news_eastmoney(code: str, count: int = 3) -> list[dict]:
     """东方财富公告"""
     # Determine stock type
-    if code.startswith(("6", "5", "9")):
-        stock_type = "SH"
-    elif code.startswith("0") or code.startswith("3"):
-        stock_type = "SZ"
-    else:
-        stock_type = "SZ"
-
     url = f"https://np-anotice-stock.eastmoney.com/api/security/ann?sr=-1&page_size={count}&page_index=1&ann_type=SHA&client_source=web&stock_list={code}&f_node=0"
 
     async with httpx.AsyncClient(timeout=10, headers={
@@ -192,7 +186,6 @@ async def fetch_news_eastmoney(code: str, count: int = 3) -> list[dict]:
                 notice_date = item.get("notice_date", "")
                 if notice_date and len(notice_date) >= 10:
                     notice_date = notice_date[:10]
-                title = item.get("art_code", "")
                 display_title = item.get("title", "")
                 columns = item.get("columns", [])
                 stock_name = ""

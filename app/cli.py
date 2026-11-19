@@ -691,7 +691,7 @@ def run_accumulation(config):
             return None
         
         # 使用线程池并发计算信号
-        print(f"  [并行优化] 并发计算信号...")
+        print("  [并行优化] 并发计算信号...")
         progress2 = ProgressBar(len(stock_pool), label="信号计算")
         
         with ThreadPoolExecutor(max_workers=workers) as executor:

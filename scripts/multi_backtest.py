@@ -97,7 +97,6 @@ def rsi_wilder(closes, n=14):
 
 
 def boll(closes, n=20, k=2.0):
-    mid = up = lo = None
     mids, ups, los = [None] * len(closes), [None] * len(closes), [None] * len(closes)
     for i in range(n - 1, len(closes)):
         w = closes[i-n+1:i+1]
@@ -124,7 +123,7 @@ def finish(trades, pos, i, px, why, dates, risk):
 
 def strat_martin(code, name, kl):
     closes = [k["close"] for k in kl]; highs = [k["high"] for k in kl]
-    lows = [k["low"] for k in kl]; opens = [k["open"] for k in kl]
+    lows = [k["low"] for k in kl]
     vols = [k["volume"] for k in kl]; dates = [k["date"] for k in kl]
     n = len(closes)
     if n < 150:
@@ -429,7 +428,7 @@ async def main():
         }
 
     # 分股票矩阵(等权累计%)
-    print(f"\n分标的累计收益% (买入持有在括号内):")
+    print("\n分标的累计收益% (买入持有在括号内):")
     head = f"{'策略':<10}" + "".join(f"{POOL[c]:<7}" for c in data)
     print(head); print("-" * len(head))
     for key, (cname, _) in sel.items():

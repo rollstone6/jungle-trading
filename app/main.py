@@ -12,7 +12,7 @@ from dotenv import load_dotenv
 load_dotenv(Path(__file__).resolve().parents[1] / ".env")
 
 from fastapi import FastAPI, Request, HTTPException, Depends
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
@@ -171,7 +171,6 @@ def check_password(request: Request):
 
 # --- Let's Encrypt 验证路由（无需密码） ---
 from fastapi.responses import PlainTextResponse
-import os as _os
 
 # token 白名单正则（纵深防御，审计 P2-4）：Starlette 路由层已规范化拦截
 # ../ 穿越（审计实测 404 不可利用），此处再收一层，杜绝未来改动绕过路由
@@ -339,7 +338,7 @@ async def index(request: Request, pwd: str = Depends(check_password)):
                 p["macd_hist"] = macd_hist
                 
                 # 走势分类
-                from app.services.regime import classify_regime, REGIME_LABEL
+                from app.services.regime import classify_regime
                 regime_info = classify_regime(klines)
                 p["regime_label"] = regime_info.get("label", "")
                 
@@ -652,7 +651,7 @@ async def regime_page(request: Request, pwd: str = Depends(check_password)):
 @app.get("/api/regime/latest")
 async def regime_latest(request: Request, pwd: str = Depends(check_password), refresh: int = 0):
     """最新全池分类扫描结果：当天已有缓存直接返回，否则现场扫描并落盘到 data/regime_scan.json"""
-    from app.services.regime import classify_regime, combine_timeframes, REGIME_LABEL, REGIME_ADVICE
+    from app.services.regime import classify_regime, combine_timeframes, REGIME_LABEL
 
     today = datetime.now().strftime("%Y-%m-%d")
     if not refresh and REGIME_CACHE_FILE.exists():

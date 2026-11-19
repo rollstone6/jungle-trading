@@ -8,7 +8,6 @@ warnings.filterwarnings('ignore')
 # Zipline imports
 try:
     from zipline.api import order_target_percent, record, symbol
-    from zipline import run_algorithm
     ZIPLINE_AVAILABLE = True
 except ImportError:
     ZIPLINE_AVAILABLE = False

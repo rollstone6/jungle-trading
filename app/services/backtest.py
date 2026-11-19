@@ -1,9 +1,7 @@
 """回测服务 - Backtrader 集成"""
 import backtrader as bt
 import pandas as pd
-from datetime import datetime
-from typing import List, Dict, Optional
-import json
+from typing import List, Dict
 
 from app.services.dates import parse_bar_date
 

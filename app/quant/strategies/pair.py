@@ -34,8 +34,6 @@ class PairTradingEngine:
 
     def prepare_indicators(self, df):
         """计算技术指标"""
-        close = df['close'].values.astype(float)
-
         # 箱体高低点
         df['box_high'] = df['high'].rolling(60).max()
         df['box_low'] = df['low'].rolling(60).min()
