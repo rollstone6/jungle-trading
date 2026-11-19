@@ -222,6 +222,35 @@ akshare ──┴──────► quant/data/fetcher.py（级联降级，�
 */15 15 * * 1-5 cd /path/to/jungle-trading && python scripts/refresh.py
 ```
 
+## 数据维护（scripts/data_maintenance.py）
+
+`data/` 目录的统一维护入口：**默认 dry-run 只出体检报告，加 `--apply` 才真正动盘**。
+
+```bash
+# 体检：列出 data/ 每个文件的分类、体积、mtime、git 跟踪状态、过期判定（只读）
+python3 scripts/data_maintenance.py
+
+# 清理过期缓存（mtime 超 --max-age-days 天，默认 7）——删除前整文件备份到
+# /root/backups/data-maint-<时间戳>/，回滚 = 从备份目录 copy 回 data/
+python3 scripts/data_maintenance.py --apply
+
+# 快照提交辅助：白名单快照（etf_flow.json / etf_share_snap.json）有 diff 时
+# 单独 chore(data) 提交；只 git add 白名单路径，绝不 push
+python3 scripts/data_maintenance.py --apply --commit-snapshots
+```
+
+**何时跑**：感觉 data/ 变胖、或想把服务每晚刷新的 ETF 快照落库时手动跑一次；也可挂 cron（尚未配置，由维护者决定节奏）。
+
+**三类文件的处置规则**：
+
+| 分类 | 文件 | 处置 |
+|---|---|---|
+| 快照 snapshot | `etf_flow.json`、`etf_share_snap.json`（git 跟踪，`scripts/refresh_etf.py` 每晚定时刷） | 永不删除；`--commit-snapshots` 可自动 chore(data) 提交 |
+| 缓存 cache | `regime_scan.json`、`research_*.json`、`quant_scan_*.json`、`pipeline_result.json`、`valuation_*.pkl`（全部 gitignore，服务按需自动重建） | mtime 超期才清，清理前备份 |
+| 保护 protected | `jungle.db`（持仓 SQLite）、`jungle.duckdb*`（量化底座）、`astock_universe.json`、`chip_scan_*.jsonl` | **任何模式绝不触碰** |
+
+未登记进白名单的新文件只出现在报告里并提示人工核实生成方，工具永不自动清理。分类白名单与生成代码逐一对应（见脚本 docstring 的文件→producer 证据表）；新增数据文件时同步更新脚本内 `SNAPSHOT_GLOBS / CACHE_GLOBS / PROTECTED_GLOBS`。
+
 ## 测试与自检
 
 **无统一 pytest 入口**：仓库没有 pytest.ini / pyproject.toml / conftest.py，运行环境未安装 pytest，测试按脚本各自运行。
