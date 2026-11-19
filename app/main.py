@@ -581,11 +581,10 @@ async def list_strategies(request: Request, pwd: str = Depends(check_password)):
     """获取可用的回测策略"""
     _, get_strategies = _load_backtest_engine("backtrader")
     strategies = get_strategies()
-    try:
-        _, get_vnpy = _load_backtest_engine("vnpy")
-        strategies += get_vnpy()
-    except HTTPException:
-        pass  # vnpy 未安装时仅返回 backtrader 策略
+    _, get_vnpy = _load_backtest_engine("vnpy")
+    # vnpy_service 模块导入本身不依赖 vnpy 包（try/except 内置），
+    # get_vnpy_strategies() 已按 VNPY_AVAILABLE 过滤，未安装时返回空列表。
+    strategies += get_vnpy()
     return strategies
 
 

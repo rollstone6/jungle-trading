@@ -15,6 +15,8 @@
 4. 筹码集中度过滤（复用 ChipDistributionAnalyzer）
 """
 
+import logging
+
 import pandas as pd
 import numpy as np
 import talib
@@ -24,6 +26,8 @@ from app.quant.core.signal import Signal, SignalFrame
 from app.quant.core.strategy_base import StrategyBase
 from app.quant.strategies.accumulation_scoring import AccumulationScoring
 from app.quant.utils.chip_distribution import ChipDistributionAnalyzer
+
+logger = logging.getLogger(__name__)
 
 
 class AccumulationEngine(AccumulationScoring, StrategyBase):
@@ -134,6 +138,8 @@ class AccumulationEngine(AccumulationScoring, StrategyBase):
 
         返回:
             tuple: (筹码评分0-100, 是否通过集中度筛选)
+            passed 三态：True=通过 / False=未通过 / None=筹码数据异常
+            （审计 t_edf48869 P0-3：计算失败不再伪装"中性通过"）
         """
         if not self.cfg.enable_chip_filter:
             return 100.0, True  # 未启用筹码过滤时默认通过
@@ -157,13 +163,23 @@ class AccumulationEngine(AccumulationScoring, StrategyBase):
             daily_data = self._extract_daily_data(df, current_idx)
 
             if daily_data.empty or len(daily_data) < 30:
-                return 50.0, True  # 数据不足时默认通过
+                # 数据不足保持中性通过（新票上市场景，非计算故障），
+                # 但记 debug 日志便于排查（审计批次 B2 要求）
+                logger.debug(
+                    "accumulation 筹码数据不足(<30根日线)，按中性通过: %s",
+                    symbol,
+                )
+                return 50.0, True
 
             # 计算筹码分布
             result = self.chip_analyzer.analyze_stock(daily_data)
 
             if result is None:
-                return 50.0, True
+                # 计算失败≠通过：返回 None 让调用方打 data_error 标记
+                logger.warning(
+                    "accumulation 筹码分析返回空(数据异常): %s", symbol,
+                )
+                return 50.0, None
 
             score = result.get('score', 50)
             passed = result.get('pass', True)
@@ -177,8 +193,12 @@ class AccumulationEngine(AccumulationScoring, StrategyBase):
 
             return score, passed
 
-        except Exception:
-            return 50.0, True  # 异常时默认通过
+        except Exception as exc:
+            # 异常≠通过：log + data_error 三态，不再静默"默认通过"
+            logger.warning(
+                "accumulation 筹码分析异常(数据异常): %s: %s", symbol, exc,
+            )
+            return 50.0, None
 
     def _extract_daily_data(self, df_60m, current_idx):
         """
@@ -245,6 +265,7 @@ class AccumulationEngine(AccumulationScoring, StrategyBase):
             'high_score': 0,  # 评分 >= 70
             'breakout': 0,    # 突破确认
             'chip_filter': 0, # 筹码过滤通过
+            'chip_error': 0,  # 筹码数据异常（未拦截，仅标记）
             'signals': 0,     # 最终信号
         }
 
@@ -271,13 +292,18 @@ class AccumulationEngine(AccumulationScoring, StrategyBase):
 
             # ===== 筹码集中度过滤 =====
             chip_score, chip_passed = self._get_chip_score(df, symbol, i)
+            # chip_passed 三态：True/False 正常判定；None = 筹码数据异常
+            # （异常/空结果，已在 _get_chip_score 内 log WARNING）
+            chip_data_error = chip_passed is None
 
-            if not chip_passed:
+            if chip_passed is False:
                 continue
             stats['chip_filter'] += 1
+            if chip_data_error:
+                stats['chip_error'] += 1
 
-            # 筹码评分加分（可选）
-            if self.cfg.enable_chip_filter:
+            # 筹码评分加分（可选；数据异常时中性分 50 会虚增排名，不加）
+            if self.cfg.enable_chip_filter and not chip_data_error:
                 chip_bonus = (chip_score / 100) * self.cfg.chip_score_bonus
                 total_score += chip_bonus
 
@@ -318,6 +344,9 @@ class AccumulationEngine(AccumulationScoring, StrategyBase):
                     'volume': round(breakout_detail['volume'], 0),
                     'vol_ratio': vol_ratio,
                     'chip_score': round(chip_score, 1) if self.cfg.enable_chip_filter else None,
+                    # 筹码数据异常标记：True 表示该信号未被筹码门控校验
+                    # （计算失败/空结果），前端可区别于正常"通过"
+                    'data_error': chip_data_error,
                 },
             ))
 
@@ -331,6 +360,7 @@ class AccumulationEngine(AccumulationScoring, StrategyBase):
                   f"  高分:{stats['high_score']}"
                   f"  突破:{stats['breakout']}"
                   f"  筹码通过:{stats['chip_filter']}"
+                  f"  筹码数据异常:{stats['chip_error']}"
                   f"  信号:{stats['signals']}")
 
         return SignalFrame(signals)
