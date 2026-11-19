@@ -103,7 +103,9 @@ def _run_bt_df(df, f: int, sl: int) -> dict:
     cerebro.addstrategy(MAStrategy, fast_period=f, slow_period=sl)
     cerebro.broker.setcash(100000.0)
     cerebro.broker.setcommission(commission=0.001)
-    cerebro.addanalyzer(bt.analyzers.SharpeRatio, _name='sharpe')
+    # P1-7（审计 t_edf48869）：同 backtest.py——SharpeRatio 显式 timeframe=Days + annualize=True
+    cerebro.addanalyzer(bt.analyzers.SharpeRatio, _name='sharpe',
+                        timeframe=bt.TimeFrame.Days, annualize=True)
     cerebro.addanalyzer(bt.analyzers.DrawDown, _name='drawdown')
     cerebro.addanalyzer(bt.analyzers.TradeAnalyzer, _name='trades')
     cerebro.addanalyzer(bt.analyzers.Returns, _name='returns')

@@ -903,10 +903,13 @@ async def search_stock(q: str, request: Request, pwd: str = Depends(check_passwo
     """按 名称/代码/拼音首字母 模糊搜索全市场 A 股（新浪 suggest 接口，GBK 解码）"""
     import httpx as _httpx
     import re as _re
+    from urllib.parse import quote as _urlquote
     q = q.strip()
     if len(q) < 1:
         return {"results": []}
-    url = f"https://suggest3.sinajs.cn/suggest/type=11&key={_re.escape(q)}"
+    # P1-6（审计 t_edf48869）：URL query 值必须 percent-encoding（quote），
+    # 旧代码误用 re.escape —— 给空格/& 插反斜杠（'A&B'→'A\&B'），& 还会截断参数。
+    url = f"https://suggest3.sinajs.cn/suggest/type=11&key={_urlquote(q)}"
     async with _httpx.AsyncClient(timeout=6) as client:
         r = await client.get(url, headers={"User-Agent": "Mozilla/5.0", "Referer": "https://finance.sina.com.cn"})
         r.raise_for_status()
