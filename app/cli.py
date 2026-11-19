@@ -40,8 +40,9 @@ from app.quant.backtesting import run_backtest
 from app.quant.utils import run_box_detection, TrendFilter, ChipDistributionAnalyzer
 
 
-# 全量处理时的并发线程数（可根据网络情况调整）
-MAX_WORKERS = 50
+# 全量处理时的并发线程数（资源红线：3.4G 小机并发 workers ≤ 4，
+# 50 并发全市场扫描有 OOM / 行情源风控风险，审计 P2-1）
+MAX_WORKERS = 4
 
 # 结果输出文件
 RESULT_FILE = os.path.join(os.path.dirname(os.path.dirname(__file__)), "result.txt")

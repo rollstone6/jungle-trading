@@ -1,6 +1,8 @@
 """持仓工作台 - FastAPI 主应用"""
 import os
 import json
+import logging
+import re
 import asyncio
 from datetime import datetime
 from pathlib import Path
@@ -131,7 +133,19 @@ def _load_backtest_engine(engine: str):
     raise HTTPException(status_code=400, detail="不支持的回测引擎")
 
 # Config
+logger = logging.getLogger("app.main")
+
+# SITE_PASSWORD 缺失/空串时 fail-fast（审计 P2-3）：空口令会让
+# check_password 里 `pwd != ""` 对任意 pwd 值都成立、唯独空 pwd 放行，
+# 生产全站数据匿名可读且无任何告警 —— 宁可在启动阶段立即崩溃暴露
+# 漏配（uvicorn 起不来，进程级信号，比每请求 403+ERROR log 刷屏更
+# 早发现且零性能损耗），也不带着敞口跑。生产 .env 已配，不受影响。
 SITE_PASSWORD = os.environ.get("SITE_PASSWORD", "")
+if not SITE_PASSWORD:
+    raise RuntimeError(
+        "SITE_PASSWORD 未配置：请在仓库根 .env 设置 SITE_PASSWORD 后再启动"
+        "（空口令启动等于全站匿名开放）"
+    )
 BASE_DIR = Path(__file__).parent.parent
 
 app = FastAPI(title="Jungle Genius Trading Desktop")
@@ -159,8 +173,15 @@ def check_password(request: Request):
 from fastapi.responses import PlainTextResponse
 import os as _os
 
+# token 白名单正则（纵深防御，审计 P2-4）：Starlette 路由层已规范化拦截
+# ../ 穿越（审计实测 404 不可利用），此处再收一层，杜绝未来改动绕过路由
+# 规范化后 Path / 拼接读任意文件的可能。ACME token 字符集即 base64url。
+_ACME_TOKEN_RE = re.compile(r"^[A-Za-z0-9_-]+$")
+
 @app.get("/.well-known/acme-challenge/{token}")
 async def acme_challenge(token: str):
+    if not _ACME_TOKEN_RE.match(token):
+        raise HTTPException(status_code=404)
     certbot_path = Path("/var/www/certbot/.well-known/acme-challenge") / token
     if certbot_path.exists():
         return PlainTextResponse(certbot_path.read_text())

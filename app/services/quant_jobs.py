@@ -22,10 +22,13 @@ refresh=1（否则任务完成后的下一次 force 轮询会误触发重扫）�
 from __future__ import annotations
 
 import asyncio
+import logging
 import time
 from datetime import datetime
 
 from app.services import quant_scan as qs
+
+logger = logging.getLogger(__name__)
 
 #: key -> (asOf, payload)  进程内当日 ready 结果
 _RESULTS: dict[str, tuple[str, dict]] = {}
@@ -40,6 +43,14 @@ _GATE: asyncio.Semaphore | None = None
 
 #: 失败后多久允许自动重新提交（防重试风暴）
 ERROR_COOLDOWN = 30.0
+
+#: running 超时兜底（审计 P2-2）：正常情况下四大赛道扫描首跑为分钟级
+#: 网络取数，串行队列下最坏 ≈ 闸排队(前一任务最长耗时) + 自身耗时。
+#: 取 30 分钟（= 10 分钟级首跑的 3 倍余量，见模块 docstring 历史超时上限）：
+#: 超过即视为 compute 线程挂死（网络 hang / 死锁），置 error 并放行重算，
+#: 避免该 key 永卡 running 的 singleflight 死锁态。残留旧任务若后来完成，
+#: prime/error 覆盖写 _JOBS 无害（payload 落盘是幂等结果）。
+RUNNING_TIMEOUT_SECONDS = 30 * 60
 
 
 def _gate() -> asyncio.Semaphore:
@@ -85,7 +96,20 @@ async def run(key: str, compute, *, force: bool = False) -> dict:
 
     job = _JOBS.get(key)
     if job and job.get("status") == "running":
-        return _scanning(key, job)
+        # 超时兜底（P2-2）：running 超 RUNNING_TIMEOUT_SECONDS 视为 compute
+        # 挂死，就地置 error，不再返回 scanning —— 让本次调用走下面的
+        # error/重提交路径，key 可自愈重算，不再永卡。
+        started = job.get("startedAt") or job.get("ts", 0)
+        if time.time() - started > RUNNING_TIMEOUT_SECONDS:
+            logger.warning(
+                "quant job %s running 超过 %ss（startedAt=%s），视为挂死置 error",
+                key, RUNNING_TIMEOUT_SECONDS, started)
+            _JOBS[key] = {"status": "error",
+                          "error": f"timeout: running > {RUNNING_TIMEOUT_SECONDS}s",
+                          "ts": time.time()}
+            job = _JOBS[key]
+        else:
+            return _scanning(key, job)
     if (job and job.get("status") == "error" and not force
             and time.time() - job.get("ts", 0) < ERROR_COOLDOWN):
         return {"status": "error", "key": key, "error": job.get("error", "")}
@@ -116,9 +140,20 @@ async def _execute(key: str, compute) -> None:
         try:
             payload = await asyncio.to_thread(compute)
         except Exception as exc:
+            logger.warning("quant job %s compute 异常: %s", key, exc)
             _JOBS[key] = {"status": "error",
                           "error": f"{type(exc).__name__}: {exc}",
                           "startedAt": started, "ts": time.time()}
             return
     if isinstance(payload, dict):
         prime(key, payload)
+    else:
+        # compute 返回非 dict（如 None）：不能静默让 job 永挂 running
+        # （singleflight 死锁态，审计 P2-2）——置 error 并 log，
+        # 冷却期后或 force 请求可重新提交计算。
+        logger.warning(
+            "quant job %s compute 返回非 dict（%r），置 error",
+            key, type(payload).__name__)
+        _JOBS[key] = {"status": "error",
+                      "error": f"compute returned non-dict: {type(payload).__name__}",
+                      "startedAt": started, "ts": time.time()}
