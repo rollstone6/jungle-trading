@@ -174,6 +174,23 @@ akshare ──┴──────► quant/data/fetcher.py（级联降级，�
 
 ---
 
+## 指标口径（KDJ / MACD）
+
+技术指标口径说明（`app/services/market.py`）：
+
+- **KDJ**（`calc_kdj`）：全历史滑动窗口递推 RSV→K→D，国内通达信口径
+  `K=2/3·K+1/3·RSV`、`D=2/3·D+1/3·K`（默认 9,3,3），初值 K=D=50。
+  旧实现仅从倒数第 9 根开始迭代、之前全部历史完全不参与，已修复。
+  验证基准为**全历史递推参考实现**（repro §P1-3 `kdj_full`，误差 0）；
+  注意 talib.STOCH 默认对 RSV 做 SMA(3) 平滑（美式 KDJ），与国内递推口径
+  设计上不同源，末端数值不可直接互相对照。
+- **MACD**（`calc_macd`）：EMA 平滑系数采用标准 `alpha = 2/(N+1)`（12/26/9），
+  以 **talib 为基准**，长历史（≥250 根）末端 DIF/DEA 与 `talib.MACD` 对照
+  误差 <1e-6（本实现首值播种、talib 前 N 均值播种，差值随历史长度指数衰减）。
+  MACD 柱为国内行情软件惯例 `(DIF-DEA)×2`（talib 返回的 hist 不×2，对照时仅比 DIF/DEA）。
+
+---
+
 ## API 一览
 
 | 方法 | 路径 | 说明 |

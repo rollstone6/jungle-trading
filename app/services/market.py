@@ -228,77 +228,77 @@ def calc_boll(klines: list[dict], period: int = 20, std_dev: float = 2.0) -> tup
     return round(upper, 3), round(mid, 3), round(lower, 3)
 
 
-def calc_kdj(klines: list[dict], n: int = 9, m1: int = 3, m2: int = 3) -> tuple[float, float, float]:
-    """计算 KDJ 指标（K值、D值、J值）"""
+def calc_kdj_raw(klines: list[dict], n: int = 9, m1: int = 3, m2: int = 3) -> tuple[float, float, float]:
+    """KDJ 全历史递推（不取整），返回未 round 的 (K, D, J)。
+
+    P1-3 修复：旧实现只从倒数第 n 根开始迭代，前段全部历史完全不参与
+    （暴涨/横盘两种前历史输出逐位相同），K/D 与行情软件系统性偏差。
+    现按标准口径全历史递推 RSV→K→D（初值 K=D=50，与 talib/全历史参考一致，
+    详见 README「指标口径」）。
+    """
     if len(klines) < n:
-        return 50, 50, 50
-    
-    # 计算 RSV（未成熟随机值）
-    k_values = [50]  # 初始值
-    d_values = [50]
-    
-    for i in range(len(klines) - n, len(klines)):
-        window = klines[max(0, i-n+1):i+1]
-        if len(window) < n:
-            continue
-        
-        closes = [k["close"] for k in window]
-        highs = [k["high"] for k in window]
-        lows = [k["low"] for k in window]
-        
-        high_n = max(highs)
-        low_n = min(lows)
-        close = closes[-1]
-        
-        if high_n == low_n:
-            rsv = 50
-        else:
-            rsv = (close - low_n) / (high_n - low_n) * 100
-        
-        # 计算 K 和 D
-        k = (m1 - 1) / m1 * k_values[-1] + 1 / m1 * rsv
-        d = (m2 - 1) / m2 * d_values[-1] + 1 / m2 * k
-        j = 3 * k - 2 * d
-        
-        k_values.append(k)
-        d_values.append(d)
-    
-    k = k_values[-1]
-    d = d_values[-1]
+        return 50.0, 50.0, 50.0
+
+    k, d = 50.0, 50.0  # 初值
+    for i in range(n - 1, len(klines)):
+        window = klines[i - n + 1:i + 1]
+        high_n = max(x["high"] for x in window)
+        low_n = min(x["low"] for x in window)
+        close = window[-1]["close"]
+        # RSV（未成熟随机值）；高低价相同的退化情形取 50（中性）
+        rsv = 50.0 if high_n == low_n else (close - low_n) / (high_n - low_n) * 100
+        k = (m1 - 1) / m1 * k + 1 / m1 * rsv
+        d = (m2 - 1) / m2 * d + 1 / m2 * k
+
     j = 3 * k - 2 * d
-    
+    return k, d, j
+
+
+def calc_kdj(klines: list[dict], n: int = 9, m1: int = 3, m2: int = 3) -> tuple[float, float, float]:
+    """计算 KDJ 指标（K值、D值、J值）——全历史递推口径，见 calc_kdj_raw"""
+    k, d, j = calc_kdj_raw(klines, n, m1, m2)
     return round(k, 2), round(d, 2), round(j, 2)
 
 
-def calc_macd(klines: list[dict], short: int = 12, long: int = 26, signal: int = 9) -> tuple[float, float, float]:
-    """计算 MACD 指标（DIF、DEA、MACD柱）"""
+def calc_macd_raw(klines: list[dict], short: int = 12, long: int = 26, signal: int = 9) -> tuple[float, float, float]:
+    """MACD 全历史递推（不取整），返回未 round 的 (DIF, DEA, 柱)。
+
+    P1-4 修复：EMA 平滑系数由 1/N 改为标准 2/(N+1)（talib/主流行情软件口径），
+    长历史末端 DIF/DEA 与 talib.MACD 对照误差 <1e-6。柱为国内通达信惯例
+    (DIF-DEA)×2（talib 返回不×2 的差值，对照时仅比 DIF/DEA）。
+    拆出 raw 版本供精度对照测试使用，详见 README「指标口径」。
+    """
     if len(klines) < long:
-        return 0, 0, 0
-    
+        return 0.0, 0.0, 0.0
+
     closes = [k["close"] for k in klines]
-    
-    # 计算 EMA
+
+    # 计算 EMA（标准 alpha = 2/(N+1)）
+    a_short = 2.0 / (short + 1)
+    a_long = 2.0 / (long + 1)
+    a_signal = 2.0 / (signal + 1)
     ema_short = closes[0]
     ema_long = closes[0]
     dif_values = []
-    dea_values = []
-    
+
     for close in closes:
-        ema_short = (short - 1) / short * ema_short + 1 / short * close
-        ema_long = (long - 1) / long * ema_long + 1 / long * close
-        dif = ema_short - ema_long
-        dif_values.append(dif)
-    
+        ema_short = a_short * close + (1 - a_short) * ema_short
+        ema_long = a_long * close + (1 - a_long) * ema_long
+        dif_values.append(ema_short - ema_long)
+
     # 计算 DEA（DIF 的 EMA）
     dea = dif_values[0]
     for dif in dif_values:
-        dea = (signal - 1) / signal * dea + 1 / signal * dif
-        dea_values.append(dea)
-    
+        dea = a_signal * dif + (1 - a_signal) * dea
+
     dif = dif_values[-1]
-    dea = dea_values[-1]
     macd = (dif - dea) * 2
-    
+    return dif, dea, macd
+
+
+def calc_macd(klines: list[dict], short: int = 12, long: int = 26, signal: int = 9) -> tuple[float, float, float]:
+    """计算 MACD 指标（DIF、DEA、MACD柱）——标准 2/(N+1) EMA 口径，见 calc_macd_raw"""
+    dif, dea, macd = calc_macd_raw(klines, short, long, signal)
     return round(dif, 3), round(dea, 3), round(macd, 3)
 
 
