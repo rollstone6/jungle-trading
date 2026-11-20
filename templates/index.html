@@ -48,8 +48,8 @@
             flex-wrap: wrap;
             align-items: center;
             justify-content: space-between;
-            background: #fff;
-            border: 1px solid #e2e8f0;
+            background: var(--panel);
+            border: 1px solid var(--line);
             border-radius: 14px;
             padding: 10px 12px;
             margin: 16px 0;
@@ -61,7 +61,7 @@
             position: absolute;
             top: 0; left: 0; right: 0;
             height: 3px;
-            background: linear-gradient(90deg, #3b82f6, #8b5cf6, #06b6d4, #f59e0b);
+            background: linear-gradient(90deg, var(--info), var(--accent-2), var(--cyan), var(--warn));
         }
         .account-item {
             display: flex;
@@ -72,34 +72,34 @@
             border-radius: 10px;
             transition: background 0.15s;
         }
-        .account-item:hover { background: #f8fafc; }
-        .account-item + .account-item { border-left: 1px dashed #e2e8f0; }
+        .account-item:hover { background: var(--panel-2); }
+        .account-item + .account-item { border-left: 1px dashed var(--line); }
         .account-item .dot {
             width: 8px; height: 8px;
             border-radius: 50%;
             align-self: center;
             flex: 0 0 auto;
         }
-        .acct-blue .dot   { background: #3b82f6; box-shadow: 0 0 6px rgba(59, 130, 246, 0.5); }
-        .acct-purple .dot { background: #8b5cf6; box-shadow: 0 0 6px rgba(139, 92, 246, 0.5); }
-        .acct-cyan .dot   { background: #06b6d4; box-shadow: 0 0 6px rgba(6, 182, 212, 0.5); }
-        .pnl-chip .dot    { background: #f59e0b; box-shadow: 0 0 6px rgba(245, 158, 11, 0.5); }
-        .pnl-chip.gain { background: rgba(217, 45, 32, 0.10); }
-        .pnl-chip.gain .dot { background: #d92d20; box-shadow: 0 0 6px rgba(217, 45, 32, 0.55); }
-        .pnl-chip.loss { background: rgba(11, 143, 98, 0.10); }
-        .pnl-chip.loss .dot { background: #0a7d57; box-shadow: 0 0 6px rgba(11, 143, 98, 0.55); }
+        .acct-blue .dot   { background: var(--info); box-shadow: 0 0 6px rgba(59, 130, 246, 0.5); }
+        .acct-purple .dot { background: var(--accent-2); box-shadow: 0 0 6px rgba(139, 92, 246, 0.5); }
+        .acct-cyan .dot   { background: var(--cyan); box-shadow: 0 0 6px rgba(6, 182, 212, 0.5); }
+        .pnl-chip .dot    { background: var(--warn); box-shadow: 0 0 6px rgba(var(--warn-rgb), 0.5); }
+        .pnl-chip.gain { background: rgba(var(--red-rgb), 0.10); }
+        .pnl-chip.gain .dot { background: var(--red); box-shadow: 0 0 6px rgba(var(--red-rgb), 0.55); }
+        .pnl-chip.loss { background: rgba(var(--green-rgb), 0.10); }
+        .pnl-chip.loss .dot { background: var(--green); box-shadow: 0 0 6px rgba(var(--green-rgb), 0.55); }
         .account-item .label {
-            color: #64748b;
+            color: var(--muted-2);
             font-size: 12px;
         }
         .account-item .value {
             font-size: 16px;
             font-weight: 800;
             font-variant-numeric: tabular-nums;
-            color: #1e293b;
+            color: var(--text);
         }
-        .account-item.gain .value { color: #d92d20; }
-        .account-item.loss .value { color: #0a7d57; }
+        .account-item.gain .value { color: var(--red); }
+        .account-item.loss .value { color: var(--green); }
         .account-item .value small {
             font-size: 12px;
             font-weight: 600;
@@ -113,14 +113,14 @@
         }
 
         /* 涨跌配色 —— 全站统一：A股语义 红涨绿跌。引用公用变量 --red/--green */
-        .gain { color: var(--red, #d92d20); }
-        .loss { color: var(--green, #0a7d57); }
+        .gain { color: var(--red, var(--red)); }
+        .loss { color: var(--green, var(--green)); }
 
         /* 区块标题 */
         .positions-section h2,
         .report-section h2 {
             font-size: 20px;
-            color: #1e293b;
+            color: var(--text);
             margin: 0 0 16px;
             padding-left: 12px;
             border-left: 4px solid var(--accent);
@@ -128,8 +128,8 @@
 
         /* 持仓卡片 */
         .position-card {
-            background: #fff;
-            border: 2px solid #e2e8f0;
+            background: var(--panel);
+            border: 2px solid var(--line);
             border-radius: 12px;
             padding: 14px;
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
@@ -152,13 +152,13 @@
         .position-card.danger,
         .position-card.高 {
             border-color: rgba(239, 68, 68, 0.4);
-            background: #fff;
-            box-shadow: inset 4px 0 0 #ef4444, 0 2px 8px rgba(0, 0, 0, 0.1);
+            background: var(--panel);
+            box-shadow: inset 4px 0 0 var(--red), 0 2px 8px rgba(0, 0, 0, 0.1);
         }
         .position-card.中 {
-            border-color: rgba(245, 158, 11, 0.4);
-            background: #fff;
-            box-shadow: inset 4px 0 0 #f59e0b, 0 2px 8px rgba(0, 0, 0, 0.1);
+            border-color: rgba(var(--warn-rgb), 0.4);
+            background: var(--panel);
+            box-shadow: inset 4px 0 0 var(--warn), 0 2px 8px rgba(0, 0, 0, 0.1);
         }
 
         /* 徽章 chip */
@@ -173,8 +173,8 @@
 
         /* 指标行 */
         .metric-row span {
-            background: #f1f0ff;
-            color: #334155;
+            background: var(--tint-violet-bg);
+            color: var(--text-soft);
             border-radius: 8px;
         }
 
@@ -190,38 +190,38 @@
         .tech-pills span:nth-child(2n),
         .tech-pills span:nth-child(3n),
         .tech-pills span:nth-child(4n) {
-            background: #f6f7f9;
-            border: 1px solid #e5e7eb;
-            color: #4b5563;
+            background: var(--panel-3);
+            border: 1px solid var(--line);
+            color: var(--text-mid);
             font-weight: 500;
             font-size: 12px;
             padding: 6px 10px;
             border-radius: 8px;
         }
         .tech-pills b {
-            color: #64748b;
+            color: var(--muted-2);
         }
 
         /* 边界接近度辉光（prox 越大越亮，由后端计算内联注入） */
         .tech-pills span.near-up {
-            color: #b91c1c;
+            color: var(--red);
             font-weight: 600;
         }
         .tech-pills span.near-up b {
-            color: #ef4444;
+            color: var(--red);
         }
         .tech-pills span.near-down {
-            color: #15803d;
+            color: var(--green);
             font-weight: 600;
         }
         .tech-pills span.near-down b {
-            color: #22c55e;
+            color: var(--green);
         }
 
         /* K线卡 */
         .kline-card {
-            background: #f8f7ff;
-            border: 1px solid #e9e6ff;
+            background: var(--tint-violet-bg);
+            border: 1px solid var(--tint-violet-bg);
             border-radius: 12px;
             padding: 0;
             margin-top: 12px;
@@ -244,7 +244,7 @@
             color: var(--accent);
             font-weight: 600;
         }
-        .kline-card:not(.collapsed) .kline-toggle { border-bottom: 1px solid #e9e6ff; }
+        .kline-card:not(.collapsed) .kline-toggle { border-bottom: 1px solid var(--tint-violet-bg); }
         .kline-card:not(.collapsed) .mini-kline { padding: 8px 12px 10px; min-height: 0; }
         /* 读数/图例占位：tip 与 legend 绝对定位，需预留顶部空间避免压图 */
         .kline-card:not(.collapsed) .mini-kline { padding-top: 60px; }
@@ -282,9 +282,9 @@
             gap: 6px;
             padding: 5px 12px;
             border-radius: 999px;
-            border: 1.5px solid #e2e8f0;
-            background: #fff;
-            color: #475569;
+            border: 1.5px solid var(--line);
+            background: var(--panel);
+            color: var(--text-mid);
             font-size: 12.5px;
             cursor: pointer;
             transition: border-color .15s, background .15s, color .15s, box-shadow .15s;
@@ -292,16 +292,16 @@
         .regime-filter .rf-btn:hover { border-color: var(--accent); color: var(--accent); }
         .regime-filter .rf-btn:active { transform: scale(0.97); }
         .regime-filter .rf-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
-        .regime-filter .rf-btn small { font-size: 11px; color: #64748b; font-variant-numeric: tabular-nums; }
+        .regime-filter .rf-btn small { font-size: 11px; color: var(--muted-2); font-variant-numeric: tabular-nums; }
         .regime-filter .rf-dot {
             width: 8px; height: 8px; border-radius: 50%;
-            background: #cbd5e1; flex-shrink: 0;
+            background: var(--line-strong); flex-shrink: 0;
         }
-        .regime-filter .rf-btn.squeeze .rf-dot { background: linear-gradient(135deg, #f59e0b, #ef4444); }
-        .regime-filter .rf-btn.trending .rf-dot { background: linear-gradient(135deg, #10b981, #0ea5e9); }
-        .regime-filter .rf-btn.ranging .rf-dot { background: linear-gradient(135deg, #3b82f6, #6366f1); }
-        .regime-filter .rf-btn.neutral .rf-dot { background: linear-gradient(135deg, #64748b, #94a3b8); }
-        .regime-filter .rf-btn.all .rf-dot { background: linear-gradient(135deg, var(--accent), #0ea5e9); }
+        .regime-filter .rf-btn.squeeze .rf-dot { background: linear-gradient(135deg, var(--warn), var(--red)); }
+        .regime-filter .rf-btn.trending .rf-dot { background: linear-gradient(135deg, var(--green), var(--cyan)); }
+        .regime-filter .rf-btn.ranging .rf-dot { background: linear-gradient(135deg, var(--info), var(--accent)); }
+        .regime-filter .rf-btn.neutral .rf-dot { background: linear-gradient(135deg, var(--muted-2), var(--muted)); }
+        .regime-filter .rf-btn.all .rf-dot { background: linear-gradient(135deg, var(--accent), var(--cyan)); }
         .regime-filter .rf-btn.on {
             border-color: var(--accent);
             background: rgba(var(--accent-rgb, 102, 126, 234), 0.08);
@@ -314,7 +314,7 @@
         .regime-filter-empty {
             grid-column: 1 / -1;
             text-align: center;
-            color: #64748b;
+            color: var(--muted-2);
             font-size: 13px;
             padding: 28px 0;
         }
@@ -322,8 +322,8 @@
         /* 持仓走势分类面板 */
         .regime-panel {
             margin-top: 16px;
-            background: #fff;
-            border: 2px solid #e2e8f0;
+            background: var(--panel);
+            border: 2px solid var(--line);
             border-radius: 12px;
             padding: 14px 16px;
         }
@@ -331,15 +331,15 @@
         .vol-chip {
             border-radius: 10px;
             padding: 10px 12px;
-            border: 1.5px solid #e2e8f0;
-            background: #f8fafc;
+            border: 1.5px solid var(--line);
+            background: var(--panel-2);
             display: flex;
             flex-direction: column;
             gap: 6px;
             min-width: 0;
         }
-        .vol-chip.expand { border-color: rgba(217, 45, 32, 0.45); background: #fef2f2; }
-        .vol-chip.squeeze { border-color: rgba(245, 158, 11, 0.5); background: #fffbeb; }
+        .vol-chip.expand { border-color: rgba(var(--red-rgb), 0.45); background: var(--tint-red-bg); }
+        .vol-chip.squeeze { border-color: rgba(var(--warn-rgb), 0.5); background: var(--tint-amber-bg); }
         .vol-chip .vc-top {
             display: flex;
             justify-content: space-between;
@@ -349,7 +349,7 @@
         .vol-chip .vc-name {
             font-weight: 700;
             font-size: 13.5px;
-            color: #1e293b;
+            color: var(--text);
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
@@ -361,19 +361,19 @@
             border-radius: 999px;
             white-space: nowrap;
             color: #fff;
-            background: linear-gradient(135deg, #64748b, #94a3b8);
+            background: linear-gradient(135deg, var(--muted-2), var(--muted));
         }
-        .vol-chip.expand .vc-state { background: linear-gradient(135deg, #ef4444, #f97316); }
-        .vol-chip.squeeze .vc-state { background: linear-gradient(135deg, #f59e0b, #eab308); }
+        .vol-chip.expand .vc-state { background: linear-gradient(135deg, var(--red), #f97316); }
+        .vol-chip.squeeze .vc-state { background: linear-gradient(135deg, var(--warn), var(--warn)); }
         .vol-chip .vc-hv { display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; }
         .vol-chip .vc-hv strong {
             font-size: 19px;
             font-variant-numeric: tabular-nums;
-            color: #334155;
+            color: var(--text-soft);
         }
         .vol-chip.expand .vc-hv strong { color: var(--red); }
-        .vol-chip.squeeze .vc-hv strong { color: #b45309; }
-        .vol-chip .vc-hv small { font-size: 11px; color: #64748b; }
+        .vol-chip.squeeze .vc-hv strong { color: var(--amber); }
+        .vol-chip .vc-hv small { font-size: 11px; color: var(--muted-2); }
         .vol-chip .vc-barwrap {
             display: flex;
             align-items: center;
@@ -384,20 +384,20 @@
             min-width: 0;
             height: 10px;
             border-radius: 5px;
-            background: #e2e8f0;
+            background: var(--line);
             overflow: hidden;
         }
         .vol-chip .vc-fill {
             height: 100%;
             border-radius: 5px;
-            background: linear-gradient(90deg, #94a3b8, #64748b);
+            background: linear-gradient(90deg, var(--muted), var(--muted-2));
         }
-        .vol-chip .vc-fill.hot { background: linear-gradient(90deg, #f97316, #ef4444); }
-        .vol-chip .vc-fill.cold { background: linear-gradient(90deg, #38bdf8, #3b82f6); }
+        .vol-chip .vc-fill.hot { background: linear-gradient(90deg, #f97316, var(--red)); }
+        .vol-chip .vc-fill.cold { background: linear-gradient(90deg, #38bdf8, var(--info)); }
         .vol-chip .vc-pct {
             font-size: 10px;
             font-weight: 700;
-            color: #475569;
+            color: var(--text-mid);
             white-space: nowrap;
             font-variant-numeric: tabular-nums;
         }
@@ -407,7 +407,7 @@
             align-items: center;
             gap: 6px;
             font-size: 11px;
-            color: #64748b;
+            color: var(--muted-2);
         }
         .vol-chip .vc-link {
             color: var(--accent);
@@ -421,7 +421,7 @@
         .vol-note {
             margin-top: 10px;
             font-size: 11px;
-            color: #64748b;
+            color: var(--muted-2);
             line-height: 1.6;
         }
         /* 走势 × 波动 合并卡扩展元素 */
@@ -439,21 +439,21 @@
             font-size: 10px;
             font-weight: 700;
             color: #fff;
-            background: #6366f1;
+            background: var(--accent);
             border-radius: 4px;
             padding: 1px 5px;
             flex-shrink: 0;
         }
         .vol-chip .rv-tf {
             font-size: 11px;
-            color: #64748b;
+            color: var(--muted-2);
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
         }
         .vol-chip .rv-ev {
             font-size: 10.5px;
-            color: #64748b;
+            color: var(--muted-2);
             overflow-wrap: anywhere;
         }
         .vol-chip .rv-bottom {
@@ -464,9 +464,9 @@
         }
         .vol-chip .rc-alert {
             font-size: 11px;
-            background: #fef2f2;
-            color: #dc2626;
-            border: 1px solid rgba(217, 45, 32, 0.3);
+            background: var(--tint-red-bg);
+            color: var(--red);
+            border: 1px solid rgba(var(--red-rgb), 0.3);
             border-radius: 6px;
             padding: 2px 6px;
             font-weight: 700;
@@ -479,8 +479,8 @@
             display: inline-block;
             white-space: nowrap;
         }
-        .rv-combined.warn { background: #fff7ed; color: #c2410c; border: 1px solid rgba(245, 158, 11, 0.55); }
-        .rv-combined.info { background: #eef2ff; color: #4338ca; border: 1px solid rgba(99, 102, 241, 0.4); }
+        .rv-combined.warn { background: var(--tint-amber-bg); color: var(--amber); border: 1px solid rgba(var(--warn-rgb), 0.55); }
+        .rv-combined.info { background: var(--tint-violet-bg); color: var(--accent); border: 1px solid rgba(99, 102, 241, 0.4); }
         .regime-panel-header {
             display: flex;
             align-items: baseline;
@@ -494,14 +494,14 @@
             font-size: 15px;
         }
         .regime-panel-header small {
-            color: #64748b;
+            color: var(--muted-2);
             font-weight: normal;
             font-size: 11px;
             margin-left: 6px;
         }
         .regime-panel-time {
             font-size: 12px;
-            color: #64748b;
+            color: var(--muted-2);
         }
         .regime-panel-list {
             display: grid;
@@ -516,7 +516,7 @@
             flex-wrap: wrap;
             margin-bottom: 10px;
             font-size: 12px;
-            color: #64748b;
+            color: var(--muted-2);
         }
         .regime-countbar .rc-cnt {
             padding: 2px 10px;
@@ -524,15 +524,15 @@
             color: #fff;
             font-weight: 600;
         }
-        .regime-countbar .rc-cnt.squeeze { background: linear-gradient(135deg, #f59e0b, #ef4444); }
-        .regime-countbar .rc-cnt.trending { background: linear-gradient(135deg, #10b981, #0ea5e9); }
-        .regime-countbar .rc-cnt.ranging { background: linear-gradient(135deg, #3b82f6, #6366f1); }
-        .regime-countbar .rc-cnt.neutral { background: linear-gradient(135deg, #64748b, #94a3b8); }
+        .regime-countbar .rc-cnt.squeeze { background: linear-gradient(135deg, var(--warn), var(--red)); }
+        .regime-countbar .rc-cnt.trending { background: linear-gradient(135deg, var(--green), var(--cyan)); }
+        .regime-countbar .rc-cnt.ranging { background: linear-gradient(135deg, var(--info), var(--accent)); }
+        .regime-countbar .rc-cnt.neutral { background: linear-gradient(135deg, var(--muted-2), var(--muted)); }
         .regime-countbar .rc-actions { margin-left: auto; display: flex; gap: 6px; }
         .regime-mini-btn {
-            border: 1px solid #d8dce6;
-            background: #fff;
-            color: #475569;
+            border: 1px solid var(--line);
+            background: var(--panel);
+            color: var(--text-mid);
             font-size: 12px;
             border-radius: 14px;
             padding: 3px 12px;
@@ -548,25 +548,25 @@
             font-size: 12px;
             padding: 5px 10px;
             border-radius: 8px;
-            background: #fff7ed;
-            border: 1px solid rgba(245, 158, 11, 0.35);
+            background: var(--tint-amber-bg);
+            border: 1px solid rgba(var(--warn-rgb), 0.35);
             margin-bottom: 4px;
-            color: #334155;
+            color: var(--text-soft);
         }
-        .regime-alerts .ra-row.up { border-color: rgba(217, 45, 32, 0.3); background: #fef2f2; }
-        .regime-alerts .ra-row.down { border-color: rgba(11, 143, 98, 0.3); background: #ecfdf5; }
+        .regime-alerts .ra-row.up { border-color: rgba(var(--red-rgb), 0.3); background: var(--tint-red-bg); }
+        .regime-alerts .ra-row.down { border-color: rgba(var(--green-rgb), 0.3); background: var(--tint-green-bg); }
         .regime-pool-toggle {
             grid-column: 1 / -1;
             text-align: center;
             font-size: 12px;
             color: var(--accent);
-            background: #f8f7ff;
-            border: 1px dashed rgba(102, 126, 234, 0.35);
+            background: var(--tint-violet-bg);
+            border: 1px dashed rgba(var(--accent-rgb), 0.35);
             border-radius: 8px;
             padding: 6px;
             cursor: pointer;
         }
-        .regime-pool-toggle:hover { background: #f0eeff; }
+        .regime-pool-toggle:hover { background: var(--tint-violet-bg); }
         @media (max-width: 480px) {
             .regime-panel-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
         }
@@ -585,8 +585,8 @@
         .mood-weather,
         .update-section,
         .backtest-entry {
-            background: #fff;
-            border: 2px solid #e2e8f0;
+            background: var(--panel);
+            border: 2px solid var(--line);
             border-radius: 12px;
             padding: 20px;
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
@@ -595,7 +595,7 @@
         .report-meta {
             display: flex;
             gap: 16px;
-            color: #64748b;
+            color: var(--muted-2);
             font-size: 13px;
             margin-bottom: 12px;
         }
@@ -625,8 +625,8 @@
 
         /* ===== ETF 资金流卡片 ===== */
         .etf-flow-section {
-            background: #fff;
-            border: 2px solid #e2e8f0;
+            background: var(--panel);
+            border: 2px solid var(--line);
             border-radius: 12px;
             padding: 16px 18px;
             margin-top: 20px;
@@ -641,7 +641,7 @@
             margin-bottom: 10px;
         }
         .etf-flow-header h2 { margin: 0; font-size: 17px; }
-        .etf-flow-time { font-size: 12px; color: #64748b; }
+        .etf-flow-time { font-size: 12px; color: var(--muted-2); }
         .etf-tabs {
             display: flex;
             gap: 8px;
@@ -650,9 +650,9 @@
         .etf-tab {
             padding: 6px 14px;
             border-radius: 999px;
-            border: 1.5px solid #e2e8f0;
-            background: #f8fafc;
-            color: #64748b;
+            border: 1.5px solid var(--line);
+            background: var(--panel-2);
+            color: var(--muted-2);
             font-size: 13px;
             font-weight: 700;
             cursor: pointer;
@@ -671,42 +671,42 @@
             margin-bottom: 12px;
         }
         .etf-summary-card {
-            background: #f8fafc;
-            border: 1.5px solid #e2e8f0;
+            background: var(--panel-2);
+            border: 1.5px solid var(--line);
             border-radius: 10px;
             padding: 8px 12px;
         }
-        .etf-summary-card .label { font-size: 11px; color: #64748b; margin-bottom: 2px; }
+        .etf-summary-card .label { font-size: 11px; color: var(--muted-2); margin-bottom: 2px; }
         .etf-summary-card .value { font-size: 16px; font-weight: 800; }
-        .etf-summary-card .value.positive { color: #dc2626; }
-        .etf-summary-card .value.negative { color: #16a34a; }
+        .etf-summary-card .value.positive { color: var(--red); }
+        .etf-summary-card .value.negative { color: var(--green); }
         .etf-flow-table { width: 100%; border-collapse: collapse; font-size: 13px; }
         .etf-flow-table th {
             text-align: right;
-            color: #64748b;
+            color: var(--muted-2);
             font-weight: 600;
             font-size: 11px;
             padding: 4px 6px;
-            border-bottom: 1.5px solid #e2e8f0;
+            border-bottom: 1.5px solid var(--line);
         }
         .etf-flow-table th:first-child, .etf-flow-table td:first-child { text-align: left; }
         .etf-flow-table td {
             text-align: right;
             padding: 6px 6px;
-            border-bottom: 1px solid #f1f5f9;
+            border-bottom: 1px solid var(--panel-3);
         }
         .etf-flow-table tr:last-child td { border-bottom: none; }
         .etf-name-cell { text-align: left !important; }
-        .etf-name-cell .n { font-weight: 700; color: #1e293b; display: block; line-height: 1.2; }
-        .etf-name-cell .c { font-size: 11px; color: #64748b; }
-        .etf-flow-table .gain { color: #dc2626; font-weight: 700; }
-        .etf-flow-table .loss { color: #16a34a; font-weight: 700; }
-        .etf-flow-table .neutral { color: #64748b; }
+        .etf-name-cell .n { font-weight: 700; color: var(--text); display: block; line-height: 1.2; }
+        .etf-name-cell .c { font-size: 11px; color: var(--muted-2); }
+        .etf-flow-table .gain { color: var(--red); font-weight: 700; }
+        .etf-flow-table .loss { color: var(--green); font-weight: 700; }
+        .etf-flow-table .neutral { color: var(--muted-2); }
         .etf-flow-table .inflow-cell { font-weight: 800; }
-        .etf-flow-table .inflow-cell.positive { color: #dc2626; }
-        .etf-flow-table .inflow-cell.negative { color: #16a34a; }
-        .etf-loading { color: #64748b; font-size: 13px; text-align: center; padding: 16px 0; }
-        .etf-note { font-size: 11px; color: #64748b; margin-top: 8px; line-height: 1.5; }
+        .etf-flow-table .inflow-cell.positive { color: var(--red); }
+        .etf-flow-table .inflow-cell.negative { color: var(--green); }
+        .etf-loading { color: var(--muted-2); font-size: 13px; text-align: center; padding: 16px 0; }
+        .etf-note { font-size: 11px; color: var(--muted-2); margin-top: 8px; line-height: 1.5; }
         @media (max-width: 480px) {
             .etf-flow-table th, .etf-flow-table td { padding: 5px 3px; font-size: 12px; }
             .etf-hide-mobile { display: none; }
@@ -828,10 +828,10 @@
                     <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px; flex-wrap: wrap;">
                         <h3 class="subhead tech-title" style="margin: 0;">技术面</h3>
                         <span class="badge regime-badge" {% if pos.regime_label %}data-fallback="{{ pos.regime_label }}"{% endif %}
-                            style="background: {% if pos.regime_label == '挤压待变' %}linear-gradient(135deg,#f59e0b,#ef4444){% elif pos.regime_label == '趋势型' %}linear-gradient(135deg,#10b981,#0ea5e9){% elif pos.regime_label == '区间型' %}linear-gradient(135deg,#3b82f6,#6366f1){% else %}linear-gradient(135deg,#6b7280,#94a3b8){% endif %}; color: #fff;">
+                            style="background: {% if pos.regime_label == '挤压待变' %}linear-gradient(135deg,var(--warn),var(--red)){% elif pos.regime_label == '趋势型' %}linear-gradient(135deg,var(--green),var(--cyan)){% elif pos.regime_label == '区间型' %}linear-gradient(135deg,var(--info),var(--accent)){% else %}linear-gradient(135deg,var(--neutral-fg),var(--muted)){% endif %}; color: #fff;">
                             {% if pos.regime_label %}{{ pos.regime_label }}{% endif %}
                         </span>
-                        <span class="regime-sub" style="font-size: 11px; color: #64748b;"></span>
+                        <span class="regime-sub" style="font-size: 11px; color: var(--muted-2);"></span>
                     </div>
                     
                     <!-- 技术面指标：单行显示，需关注(有颜色警示)的排在行首 -->

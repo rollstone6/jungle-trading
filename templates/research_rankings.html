@@ -16,9 +16,9 @@
         .header h1 { font-size: 16px; margin: 0; }
         .header p { display: none; }
         .scan-bar {
-            background: #fff; border: 2px solid #e2e8f0; border-radius: 12px; padding: 12px 16px;
+            background: var(--panel); border: 2px solid var(--line); border-radius: 12px; padding: 12px 16px;
             display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;
-            margin-bottom: 16px; font-size: 13px; color: #64748b;
+            margin-bottom: 16px; font-size: 13px; color: var(--muted-2);
         }
         .scan-btn {
             background: linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 100%); color: #fff;
@@ -26,29 +26,29 @@
         }
         .tabs { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
         .tab {
-            padding: 8px 18px; border-radius: 20px; border: 2px solid var(--accent); background: #fff;
+            padding: 8px 18px; border-radius: 20px; border: 2px solid var(--accent); background: var(--panel);
             color: var(--accent); font-size: 13px; font-weight: 600; cursor: pointer;
         }
         .tab.active { background: var(--accent); color: #fff; }
         table.data-table {
-            width: 100%; border-collapse: collapse; background: #fff;
-            border: 2px solid #e2e8f0; border-radius: 12px; overflow: hidden;
+            width: 100%; border-collapse: collapse; background: var(--panel);
+            border: 2px solid var(--line); border-radius: 12px; overflow: hidden;
             box-shadow: 0 2px 8px rgba(0,0,0,0.1);
         }
         .data-table th { background: var(--accent); color: #fff; padding: 10px 10px; font-size: 12px; text-align: left; }
-        .data-table td { padding: 8px 10px; font-size: 12px; border-bottom: 1px solid #f1f5f9; }
-        .data-table tr:hover { background: #f8f7ff; }
+        .data-table td { padding: 8px 10px; font-size: 12px; border-bottom: 1px solid var(--panel-3); }
+        .data-table tr:hover { background: var(--tint-violet-bg); }
         .up { color: var(--red); font-weight: 600; } .down { color: var(--green); font-weight: 600; }
-        .bj { background: #f59e0b; color: #fff; font-size: 10px; padding: 1px 6px; border-radius: 8px; margin-left: 4px; }
+        .bj { background: var(--warn); color: #fff; font-size: 10px; padding: 1px 6px; border-radius: 8px; margin-left: 4px; }
         .hot-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; margin-bottom: 20px; }
         .hot-item {
-            background: #fff; border: 2px solid #e2e8f0; border-radius: 10px; padding: 10px;
+            background: var(--panel); border: 2px solid var(--line); border-radius: 10px; padding: 10px;
             text-align: center; box-shadow: 0 2px 6px rgba(0,0,0,0.08);
         }
         .hot-item .n { font-weight: 700; font-size: 14px; }
-        .hot-item .c { font-size: 12px; color: #f59e0b; font-weight: 700; }
-        h3.sec { color: #334155; font-size: 15px; margin: 18px 0 10px; }
-        .loading { text-align: center; padding: 40px; color: #666; }
+        .hot-item .c { font-size: 12px; color: var(--warn); font-weight: 700; }
+        h3.sec { color: var(--text-soft); font-size: 15px; margin: 18px 0 10px; }
+        .loading { text-align: center; padding: 40px; color: var(--text-mid); }
         .two-col { display: grid; grid-template-columns: 1fr; gap: 20px; }
     </style>
 </head>

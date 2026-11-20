@@ -8,7 +8,7 @@
     <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
     <script src="/static/echarts.min.js?v=20261119a"></script>
     <style>
-        body { background: #f1f2f6; }
+        body { background: var(--panel-2); }
         .hero {
             background: linear-gradient(135deg, #1a1f3c 0%, #232a52 100%);
             color: #fff; padding: 12px 18px; text-align: center;
@@ -17,57 +17,57 @@
         .hero .sub { font-size: 12px; color: #aab3d6; display: inline; margin-left: 12px; }
         .wrap { max-width: 1240px; margin: 0 auto; padding: 16px 14px 40px; }
         .src-bar {
-            background: #fff; border-left: 4px solid var(--green); border-radius: 8px;
-            padding: 10px 14px; font-size: 12.5px; color: #475569; margin-bottom: 14px;
+            background: var(--panel); border-left: 4px solid var(--green); border-radius: 8px;
+            padding: 10px 14px; font-size: 12.5px; color: var(--text-mid); margin-bottom: 14px;
             box-shadow: 0 1px 4px rgba(0,0,0,.06); line-height: 1.7;
         }
-        .src-bar a { color: #2563eb; text-decoration: none; }
+        .src-bar a { color: var(--blue); text-decoration: none; }
         .kpi-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 14px; }
         .kpi {
-            background: #fff; border-radius: 10px; padding: 14px 10px; text-align: center;
+            background: var(--panel); border-radius: 10px; padding: 14px 10px; text-align: center;
             box-shadow: 0 1px 4px rgba(0,0,0,.06);
         }
-        .kpi .l { font-size: 12px; color: #64748b; margin-bottom: 6px; }
+        .kpi .l { font-size: 12px; color: var(--muted-2); margin-bottom: 6px; }
         .kpi .v { font-size: 26px; font-weight: 800; }
-        .kpi .u { font-size: 12px; color: #64748b; font-weight: 400; margin-left: 3px; }
-        .v.red { color: var(--red); } .v.green { color: var(--green); } .v.dark { color: #1e293b; }
+        .kpi .u { font-size: 12px; color: var(--muted-2); font-weight: 400; margin-left: 3px; }
+        .v.red { color: var(--red); } .v.green { color: var(--green); } .v.dark { color: var(--text); }
         .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px; }
         .card {
-            background: #fff; border-radius: 10px; padding: 16px;
+            background: var(--panel); border-radius: 10px; padding: 16px;
             box-shadow: 0 1px 4px rgba(0,0,0,.06);
         }
         .card-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
-        .card-head h3 { margin: 0; font-size: 15px; color: #1e293b; }
+        .card-head h3 { margin: 0; font-size: 15px; color: var(--text); }
         .tag { font-size: 11px; padding: 3px 10px; border-radius: 999px; color: #fff; font-weight: 600; }
-        .tag.green { background: var(--green); } .tag.red { background: var(--red); } .tag.blue { background: #3b82f6; }
+        .tag.green { background: var(--green); } .tag.red { background: var(--red); } .tag.blue { background: var(--info); }
         .note {
-            border-left: 4px solid #ccc; border-radius: 6px; padding: 9px 12px;
-            font-size: 12.5px; color: #334155; margin-bottom: 9px; line-height: 1.65;
+            border-left: 4px solid var(--line-strong); border-radius: 6px; padding: 9px 12px;
+            font-size: 12.5px; color: var(--text-soft); margin-bottom: 9px; line-height: 1.65;
         }
-        .note b { color: #1e293b; }
-        .note.g { border-color: var(--green); background: #f0fdf4; }
-        .note.b { border-color: #3b82f6; background: #eff6ff; }
-        .note.y { border-color: #f59e0b; background: #fffbeb; }
-        .note.r { border-color: var(--red); background: #fef2f2; }
+        .note b { color: var(--text); }
+        .note.g { border-color: var(--green); background: var(--tint-green-bg); }
+        .note.b { border-color: var(--info); background: var(--tint-blue-bg); }
+        .note.y { border-color: var(--warn); background: var(--tint-amber-bg); }
+        .note.r { border-color: var(--red); background: var(--tint-red-bg); }
         .bar-line { display: flex; align-items: center; gap: 8px; margin: 5px 0; font-size: 12px; }
         .bar-line .bl-label { width: 74px; color: #fff; background: var(--red); border-radius: 3px;
             padding: 2px 6px; font-size: 11px; white-space: nowrap; }
-        .bar-line .bl-track { flex: 1; background: #eef1f6; border-radius: 4px; height: 14px; position: relative; }
-        .bar-line .bl-fill { height: 100%; border-radius: 4px; background: linear-gradient(90deg,#f97316,#ef4444); }
+        .bar-line .bl-track { flex: 1; background: var(--panel-2); border-radius: 4px; height: 14px; position: relative; }
+        .bar-line .bl-fill { height: 100%; border-radius: 4px; background: linear-gradient(90deg,#f97316,var(--red)); }
         .chart-box { width: 100%; height: 340px; }
         .chart-box-sm { width: 100%; height: 260px; }
-        table.data-table { width: 100%; border-collapse: collapse; background: #fff; font-size: 12px; }
-        .data-table th { color: #475569; padding: 8px 8px; font-size: 12px; text-align: left; border-bottom: 2px solid #e2e8f0; }
-        .data-table td { padding: 7px 8px; border-bottom: 1px solid #f1f5f9; }
+        table.data-table { width: 100%; border-collapse: collapse; background: var(--panel); font-size: 12px; }
+        .data-table th { color: var(--text-mid); padding: 8px 8px; font-size: 12px; text-align: left; border-bottom: 2px solid var(--line); }
+        .data-table td { padding: 7px 8px; border-bottom: 1px solid var(--panel-3); }
         .pos-t { color: var(--red); font-weight: 600; } .neg-t { color: var(--green); font-weight: 600; }
-        .loading { text-align: center; padding: 30px; color: #64748b; font-size: 13px; }
+        .loading { text-align: center; padding: 30px; color: var(--muted-2); font-size: 13px; }
         .refresh-btn {
             background: #1a1f3c; color: #fff; border: none; border-radius: 8px;
             padding: 7px 16px; font-size: 12.5px; font-weight: 600; cursor: pointer;
         }
         .refresh-btn:hover { opacity: .85; }
         .back-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
-        .back-link { color: #64748b; font-size: 13px; text-decoration: none; }
+        .back-link { color: var(--muted-2); font-size: 13px; text-decoration: none; }
         .back-link:hover { color: #1a1f3c; }
         @media (max-width: 900px) {
             .kpi-row { grid-template-columns: repeat(2, 1fr); }
@@ -104,8 +104,8 @@
             <div class="card">
                 <div class="card-head"><h3><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2a8 8 0 0 1 8 8c0 4-3 6-5 7H7c-2-1-5-3-5-7a8 8 0 0 1 8-8Z M8 22h8 M10 17v5M14 17v5"/></svg> 未来展望</h3><span class="tag red">关注到期</span></div>
                 <div id="p-outlook"></div>
-                <div id="p-hist" style="background:#fff7ed;border-radius:6px;padding:10px 12px;margin-top:4px">
-                    <div style="font-size:12.5px;font-weight:700;color:#9a3412;margin-bottom:4px">到期压力分布：</div>
+                <div id="p-hist" style="background:var(--tint-amber-bg);border-radius:6px;padding:10px 12px;margin-top:4px">
+                    <div style="font-size:12.5px;font-weight:700;color:var(--amber);margin-bottom:4px">到期压力分布：</div>
                     <div id="hist-bars"></div>
                 </div>
                 <div id="p-outlook2" style="margin-top:9px"></div>
@@ -155,7 +155,7 @@
             </table>
 </div>
         </div>
-        <div style="font-size:11px;color:#64748b;margin-top:10px">数据均为央行公告原文推算 · 节假日顺延未完全剔除 · 买断式到期日取公告明示值</div>
+        <div style="font-size:11px;color:var(--muted-2);margin-top:10px">数据均为央行公告原文推算 · 节假日顺延未完全剔除 · 买断式到期日取公告明示值</div>
     </div>
 
     <script>
@@ -218,7 +218,7 @@
                 const tot = x.rr + x.bo;
                 return `<div class="bar-line"><span class="bl-label">${x.month.slice(2).replace('-','/')} ${fmt(tot)}亿</span>
                     <div class="bl-track"><div class="bl-fill" style="width:${Math.max(4, tot / fmax * 100)}%"></div></div></div>`;
-            }).join('') || '<div style="font-size:12px;color:#64748b">未来95天内无可推算到期</div>';
+            }).join('') || '<div style="font-size:12px;color:var(--muted-2)">未来95天内无可推算到期</div>';
 
             renderCharts(d);
             renderTables(d);

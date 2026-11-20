@@ -47,14 +47,14 @@
             display: block;
             font-weight: 600;
             margin-bottom: 8px;
-            color: #333;
+            color: var(--text);
         }
         
         .form-group select,
         .form-group input {
             width: 100%;
             padding: 12px;
-            border: 2px solid #e0e0e0;
+            border: 2px solid var(--line);
             border-radius: 8px;
             font-size: 14px;
             transition: border-color 0.3s;
@@ -65,14 +65,14 @@
             outline: none;
             border-color: var(--accent);
         }
-        .mp-wrap { display: flex; align-items: center; gap: 7px; margin-top: 10px; font-size: 13px; color: #475569; font-weight: 500; cursor: pointer; user-select: none; }
+        .mp-wrap { display: flex; align-items: center; gap: 7px; margin-top: 10px; font-size: 13px; color: var(--text-mid); font-weight: 500; cursor: pointer; user-select: none; }
         .mp-wrap input { margin: 0; accent-color: var(--accent); width: 18px; height: 18px; flex-shrink: 0; }
         #multi-period-box .cat-pill {
             padding: 4px 14px;
             border-radius: 999px;
-            border: 1.5px solid #e2e8f0;
-            background: #fff;
-            color: #475569;
+            border: 1.5px solid var(--line);
+            background: var(--panel);
+            color: var(--text-mid);
             font-size: 12.5px;
             cursor: pointer;
             transition: border-color .15s, background .15s, color .15s;
@@ -87,7 +87,7 @@
         }
         .hist-item {
             display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
-            padding: 6px 8px 6px 12px; border: 1.5px solid #e2e8f0; border-radius: 10px;
+            padding: 6px 8px 6px 12px; border: 1.5px solid var(--line); border-radius: 10px;
             margin-bottom: 8px; font-size: 12.5px;
         }
         .hist-open {
@@ -98,15 +98,15 @@
         .hist-open:hover .hist-desc { color: var(--accent); }
         .hist-open:focus-visible, .strategy-card:focus-visible, .cat-pill:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
         .hist-item:hover { border-color: var(--accent); background: rgba(var(--accent-rgb, 102, 126, 234), 0.05); }
-        .hist-time { color: #64748b; font-size: 11.5px; flex: none; }
-        .hist-desc { color: #334155; flex: 1; min-width: 160px; }
+        .hist-time { color: var(--muted-2); font-size: 11.5px; flex: none; }
+        .hist-desc { color: var(--text-soft); flex: 1; min-width: 160px; }
         .hist-best { font-weight: 700; flex: none; }
         .hist-best.pos { color: var(--red); }
         .hist-best.neg { color: var(--green); }
-        .hist-del { border: none; background: none; color: #64748b; cursor: pointer; font-size: 14px; min-width: 32px; min-height: 32px; padding: 4px 8px; flex: none; border-radius: 8px; }
-        .hist-del:hover { color: var(--red); background: rgba(217, 45, 32, 0.08); }
+        .hist-del { border: none; background: none; color: var(--muted-2); cursor: pointer; font-size: 14px; min-width: 32px; min-height: 32px; padding: 4px 8px; flex: none; border-radius: 8px; }
+        .hist-del:hover { color: var(--red); background: rgba(var(--red-rgb), 0.08); }
         .hist-restored { background: rgba(var(--accent-rgb, 102, 126, 234), 0.08); border: 1px dashed var(--accent); color: var(--accent); border-radius: 8px; padding: 6px 10px; font-size: 12.5px; margin: 0 0 14px; display: none; }
-        .hist-load { border: 1px solid #e2e8f0; background: #fff; color: #475569; border-radius: 8px; padding: 6px 10px; min-height: 32px; font-size: 12px; cursor: pointer; }
+        .hist-load { border: 1px solid var(--line); background: var(--panel); color: var(--text-mid); border-radius: 8px; padding: 6px 10px; min-height: 32px; font-size: 12px; cursor: pointer; }
         .hist-load:hover { border-color: var(--accent); color: var(--accent); }
         
         .strategy-cards {
@@ -123,9 +123,9 @@
         .strat-cats .sc-cat {
             padding: 4px 12px;
             border-radius: 999px;
-            border: 1.5px solid #e2e8f0;
-            background: #fff;
-            color: #475569;
+            border: 1.5px solid var(--line);
+            background: var(--panel);
+            color: var(--text-mid);
             font-size: 12.5px;
             cursor: pointer;
             transition: border-color .15s, background .15s, color .15s;
@@ -139,21 +139,21 @@
             color: var(--accent);
             font-weight: 600;
         }
-        .strat-cats .sc-cat small { font-size: 11px; color: #64748b; margin-left: 2px; }
+        .strat-cats .sc-cat small { font-size: 11px; color: var(--muted-2); margin-left: 2px; }
         .strat-cats .sc-cat.on small { color: var(--accent); }
         .strategy-card.hidden-by-cat { display: none; }
         .strategy-card .sc-cat-tag {
             font-size: 10.5px;
-            color: #64748b;
-            background: #f1f5f9;
+            color: var(--muted-2);
+            background: var(--panel-3);
             border-radius: 4px;
             padding: 1px 6px;
             white-space: nowrap;
         }
         .strategy-card {
                 position: relative;
-                background: #fff;
-                border: 1.5px solid #e2e2ee;
+                background: var(--panel);
+                border: 1.5px solid var(--line);
                 border-radius: 10px;
                 padding: 11px 13px;
                 cursor: pointer;
@@ -161,11 +161,11 @@
             }
             .strategy-card:hover {
                 border-color: var(--accent);
-                box-shadow: 0 2px 8px rgba(102, 126, 234, 0.15);
+                box-shadow: 0 2px 8px rgba(var(--accent-rgb), 0.15);
             }
             .strategy-card.selected {
                 border-color: var(--accent);
-                background: linear-gradient(135deg, rgba(102, 126, 234, 0.07), rgba(118, 75, 162, 0.07));
+                background: linear-gradient(135deg, rgba(var(--accent-rgb), 0.07), rgba(118, 75, 162, 0.07));
                 box-shadow: 0 0 0 1px var(--accent) inset;
             }
             .strategy-card .sc-head {
@@ -175,7 +175,7 @@
                 margin-bottom: 4px;
             }
             .strategy-card h3 {
-                color: #1e293b;
+                color: var(--text);
                 font-size: 13.5px;
                 font-weight: 700;
                 margin: 0;
@@ -187,7 +187,7 @@
             }
             .strategy-card.selected h3 { color: var(--accent); }
             .strategy-card p {
-                color: #64748b;
+                color: var(--muted-2);
                 font-size: 12px;
                 line-height: 1.5;
                 margin: 0;
@@ -199,19 +199,19 @@
             .strategy-card .sc-params {
                 margin-top: 6px;
                 font-size: 11px;
-                color: #64748b;
+                color: var(--muted-2);
                 font-family: ui-monospace, Menlo, monospace;
             }
             .strategy-card .engine-badge {
                 flex: none;
-                background: rgba(102, 126, 234, 0.12);
+                background: rgba(var(--accent-rgb), 0.12);
                 color: var(--accent);
                 padding: 2px 8px;
                 border-radius: 10px;
                 font-size: 10.5px;
                 font-weight: 600;
             }
-            .strategy-card .engine-badge.vnpy { background: rgba(245, 158, 11, 0.13); color: #b45309; }
+            .strategy-card .engine-badge.vnpy { background: rgba(var(--warn-rgb), 0.13); color: var(--amber); }
             .strategy-card .sc-check {
                 position: absolute;
                 top: -7px;
@@ -225,16 +225,16 @@
                 line-height: 18px;
                 text-align: center;
                 display: none;
-                box-shadow: 0 1px 4px rgba(102, 126, 234, 0.4);
+                box-shadow: 0 1px 4px rgba(var(--accent-rgb), 0.4);
             }
             .strategy-card.selected .sc-check { display: block; }
         .regime-card {
-            background: #f8f7ff;
-            border: 1px solid #e9e6ff;
+            background: var(--tint-violet-bg);
+            border: 1px solid var(--tint-violet-bg);
             border-radius: 12px;
             padding: 16px;
             font-size: 13px;
-            color: #334155;
+            color: var(--text-soft);
         }
         .regime-badge {
             display: inline-block;
@@ -244,10 +244,10 @@
             font-weight: 700;
             font-size: 14px;
         }
-        .regime-badge.ranging { background: linear-gradient(135deg, #3b82f6, #6366f1); }
-        .regime-badge.trending { background: linear-gradient(135deg, #10b981, #0ea5e9); }
-        .regime-badge.squeeze { background: linear-gradient(135deg, #f59e0b, #ef4444); }
-        .regime-badge.neutral { background: #6b7280; }
+        .regime-badge.ranging { background: linear-gradient(135deg, var(--info), var(--accent)); }
+        .regime-badge.trending { background: linear-gradient(135deg, var(--green), var(--cyan)); }
+        .regime-badge.squeeze { background: linear-gradient(135deg, var(--warn), var(--red)); }
+        .regime-badge.neutral { background: var(--neutral-fg); }
         .regime-metrics {
             display: flex;
             flex-wrap: wrap;
@@ -255,14 +255,14 @@
             margin: 10px 0;
         }
         .regime-metrics span {
-            background: #fff;
-            border: 1px solid #e9e6ff;
+            background: var(--panel);
+            border: 1px solid var(--tint-violet-bg);
             border-radius: 8px;
             padding: 5px 10px;
             font-size: 12px;
         }
         .regime-metrics b { color: var(--accent); }
-        .regime-note { color: #64748b; margin: 6px 0 10px; line-height: 1.6; }
+        .regime-note { color: var(--muted-2); margin: 6px 0 10px; line-height: 1.6; }
         .regime-chips { display: flex; flex-wrap: wrap; gap: 8px; }
         .regime-chip {
             background: linear-gradient(135deg, var(--accent), var(--accent-2));
@@ -289,7 +289,7 @@
             transition: transform 0.2s;
         }
         
-        .run-button.run-all { margin-top: 10px; background: #fff; color: var(--accent); border: 1.5px solid var(--accent); font-size: 15px; padding: 12px; }
+        .run-button.run-all { margin-top: 10px; background: var(--panel); color: var(--accent); border: 1.5px solid var(--accent); font-size: 15px; padding: 12px; }
         .run-button.run-all:hover { background: rgba(var(--accent-rgb, 102, 126, 234), 0.08); }
         .run-button:hover {
             transform: scale(1.02);
@@ -326,14 +326,14 @@
         
         .metric-card .label {
             font-size: 14px;
-            color: #666;
+            color: var(--text-mid);
             margin-bottom: 8px;
         }
         
         .metric-card .value {
             font-size: 24px;
             font-weight: 700;
-            color: #333;
+            color: var(--text);
         }
         
         .metric-card .value.positive {
@@ -347,26 +347,26 @@
         /* 多策略对比表 */
         .cmp-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; margin-bottom: 20px; }
         .cmp-table { border-collapse: collapse; width: 100%; min-width: 560px; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
-        .cmp-table th, .cmp-table td { padding: 10px 14px; font-size: 13.5px; text-align: right; border-bottom: 1px solid #f1f5f9; font-variant-numeric: tabular-nums; }
-        .cmp-table th { background: #f8fafc; color: #64748b; font-weight: 600; text-align: right; white-space: nowrap; }
-        .cmp-table th:first-child, .cmp-table td:first-child { text-align: left; color: #475569; position: sticky; left: 0; background: #fbfcfe; }
+        .cmp-table th, .cmp-table td { padding: 10px 14px; font-size: 13.5px; text-align: right; border-bottom: 1px solid var(--panel-3); font-variant-numeric: tabular-nums; }
+        .cmp-table th { background: var(--panel-2); color: var(--muted-2); font-weight: 600; text-align: right; white-space: nowrap; }
+        .cmp-table th:first-child, .cmp-table td:first-child { text-align: left; color: var(--text-mid); position: sticky; left: 0; background: var(--panel-2); }
         .cmp-table td.best { font-weight: 700; }
         .cmp-table td.pos { color: var(--red); }
         .cmp-table td.neg { color: var(--green); }
         .cmp-table .eng-tag { font-size: 10px; padding: 1px 6px; border-radius: 999px; margin-left: 6px; vertical-align: 1px; }
-        .cmp-table .eng-tag.backtrader { background: rgba(124, 58, 237, 0.1); color: #7c3aed; }
-        .cmp-table .eng-tag.vnpy { background: rgba(245, 158, 11, 0.13); color: #b45309; }
-        .cmp-table .eng-tag.zipline { background: rgba(14, 165, 233, 0.12); color: #0369a1; }
-        .run-progress { font-size: 13px; color: #64748b; margin-top: 10px; }
+        .cmp-table .eng-tag.backtrader { background: rgba(124, 58, 237, 0.1); color: var(--accent-2); }
+        .cmp-table .eng-tag.vnpy { background: rgba(var(--warn-rgb), 0.13); color: var(--amber); }
+        .cmp-table .eng-tag.zipline { background: rgba(14, 165, 233, 0.12); color: var(--cyan); }
+        .run-progress { font-size: 13px; color: var(--muted-2); margin-top: 10px; }
         
         .loading {
             text-align: center;
             padding: 40px;
-            color: #666;
+            color: var(--text-mid);
         }
         
         .loading-spinner {
-            border: 4px solid #f3f3f3;
+            border: 4px solid var(--panel-2);
             border-top: 4px solid var(--accent);
             border-radius: 50%;
             width: 40px;
@@ -381,19 +381,19 @@
         }
         
         .error-message {
-            background: #fee;
-            color: #c33;
+            background: var(--tint-red-bg);
+            color: var(--red);
             padding: 14px 16px;
             border-radius: 8px;
             margin-bottom: 20px;
-            border-left: 4px solid #c33;
+            border-left: 4px solid var(--red);
             display: flex;
             align-items: center;
             gap: 10px;
         }
         .error-message #error-text { flex: 1; min-width: 0; }
         #error-close {
-            border: none; background: rgba(204, 51, 51, 0.1); color: #c33;
+            border: none; background: rgba(204, 51, 51, 0.1); color: var(--red);
             width: 28px; height: 28px; border-radius: 6px; font-size: 14px;
             cursor: pointer; flex: none; line-height: 1;
         }
@@ -403,7 +403,7 @@
         .bt-chart-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 12px; }
         .bt-chart-tabs:empty { display: none; }
         .bt-chart-tabs .bct-tab {
-            border: 1px solid #e2e8f0; background: #fff; color: #475569;
+            border: 1px solid var(--line); background: var(--panel); color: var(--text-mid);
             border-radius: 999px; padding: 4px 14px; font-size: 12.5px; cursor: pointer;
         }
         .bt-chart-tabs .bct-tab.on {
@@ -411,117 +411,117 @@
             background: rgba(var(--accent-rgb, 102, 126, 234), 0.08); font-weight: 600;
         }
         .bt-chart-wrap {
-            background: #fff; border-radius: 12px; padding: 12px 8px 4px;
+            background: var(--panel); border-radius: 12px; padding: 12px 8px 4px;
             box-shadow: 0 2px 8px rgba(0,0,0,0.08); margin-bottom: 18px;
         }
         .bt-chart-box { width: 100%; height: 460px; }
         /* 多股票选择区 */
         .stock-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
-        .stock-chips:empty::after { content: "尚未选择股票：上方搜索任意A股，或展开下方股票池点选"; color: #64748b; font-size: 12.5px; }
+        .stock-chips:empty::after { content: "尚未选择股票：上方搜索任意A股，或展开下方股票池点选"; color: var(--muted-2); font-size: 12.5px; }
         .st-chip { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--accent); background: rgba(var(--accent-rgb, 102, 126, 234), 0.08); color: var(--accent); border-radius: 999px; padding: 4px 10px 4px 12px; font-size: 12.5px; font-weight: 600; }
         .st-chip .st-x { border: none; background: none; color: inherit; cursor: pointer; font-size: 14px; line-height: 1; padding: 0 2px; }
-        .st-chip.custom { border-color: #f59e0b; background: rgba(245, 158, 11, 0.10); color: #b45309; }
+        .st-chip.custom { border-color: var(--warn); background: rgba(var(--warn-rgb), 0.10); color: var(--amber); }
         .st-btn.primary { border-color: var(--accent); color: var(--accent); font-weight: 600; }
-        .st-info { font-size: 12px; color: #64748b; white-space: nowrap; }
-        .st-info.err { color: #d92d20; }
+        .st-info { font-size: 12px; color: var(--muted-2); white-space: nowrap; }
+        .st-info.err { color: var(--red); }
         /* 搜索框 + 下拉建议 */
         .st-search-wrap { position: relative; }
-        .st-search-box { display: flex; align-items: center; gap: 8px; border: 1px solid #e2e8f0; border-radius: 10px; padding: 0 12px; background: #fff; transition: border-color .15s, box-shadow .15s; }
+        .st-search-box { display: flex; align-items: center; gap: 8px; border: 1px solid var(--line); border-radius: 10px; padding: 0 12px; background: var(--panel); transition: border-color .15s, box-shadow .15s; }
         .st-search-box svg { flex-shrink: 0; }
         .st-search-box:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(var(--accent-rgb, 102, 126, 234), 0.12); }
         .st-search-box input { flex: 1; min-width: 0; border: none; outline: none; padding: 10px 0; font-size: 13.5px; background: transparent; }
-        .st-suggest { position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 60; background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; box-shadow: 0 8px 24px rgba(15, 23, 42, .12); max-height: 264px; overflow-y: auto; }
+        .st-suggest { position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 60; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 8px 24px rgba(15, 23, 42, .12); max-height: 264px; overflow-y: auto; }
         .sg-item { display: flex; align-items: center; gap: 8px; padding: 8px 12px; cursor: pointer; font-size: 13px; }
         .sg-item.on, .sg-item:hover { background: rgba(var(--accent-rgb, 102, 126, 234), 0.07); }
-        .sg-name { font-weight: 600; color: #1e293b; }
-        .sg-code { color: #64748b; font-size: 12px; font-variant-numeric: tabular-nums; }
-        .sg-tag { margin-left: auto; font-size: 11px; color: #64748b; border: 1px solid #e2e8f0; border-radius: 6px; padding: 1px 6px; white-space: nowrap; }
+        .sg-name { font-weight: 600; color: var(--text); }
+        .sg-code { color: var(--muted-2); font-size: 12px; font-variant-numeric: tabular-nums; }
+        .sg-tag { margin-left: auto; font-size: 11px; color: var(--muted-2); border: 1px solid var(--line); border-radius: 6px; padding: 1px 6px; white-space: nowrap; }
         .sg-tag.pool { color: var(--accent); border-color: var(--accent); background: rgba(var(--accent-rgb, 102, 126, 234), 0.07); }
         /* 股票池快捷点选 */
         .st-pool-row { display: flex; align-items: center; gap: 6px; margin-top: 8px; }
-        .st-pool-label { font-size: 12px; color: #64748b; }
+        .st-pool-label { font-size: 12px; color: var(--muted-2); }
         .st-pool-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; align-items: center; }
-        .st-pool-grp { font-size: 11.5px; color: #64748b; background: #f1f5f9; border-radius: 6px; padding: 2px 8px; }
-        .st-pick { border: 1px solid #e2e8f0; background: #fff; color: #475569; border-radius: 999px; padding: 3px 11px; font-size: 12.5px; cursor: pointer; transition: all .12s; }
+        .st-pool-grp { font-size: 11.5px; color: var(--muted-2); background: var(--panel-3); border-radius: 6px; padding: 2px 8px; }
+        .st-pick { border: 1px solid var(--line); background: var(--panel); color: var(--text-mid); border-radius: 999px; padding: 3px 11px; font-size: 12.5px; cursor: pointer; transition: all .12s; }
         .st-pick:hover { border-color: var(--accent); color: var(--accent); }
         .st-pick.picked { border-color: var(--accent); background: var(--accent); color: #fff; font-weight: 600; }
         @media (max-width: 480px) { .st-pool-chips { max-height: 168px; overflow-y: auto; } }
         /* 交叉对比矩阵 */
         .mtx-wrap { overflow-x: auto; margin-bottom: 18px; }
         .mtx-table { border-collapse: collapse; width: 100%; font-size: 12.5px; }
-        .mtx-table th, .mtx-table td { border: 1px solid #e2e8f0; padding: 6px 8px; text-align: center; }
-        .mtx-table th { background: #f8fafc; color: #475569; }
+        .mtx-table th, .mtx-table td { border: 1px solid var(--line); padding: 6px 8px; text-align: center; }
+        .mtx-table th { background: var(--panel-2); color: var(--text-mid); }
         .mtx-table th.sortable { cursor: pointer; user-select: none; }
-        .mtx-table th.sortable:hover { background: #eef2ff; color: var(--accent); }
+        .mtx-table th.sortable:hover { background: var(--tint-violet-bg); color: var(--accent); }
         .mtx-table th.on { background: rgba(var(--accent-rgb, 102, 126, 234), 0.12); color: var(--accent); font-weight: 700; }
-        .mtx-table td.rowh { text-align: left; font-weight: 600; color: #334155; white-space: nowrap; }
+        .mtx-table td.rowh { text-align: left; font-weight: 600; color: var(--text-soft); white-space: nowrap; }
         .mtx-table td.pos { color: var(--red); }
         .mtx-table td.neg { color: var(--green); }
         .mtx-table td.best { background: rgba(var(--accent-rgb, 102, 126, 234), 0.10); font-weight: 700; }
-        .cmp-stock-title { font-weight: 700; font-size: 14px; color: #334155; margin: 18px 0 8px; }
+        .cmp-stock-title { font-weight: 700; font-size: 14px; color: var(--text-soft); margin: 18px 0 8px; }
         /* 策略参数变体 */
         .mini-link-btn { border: none; background: none; font-size: 12px; cursor: pointer; padding: 6px 8px; min-height: 32px; }
         .strategy-card .sc-gear { border: none; background: none; color: var(--accent); font-size: 11.5px; cursor: pointer; padding: 6px 8px; margin: -6px 0 -6px 4px; min-height: 32px; }
-        .sc-editor { margin-top: 8px; padding: 8px; background: #f8fafc; border-radius: 8px; }
-        .sc-editor .se-row { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; font-size: 12px; color: #475569; }
+        .sc-editor { margin-top: 8px; padding: 8px; background: var(--panel-2); border-radius: 8px; }
+        .sc-editor .se-row { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; font-size: 12px; color: var(--text-mid); }
         .sc-editor .se-row label { flex: 1; }
-        .sc-editor .se-row input { width: 74px; border: 1px solid #e2e8f0; border-radius: 6px; padding: 3px 6px; font-size: 12px; }
-        .sc-editor .se-name { width: 100%; border: 1px solid #e2e8f0; border-radius: 6px; padding: 4px 6px; font-size: 12px; margin-bottom: 6px; }
+        .sc-editor .se-row input { width: 74px; border: 1px solid var(--line); border-radius: 6px; padding: 3px 6px; font-size: 12px; }
+        .sc-editor .se-name { width: 100%; border: 1px solid var(--line); border-radius: 6px; padding: 4px 6px; font-size: 12px; margin-bottom: 6px; }
         .sc-editor .se-btns { display: flex; gap: 6px; }
         .sc-editor .sev-btn { border: 1px solid var(--accent); background: rgba(var(--accent-rgb, 102, 126, 234), 0.08); color: var(--accent); border-radius: 6px; padding: 4px 10px; font-size: 12px; cursor: pointer; }
-        .sev-btn.ghost { border-color: #e2e8f0; background: #fff; color: #64748b; }
+        .sev-btn.ghost { border-color: var(--line); background: var(--panel); color: var(--muted-2); }
         .strategy-card.is-variant { border-style: dashed; }
-        .strategy-card.is-variant .sc-cat-tag { background: rgba(245, 158, 11, 0.13); color: #b45309; }
-        .sc-del-var { border: none; background: none; color: #d92d20; font-size: 11.5px; cursor: pointer; padding: 0; margin-left: 8px; }
+        .strategy-card.is-variant .sc-cat-tag { background: rgba(var(--warn-rgb), 0.13); color: var(--amber); }
+        .sc-del-var { border: none; background: none; color: var(--red); font-size: 11.5px; cursor: pointer; padding: 0; margin-left: 8px; }
         @media (max-width: 480px) { .bt-chart-box { height: 380px; } }
 
         /* ===== 参数扫描 ===== */
         .sweep-card { padding: 18px 20px; }
         .sweep-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
-        .sweep-head h2 { margin: 0; font-size: 16px; color: #1e293b; }
-        .sweep-head h2 small { font-size: 12px; color: #64748b; font-weight: 400; margin-left: 6px; }
+        .sweep-head h2 { margin: 0; font-size: 16px; color: var(--text); }
+        .sweep-head h2 small { font-size: 12px; color: var(--muted-2); font-weight: 400; margin-left: 6px; }
         .sweep-scopes { display: flex; gap: 6px; flex-wrap: wrap; }
-        .sweep-scope { border: 1.5px solid #e2e8f0; background: #fff; color: #475569; border-radius: 999px; padding: 5px 13px; font-size: 12.5px; font-weight: 600; cursor: pointer; transition: all .15s; }
-        .sweep-scope.on { border-color: var(--accent); background: rgba(102,126,234,.1); color: var(--accent); }
+        .sweep-scope { border: 1.5px solid var(--line); background: var(--panel); color: var(--text-mid); border-radius: 999px; padding: 5px 13px; font-size: 12.5px; font-weight: 600; cursor: pointer; transition: all .15s; }
+        .sweep-scope.on { border-color: var(--accent); background: rgba(var(--accent-rgb),.1); color: var(--accent); }
         .sweep-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
         .sweep-run { width: auto; padding: 9px 22px; margin: 0; }
-        .sweep-status { font-size: 13px; color: #64748b; }
+        .sweep-status { font-size: 13px; color: var(--muted-2); }
         .sweep-status.err { color: var(--red); }
         .sweep-body { margin-top: 16px; }
         .sweep-summary { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
-        .sweep-chip { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 8px 12px; font-size: 12.5px; color: #475569; line-height: 1.5; }
-        .sweep-chip b { font-size: 15px; color: #1e293b; }
-        .sweep-chip.best { background: #fef2f2; border-color: #fecaca; }
+        .sweep-chip { background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; font-size: 12.5px; color: var(--text-mid); line-height: 1.5; }
+        .sweep-chip b { font-size: 15px; color: var(--text); }
+        .sweep-chip.best { background: var(--tint-red-bg); border-color: var(--line); }
         .sweep-chip.best b { color: var(--red); }
         .sweep-chip .pos { color: var(--red); font-weight: 700; }
         .sweep-chip .neg { color: var(--green); font-weight: 700; }
-        .sweep-heat-title { font-size: 13px; font-weight: 600; color: #334155; margin-bottom: 8px; }
-        .sweep-heat-title small { font-weight: 400; color: #94a3b8; margin-left: 6px; }
+        .sweep-heat-title { font-size: 13px; font-weight: 600; color: var(--text-soft); margin-bottom: 8px; }
+        .sweep-heat-title small { font-weight: 400; color: var(--muted); margin-left: 6px; }
         .sweep-heat-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
         .sweep-heat { border-collapse: collapse; min-width: 420px; width: 100%; }
-        .sweep-heat th, .sweep-heat td { padding: 7px 9px; font-size: 12.5px; text-align: center; border: 1px solid #f1f5f9; font-variant-numeric: tabular-nums; white-space: nowrap; }
-        .sweep-heat th { background: #f8fafc; color: #64748b; font-weight: 600; }
+        .sweep-heat th, .sweep-heat td { padding: 7px 9px; font-size: 12.5px; text-align: center; border: 1px solid var(--panel-3); font-variant-numeric: tabular-nums; white-space: nowrap; }
+        .sweep-heat th { background: var(--panel-2); color: var(--muted-2); font-weight: 600; }
         .sweep-heat td .hv { font-weight: 700; font-size: 13px; }
-        .sweep-heat td .hs { display: block; font-size: 10px; color: #94a3b8; margin-top: 1px; }
+        .sweep-heat td .hs { display: block; font-size: 10px; color: var(--muted); margin-top: 1px; }
         .sweep-heat td.star { outline: 2px solid var(--accent); outline-offset: -2px; }
-        .sweep-heat td.cur { box-shadow: inset 0 0 0 1.5px #f59e0b; }
+        .sweep-heat td.cur { box-shadow: inset 0 0 0 1.5px var(--warn); }
         .sweep-dist { display: flex; flex-wrap: wrap; gap: 6px; margin: 12px 0; font-size: 12px; }
-        .sweep-dist .sd-tag { background: #f1f5f9; border-radius: 999px; padding: 3px 10px; color: #475569; }
+        .sweep-dist .sd-tag { background: var(--panel-3); border-radius: 999px; padding: 3px 10px; color: var(--text-mid); }
         .sweep-dist .sd-tag b { color: var(--accent); }
         .sweep-detail { margin-top: 6px; }
-        .sweep-detail summary { cursor: pointer; font-size: 13px; font-weight: 600; color: #334155; padding: 6px 0; }
-        .sweep-detail summary span { color: #94a3b8; font-weight: 400; }
+        .sweep-detail summary { cursor: pointer; font-size: 13px; font-weight: 600; color: var(--text-soft); padding: 6px 0; }
+        .sweep-detail summary span { color: var(--muted); font-weight: 400; }
         .sweep-detail-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
         .sweep-stocks { border-collapse: collapse; width: 100%; min-width: 560px; }
-        .sweep-stocks th, .sweep-stocks td { padding: 7px 10px; font-size: 12.5px; text-align: right; border-bottom: 1px solid #f1f5f9; font-variant-numeric: tabular-nums; white-space: nowrap; }
-        .sweep-stocks th { background: #f8fafc; color: #64748b; font-weight: 600; }
+        .sweep-stocks th, .sweep-stocks td { padding: 7px 10px; font-size: 12.5px; text-align: right; border-bottom: 1px solid var(--panel-3); font-variant-numeric: tabular-nums; white-space: nowrap; }
+        .sweep-stocks th { background: var(--panel-2); color: var(--muted-2); font-weight: 600; }
         .sweep-stocks th:first-child, .sweep-stocks td:first-child { text-align: left; }
         .sweep-stocks td.pos { color: var(--red); font-weight: 600; }
         .sweep-stocks td.neg { color: var(--green); font-weight: 600; }
         .sweep-stocks .imp { font-size: 10.5px; padding: 1px 6px; border-radius: 999px; margin-left: 5px; }
-        .sweep-stocks .imp.up { background: rgba(217,45,32,.1); color: var(--red); }
-        .sweep-stocks .imp.same { background: #f1f5f9; color: #94a3b8; }
-        .sweep-note { font-size: 11.5px; color: #94a3b8; line-height: 1.6; margin: 12px 0 0; }
+        .sweep-stocks .imp.up { background: rgba(var(--red-rgb),.1); color: var(--red); }
+        .sweep-stocks .imp.same { background: var(--panel-3); color: var(--muted); }
+        .sweep-note { font-size: 11.5px; color: var(--muted); line-height: 1.6; margin: 12px 0 0; }
         @media (max-width: 480px) {
             .sweep-card { padding: 14px; }
             .sweep-head { flex-direction: column; align-items: flex-start; }
@@ -546,13 +546,13 @@
         <!-- 回测表单 -->
         <div class="backtest-form">
             <div class="form-group">
-                <label>回测股票 <small style="color:#64748b; font-weight:400;">（可多只，与策略交叉对比）
-                    <button type="button" id="st-clear" class="mini-link-btn" style="color:#64748b;">清空</button>
+                <label>回测股票 <small style="color:var(--muted-2); font-weight:400;">（可多只，与策略交叉对比）
+                    <button type="button" id="st-clear" class="mini-link-btn" style="color:var(--muted-2);">清空</button>
                 </small></label>
                 <div class="stock-chips" id="stock-chips" aria-label="已选股票"></div>
                 <div class="st-search-wrap">
                     <div class="st-search-box">
-                        <svg class="ic" style="width:15px;height:15px;color:#64748b" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+                        <svg class="ic" style="width:15px;height:15px;color:var(--muted-2)" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
                         <input type="text" id="st-search" autocomplete="off" placeholder="搜索股票：名称 / 6位代码 / 拼音首字母（如 gzmt），回车添加" aria-label="搜索股票" aria-expanded="false" role="combobox">
                         <span class="st-info" id="st-info"></span>
                     </div>
@@ -589,14 +589,14 @@
             </div>
 
             <div class="form-group">
-                <label>选择策略 <small style="color:#64748b; font-weight:400;">（可多选，同时回测对比）
-                    <button type="button" id="pick-all" class="mini-link-btn" style="color:var(--accent);">全选</button>/<button type="button" id="pick-none" class="mini-link-btn" style="color:#64748b;">清空</button>
+                <label>选择策略 <small style="color:var(--muted-2); font-weight:400;">（可多选，同时回测对比）
+                    <button type="button" id="pick-all" class="mini-link-btn" style="color:var(--accent);">全选</button>/<button type="button" id="pick-none" class="mini-link-btn" style="color:var(--muted-2);">清空</button>
                 </small></label>
                 <div class="strat-cats" id="strat-cats" role="group" aria-label="策略分类筛选"></div>
                 <div class="strategy-cards" id="strategy-cards">
                     <!-- 动态加载 -->
                 </div>
-                <small id="strategy-picked" style="color:#64748b;"></small>
+                <small id="strategy-picked" style="color:var(--muted-2);"></small>
             </div>
             
             <div class="form-group">
@@ -607,7 +607,7 @@
             <div class="form-group">
                 <label for="commission">手续费率（单边）</label>
                 <input type="number" id="commission" value="0.001" min="0" max="0.01" step="0.0001">
-                <small style="color: #999; font-size: 12px;">默认 0.001（千一）；万一填 0.0001</small>
+                <small style="color: var(--muted); font-size: 12px;">默认 0.001（千一）；万一填 0.0001</small>
             </div>
             
             <button class="run-button" id="run-backtest" type="button">开始回测</button>
@@ -645,7 +645,7 @@
 
         <!-- 回测历史（自动保留最近 10 次摘要，本机存储） -->
         <div class="form-group" id="history-group" style="display:none;">
-            <label><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 21h12a2 2 0 0 0 2-2v-2H8a2 2 0 0 1-2-2V5a2 2 0 0 0-2-2h13a2 2 0 0 1 2 2v12"/><path d="M8 21a2 2 0 0 1-2-2V7"/></svg> 历史回测 <small style="color:#64748b; font-weight:400;">（保留最近 10 次的摘要，点击可查看对比矩阵；曲线图不保留）
+            <label><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 21h12a2 2 0 0 0 2-2v-2H8a2 2 0 0 1-2-2V5a2 2 0 0 0-2-2h13a2 2 0 0 1 2 2v12"/><path d="M8 21a2 2 0 0 1-2-2V7"/></svg> 历史回测 <small style="color:var(--muted-2); font-weight:400;">（保留最近 10 次的摘要，点击可查看对比矩阵；曲线图不保留）
                 <button type="button" id="hist-clear" class="mini-link-btn" style="color:var(--red);">清空</button>
             </small></label>
             <div id="history-list"></div>
@@ -663,7 +663,7 @@
         <!-- 回测结果 -->
         <div class="results-section" id="results-section">
             <h2 style="margin-bottom: 12px;">回测结果</h2>
-            <p id="period-info" style="color: #64748b; font-size: 14px; margin: 0 0 20px;"></p>
+            <p id="period-info" style="color: var(--muted-2); font-size: 14px; margin: 0 0 20px;"></p>
             <div class="hist-restored" id="hist-restored"></div>
             <div class="bt-chart-tabs" id="bt-chart-tabs"></div>
             <div class="bt-chart-wrap" id="bt-chart-wrap" style="display: none;">
@@ -889,7 +889,7 @@
             const fmt = Object.entries(v.params).map(([k, val]) => `${k}=${val}`).join(' ');
             card.innerHTML = `<span class="sc-check">✓</span>
                 <div class="sc-head"><h3>${v.display}</h3><button type="button" class="sc-del-var" data-del="${vkey}">删除</button></div>
-                <div style="margin-bottom:4px;"><span class="sc-cat-tag">自定义</span><small style="color:#64748b;font-size:11px;margin-left:6px;">基于 ${stratMeta[v.base]?.display || v.base}</small></div>
+                <div style="margin-bottom:4px;"><span class="sc-cat-tag">自定义</span><small style="color:var(--muted-2);font-size:11px;margin-left:6px;">基于 ${stratMeta[v.base]?.display || v.base}</small></div>
                 <p>自定义参数变体</p><div class="sc-params">${fmt}</div>`;
             card.addEventListener('click', (e) => { if (!e.target.dataset.del) toggleCard(card); });
             card.querySelector('[data-del]').addEventListener('click', (e) => {
@@ -1302,7 +1302,7 @@
                 html += `</tr>`;
             }
             html += `</tbody></table></div>`;
-            if (periodLabel) html += `<p style="color:#64748b;font-size:12px;margin:0 0 16px;">同周期、同资金与手续费口径；★ 为该指标最优策略（${periodLabel}）。</p>`;
+            if (periodLabel) html += `<p style="color:var(--muted-2);font-size:12px;margin:0 0 16px;">同周期、同资金与手续费口径；★ 为该指标最优策略（${periodLabel}）。</p>`;
             return html;
         }
 
@@ -1351,7 +1351,7 @@
             }
             if (stockCodes.length > 1) {
                 if (!multip) {
-                    html += `<div class="cmp-stock-title">交叉对比 · 总收益率（股票 × 策略，★ = 全场最优，<span style="color:#64748b;">点列头可按该策略排序</span>）</div>` + buildMtx(ok, 'mtx-wrap');
+                    html += `<div class="cmp-stock-title">交叉对比 · 总收益率（股票 × 策略，★ = 全场最优，<span style="color:var(--muted-2);">点列头可按该策略排序</span>）</div>` + buildMtx(ok, 'mtx-wrap');
                     const heavy = ok.length > 24;
                     if (!heavy) {
                         stockCodes.forEach(c => {
@@ -1360,16 +1360,16 @@
                             if (sub.length > 1) html += `<div class="cmp-stock-title">${st.name} (${c})</div>` + cmpTableHtml(sub, pLabel);
                         });
                     } else {
-                        html += `<div class="cmp-stock-title" style="color:#64748b;font-weight:400;">共 ${ok.length} 个组合，已省略每股明细对比表 — 可点击矩阵列头按该策略收益率排序，快速定位最优股票/策略</div>`;
+                        html += `<div class="cmp-stock-title" style="color:var(--muted-2);font-weight:400;">共 ${ok.length} 个组合，已省略每股明细对比表 — 可点击矩阵列头按该策略收益率排序，快速定位最优股票/策略</div>`;
                     }
                 } else {
                     // 多周期：每个周期一张矩阵（同结构可横向对照），明细表省略
                     pKeys.forEach((k, pi) => {
                         const sub = ok.filter(r => (r.p || '1d') === k);
                         if (!sub.length) { html += `<div class="cmp-stock-title">${PERIOD_LABELS[k] || k}：无成功组合</div>`; return; }
-                        html += `<div class="cmp-stock-title">交叉对比 · 总收益率（${PERIOD_LABELS[k] || k}，★ = 该周期最优，<span style="color:#64748b;">点列头可按该策略排序</span>）</div>` + buildMtx(sub, `mtx-${pi}`);
+                        html += `<div class="cmp-stock-title">交叉对比 · 总收益率（${PERIOD_LABELS[k] || k}，★ = 该周期最优，<span style="color:var(--muted-2);">点列头可按该策略排序</span>）</div>` + buildMtx(sub, `mtx-${pi}`);
                     });
-                    html += `<div class="cmp-stock-title" style="color:#64748b;font-weight:400;">多周期模式已省略每股明细对比表 — 各周期矩阵列结构一致，上下对照即可看出同一股票/策略在不同周期下的差异</div>`;
+                    html += `<div class="cmp-stock-title" style="color:var(--muted-2);font-weight:400;">多周期模式已省略每股明细对比表 — 各周期矩阵列结构一致，上下对照即可看出同一股票/策略在不同周期下的差异</div>`;
                 }
             } else if (ok.length > 1 && !multip) {
                 html = cmpTableHtml(ok, pLabel);
@@ -1420,10 +1420,10 @@
                 `<th class="sortable${M.col === i ? ' on' : ''}" onclick="mtxSortCol(${i},'${id}')" title="点击按该策略收益率排序">${s.display}${arrow(i)}</th>`).join('')}</tr></thead><tbody>` +
                 rows.map(c => {
                     const st = sts[c];
-                    let tr = `<tr><td class="rowh">${st.name}<small style="color:#64748b;font-weight:400;"> ${c}</small></td>`;
+                    let tr = `<tr><td class="rowh">${st.name}<small style="color:var(--muted-2);font-weight:400;"> ${c}</small></td>`;
                     tr += strats.map((s, si) => {
                         const r = byStock[c][si];
-                        if (!r || !r.result.success) return '<td style="color:#cbd5e1;">—</td>';
+                        if (!r || !r.result.success) return '<td style="color:var(--line-strong);">—</td>';
                         const v = Number(r.result.total_return) || 0;
                         const best = `${c}|${si}` === gbKey;
                         return `<td class="${v >= 0 ? 'pos' : 'neg'}${best ? ' best' : ''}">${v >= 0 ? '+' : ''}${v}%${best ? ' ★' : ''}</td>`;
@@ -1573,7 +1573,7 @@
             let okAll = results.filter(r => r.result.success);
             const capNote = okAll.length > 24;
             if (capNote) okAll = okAll.sort((a, b) => Number(b.result.total_return) - Number(a.result.total_return)).slice(0, 12);
-            container.innerHTML = (capNote ? `<div style="width:100%;font-weight:700;font-size:14px;color:#334155;margin-bottom:4px;">明细卡片仅显示总收益率前 12 的组合（共 ${results.filter(r => r.result.success).length} 个成功组合，完整对比见上方矩阵）</div>` : '') + okAll.map(r => {
+            container.innerHTML = (capNote ? `<div style="width:100%;font-weight:700;font-size:14px;color:var(--text-soft);margin-bottom:4px;">明细卡片仅显示总收益率前 12 的组合（共 ${results.filter(r => r.result.success).length} 个成功组合，完整对比见上方矩阵）</div>` : '') + okAll.map(r => {
                 const result = r.result;
                 const metrics = [
                     { label: '初始资金', value: `¥${result.initial_cash.toLocaleString()}` },
@@ -1586,7 +1586,7 @@
                     { label: '胜率', value: `${result.win_rate}%` },
                 ];
                 const head = results.length > 1
-                    ? `<div style="width:100%;font-weight:700;font-size:14px;color:#334155;margin-bottom:4px;">${multiStock ? r.st.name + ' · ' : ''}${r.display}${mpRes ? ' · ' + (PERIOD_LABELS[r.p] || '') : ''}</div>` : '';
+                    ? `<div style="width:100%;font-weight:700;font-size:14px;color:var(--text-soft);margin-bottom:4px;">${multiStock ? r.st.name + ' · ' : ''}${r.display}${mpRes ? ' · ' + (PERIOD_LABELS[r.p] || '') : ''}</div>` : '';
                 return head + metrics.map(m => `
                 <div class="metric-card">
                     <div class="label">${m.label}</div>
@@ -1628,7 +1628,7 @@
             if (!code) { group.style.display = 'none'; return; }
 
             group.style.display = 'block';
-            card.innerHTML = '<small style="color:#999">正在分析...</small>';
+            card.innerHTML = '<small style="color:var(--muted)">正在分析...</small>';
             try {
                 const resp = await fetch(`/api/backtest/classify?pwd=${pwd}`, {
                     method: 'POST',
@@ -1639,14 +1639,14 @@
                 if (!resp.ok) throw new Error(info.detail || '分析失败');
                 renderRegime(info);
             } catch (e) {
-                card.innerHTML = `<small style="color:#c33">分类失败：${e.message}</small>`;
+                card.innerHTML = `<small style="color:var(--red)">分类失败：${e.message}</small>`;
             }
         }
 
         function renderRegime(info) {
             const card = document.getElementById('regime-card');
             if (info.regime === 'unknown') {
-                card.innerHTML = `<small style="color:#999">${info.note || info.reason}</small>`;
+                card.innerHTML = `<small style="color:var(--muted)">${info.note || info.reason}</small>`;
                 return;
             }
             const chips = info.strategies.map(name => {
@@ -1773,7 +1773,7 @@
                 html += `<tr><th>MA${f}</th>`;
                 slows.forEach(s => {
                     const c = cellMap[`${f}/${s}`];
-                    if (!c || f >= s) { html += '<td style="color:#cbd5e1">—</td>'; return; }
+                    if (!c || f >= s) { html += '<td style="color:var(--line-strong)">—</td>'; return; }
                     const isBest = bg && c.fast === bg.fast && c.slow === bg.slow;
                     const isCur = f === 5 && s === 20;
                     const cls = (isBest ? ' star' : '') + (isCur ? ' cur' : '');
@@ -1787,7 +1787,7 @@
 
             // 个股最优分布
             const dist = j.best_distribution || {};
-            document.getElementById('sweep-dist').innerHTML = '<span style="color:#64748b;font-weight:600">个股最优分布：</span>' +
+            document.getElementById('sweep-dist').innerHTML = '<span style="color:var(--muted-2);font-weight:600">个股最优分布：</span>' +
                 Object.entries(dist).map(([k, n]) => `<span class="sd-tag">MA${k.replace('/', '×')} <b>${n}只</b></span>`).join('');
 
             // 个股明细
@@ -1798,7 +1798,7 @@
                 const b = s.best, cur = s.current;
                 const imp = cur ? (b.return - cur.return) : null;
                 const impTag = imp == null ? '' : (imp > 0.5 ? `<span class="imp up">+${imp.toFixed(1)}pp</span>` : `<span class="imp same">≈当前</span>`);
-                st += `<tr><td>${s.name}<small style="color:#94a3b8"> ${s.code}</small></td>
+                st += `<tr><td>${s.name}<small style="color:var(--muted)"> ${s.code}</small></td>
                     <td><b>MA${b.fast}×${b.slow}</b></td>
                     <td class="${b.return >= 0 ? 'pos' : 'neg'}">${b.return >= 0 ? '+' : ''}${b.return}</td>
                     <td>${b.dd}</td><td>${b.win}</td><td>${b.trades}</td>
