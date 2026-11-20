@@ -13,7 +13,8 @@
 - 金手指：趋势线转红 且 阳谱上穿50 且 机构力道>0（三重确认，事件去重）。
   银手指：趋势线转绿 且 阳谱下穿50 且 机构力道<0。
 - 信号日志：金手指→【低吸】大盘机会；银手指→【减仓】大盘风险；
-  趋势红+力道>0但阳谱<50→【反弹】（谨慎布局）。
+  趋势红+力道>0但阳谱<50→【反弹】（谨慎参考）。描述统一为
+  「触发规则+历史统计+温和参考」结构，不含操作指令（口径详见 note）。
 - 回测统计：近3年每次金/银手指后20个交易日的指数涨跌（真实计算，
   上涨概率/平均幅度/最大/最小），与界面"近三年大数据回测"同形式。
 """
@@ -40,6 +41,30 @@ def _ema(vals: list[float], span: int) -> list[float]:
     for v in vals[1:]:
         out.append(v * k + out[-1] * (1 - k))
     return out
+
+
+def _signal_text(kind: str, bt: dict, dual: str | None = None) -> str:
+    """金/银手指信号文案：触发规则（透明口径）+ 真实回测统计 + 温和参考（非指令）。
+
+    bt 为该方向 eval_finger 结果；count=0（样本不足）时退化为不含统计句，
+    绝不渲染 0%/NaN。dual 非空表示该日力道未计入，值为降级原因短语（与 note
+    口径一致）。历史统计非预测，不构成投资建议（免责统一在 note）。
+    """
+    gold = kind == "gold"
+    if dual is not None:
+        rule = (f"趋势线转{'红' if gold else '绿'}且阳谱{'≥50' if gold else '≤50'}，"
+                f"双重确认触发（{dual}）。")
+    elif gold:
+        rule = "趋势线转红、阳谱≥45、机构力道为正，三重确认触发。"
+    else:
+        rule = "趋势线转绿、阳谱≤55、机构力道转负，三重确认触发。"
+    side, prob_key = ("上涨", "up_prob") if gold else ("下跌", "down_prob")
+    ref = "多头窗口或开启，可关注低吸机会。" if gold else "注意回撤风险，参考控制仓位。"
+    stat = ""
+    if bt.get("count"):
+        stat = (f"近{YEARS}年同类信号后{HORIZON}个交易日{side}概率"
+                f"{bt[prob_key]:g}%（{bt['count']}次样本）。")
+    return rule + stat + ref
 
 
 def compute_sentiment() -> dict:
@@ -145,27 +170,7 @@ def compute_sentiment() -> dict:
         elif silver and last_fire != "silver":
             fingers[i] = "silver"; last_fire = "silver"
 
-    # 信号日志（含反弹类）
-    signals = []
-    last_rebound = -10
-    for i in range(1, n):
-        if fingers[i] == "gold":
-            signals.append({"date": dates[i], "type": "opportunity", "tag": "低吸",
-                            "finger": "金手指",
-                            "text": "大盘趋势线转红，智能点金现金手指，机构吸筹力道加大，市场逐渐企稳，建议适当低吸，积极布局。"})
-        elif fingers[i] == "silver":
-            signals.append({"date": dates[i], "type": "risk", "tag": "减仓",
-                            "finger": "银手指",
-                            "text": "大盘趋势线转绿，智能点金现银手指，机构抛压力道较大，市场风险加大，建议及时减仓，控制仓位。"})
-        elif (trend_red[i] and force[i] is not None and force[i] > 0
-              and yang[i] < 50 and i - last_rebound >= 5 and ma20[i] is not None):
-            signals.append({"date": dates[i], "type": "opportunity", "tag": "反弹",
-                            "finger": None,
-                            "text": "大盘趋势线维持红区，智能点金仍处银区间，但机构吸筹力道较大，市场有望止跌反弹，建议适当低吸，谨慎布局。"})
-            last_rebound = i
-    signals.reverse()  # 新→旧
-
-    # 近三年回测：信号后 HORIZON 交易日涨跌
+    # 近三年回测：信号后 HORIZON 交易日涨跌（先于信号文案计算，供统计句引用）
     def eval_finger(kind):
         rets = []
         for i in range(n):
@@ -186,6 +191,32 @@ def compute_sentiment() -> dict:
             "max_up": max(rets), "min_up": min(ups) if ups else 0,
             "max_down": min(rets), "min_down": max(downs) if downs else 0,
         }
+
+    bt_gold = eval_finger("gold")
+    bt_silver = eval_finger("silver")
+
+    # 信号日志（含反弹类）：文案=触发规则+真实回测统计+温和参考，非操作指令
+    dual_reason = "力道源暂不可达" if force_source == "none" else "资金流覆盖前"
+    signals = []
+    last_rebound = -10
+    for i in range(1, n):
+        if fingers[i] == "gold":
+            signals.append({"date": dates[i], "type": "opportunity", "tag": "低吸",
+                            "finger": "金手指",
+                            "text": _signal_text("gold", bt_gold,
+                                                 dual=None if force[i] is not None else dual_reason)})
+        elif fingers[i] == "silver":
+            signals.append({"date": dates[i], "type": "risk", "tag": "减仓",
+                            "finger": "银手指",
+                            "text": _signal_text("silver", bt_silver,
+                                                 dual=None if force[i] is not None else dual_reason)})
+        elif (trend_red[i] and force[i] is not None and force[i] > 0
+              and yang[i] < 50 and i - last_rebound >= 5 and ma20[i] is not None):
+            signals.append({"date": dates[i], "type": "opportunity", "tag": "反弹",
+                            "finger": None,
+                            "text": "趋势线在红区、机构力道吸筹，但阳谱仍低于50，赚钱效应未确认，反弹信号仅供参考，宜待阳谱站上50再评估。"})
+            last_rebound = i
+    signals.reverse()  # 新→旧
 
     # 图表窗口：最近约120个交易日（与资金流覆盖对齐）
     win_start = max(0, n - 120)
@@ -212,13 +243,13 @@ def compute_sentiment() -> dict:
         "table": series[-14:],   # 智能点金表：最近14日
         "signals": signals[:60],
         "forceSource": force_source,
-        "backtest": {"gold": eval_finger("gold"), "silver": eval_finger("silver"),
+        "backtest": {"gold": bt_gold, "silver": bt_silver,
                      "years": YEARS,
                      "sample_start": dates[0], "sample_end": dates[-1]},
         "note": ("规则透明：阳谱=20日上涨占比EMA5；机构力道=主力净占比3日EMA；金手指=趋势转红+阳谱≥45+吸筹，银手指反之。"
                  + ("当前大盘资金流源不可达，力道暂缺，金/银手指按「趋势翻转+阳谱穿50」双重确认（全历史口径）。" if force_source == "none"
                     else "资金流覆盖前（约半年以前）退化为趋势翻转+阳谱穿50双重确认。")
-                 + "回测=信号后20交易日真实涨跌，非预测。"),
+                 + "信号描述中的历史统计=近3年同类信号后20个交易日真实涨跌，非预测，不构成投资建议。"),
     }
 
 
