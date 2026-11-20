@@ -20,9 +20,10 @@
 - 金手指：趋势线转红 且 阳谱阈值 且 机构力道同向（力道覆盖段=三重确认，
   覆盖前/源不可达=趋势翻转+阳谱穿50 双重确认；事件去重维持现状——研究卡实证
   取消跨向去重为负收益，阈值/斜率/量能过滤无益或负，禁止改）。
-  银手指：反之。
-- 回测统计：近3年每次金/银手指后20个交易日的指数真实涨跌（真实计算，
-  上涨概率/平均幅度/最大/最小），与界面"近三年大数据回测"同形式。
+  银手指：反之。银手指实证方向命中率≈随机基线，已降级为风险提示。
+- 回测统计：近3年每次金/银手指后20个交易日的指数真实涨跌，且按
+  双重确认段/三重确认段分段报告（研究卡疑点d实证：混段统计误导，三确认段
+  样本仅1-2条），n<10 前端带 ⚠样本不足；另附同窗口随机日基准。
 """
 from __future__ import annotations
 
@@ -57,6 +58,17 @@ def _ema(vals: list[float], span: int) -> list[float]:
     for v in vals[1:]:
         out.append(v * k + out[-1] * (1 - k))
     return out
+
+
+def _wilson_ci(k: int, n: int, z: float = 1.96) -> str:
+    """二项比例 Wilson 95% 区间（研究卡方法），返回如 "[50,83]"。"""
+    if n == 0:
+        return "-"
+    p = k / n
+    den = 1 + z * z / n
+    c = (p + z * z / (2 * n)) / den
+    h = z * math.sqrt(p * (1 - p) / n + z * z / (4 * n * n)) / den
+    return f"[{max(0.0, c - h) * 100:.0f},{min(1.0, c + h) * 100:.0f}]"
 
 
 # ======================================================================
@@ -386,27 +398,40 @@ def _compute_core(df: pd.DataFrame, breadth: dict | None,
         elif silver and last_fire != "silver":
             fingers[i] = "silver"; last_fire = "silver"
 
-    # 近三年回测：信号后 HORIZON 交易日涨跌（先于信号文案计算，供统计句引用）
-    def eval_finger(kind):
+    # 回测：全量 + 分段（double确认段/triple确认段各报，研究卡疑点d修复）
+    def eval_finger(kind: str, seg: str | None = None) -> dict:
         rets = []
         for i in range(n):
             if fingers[i] != kind or i + HORIZON >= n:
                 continue
-            r = (close[i + HORIZON] - close[i]) / close[i] * 100
-            rets.append(round(r, 2))
+            if seg == "double" and force[i] is not None:
+                continue
+            if seg == "triple" and force[i] is None:
+                continue
+            rets.append(round((close[i + HORIZON] - close[i]) / close[i] * 100, 2))
         if not rets:
             return {"count": 0}
         ups = [r for r in rets if r > 0]
         downs = [r for r in rets if r < 0]
+        hit = len(ups) if kind == "gold" else len(downs)
         return {
             "count": len(rets),
             "up_prob": round(len(ups) / len(rets) * 100, 2),
             "down_prob": round(len(downs) / len(rets) * 100, 2),
+            "hit_prob": round(hit / len(rets) * 100, 1),
+            "ci": _wilson_ci(hit, len(rets)),
+            "avg": round(sum(rets) / len(rets), 2),
             "avg_up": round(sum(ups) / len(ups), 2) if ups else 0,
             "avg_down": round(sum(downs) / len(downs), 2) if downs else 0,
             "max_up": max(rets), "min_up": min(ups) if ups else 0,
             "max_down": min(rets), "min_down": max(downs) if downs else 0,
         }
+
+    def eval_with_segments(kind: str) -> dict:
+        full = eval_finger(kind)
+        full["segments"] = {"double": eval_finger(kind, "double"),
+                            "triple": eval_finger(kind, "triple")}
+        return full
 
     bt_gold = eval_with_segments("gold")
     bt_silver = eval_with_segments("silver")
@@ -471,6 +496,7 @@ def _compute_core(df: pd.DataFrame, breadth: dict | None,
         "yangSource": yang_src,
         "breadth": {"status": breadth_status, "asOf": b_asof,
                     "error": (breadth or {}).get("error")},
+        "randomBaseline": baseline,
         "backtest": {"gold": bt_gold, "silver": bt_silver,
                      "years": years,
                      "sample_start": dates[0], "sample_end": dates[-1]},
@@ -495,7 +521,8 @@ def _build_note(breadth_status: str, b_asof: str | None,
              else "机构力道=东财主力净占比3日EMA（东财加工口径存在拆单失真，覆盖约半年），"
                   "力道覆盖前金/银手指按趋势翻转+阳谱穿50双重确认")
     return (f"规则透明：{bdesc}；{fdesc}。"
-            "信号描述中的历史统计=近3年同类信号后20个交易日真实涨跌，非预测，不构成投资建议。")
+            "回测统计按双重/三重确认段分段呈现（两段规则不同，混算会误导）。"
+            "信号描述中的历史统计=同窗口同类信号后20个交易日真实涨跌，非预测，不构成投资建议。")
 
 
 def _signal_text(kind: str, bt: dict, dual: str | None = None) -> str:
