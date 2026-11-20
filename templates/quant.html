@@ -9,6 +9,7 @@
     <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
     <script src="/static/lightweight-charts.standalone.production.js?v=20261119a"></script>
     <script src="/static/echarts.min.js?v=20261119a"></script>
+    <script src="/static/theme.js?v=20261121a"></script>
     <style>
         .quant-container { max-width: 1280px; margin: 0 auto; padding: 20px; }
 
@@ -965,6 +966,7 @@
         }
         const CHIP_TOP_N = 10;
         let chipExpanded = false;  // 会话内记忆展开态，重扫后保持
+        let CHIP_LAST = null;   // 最近一次筹码图入参（主题切换重绘用）
         function renderChip(d) {
             const meta = document.getElementById('chip-meta');
             {
@@ -1009,6 +1011,16 @@
                 updateScrollHints();
             }
         }
+        if (window.JTTheme) JTTheme.onTheme(() => {
+            if (typeof sentData !== 'undefined' && sentData && sentChart && document.getElementById('panel-sentiment') && document.getElementById('panel-sentiment').classList.contains('active')) renderSentChart(sentData);
+            if (labChartsReady) { labKChart.applyOptions({ layout: { background: { color: JTTheme.colors().panel }, textColor: JTTheme.colors().textSoft }, grid: { vertLines: { color: JTTheme.colors().grid }, horzLines: { color: JTTheme.colors().grid } }, rightPriceScale: { borderColor: JTTheme.colors().line }, timeScale: { borderColor: JTTheme.colors().line } });
+                labEqChart.applyOptions({ layout: { background: { color: JTTheme.colors().panel }, textColor: JTTheme.colors().textSoft }, grid: { vertLines: { color: JTTheme.colors().grid }, horzLines: { color: JTTheme.colors().grid } }, rightPriceScale: { borderColor: JTTheme.colors().line }, timeScale: { borderColor: JTTheme.colors().line } });
+                labKSeries.applyOptions({ upColor: JTTheme.colors().red, downColor: JTTheme.colors().green, borderUpColor: JTTheme.colors().red, borderDownColor: JTTheme.colors().green, wickUpColor: JTTheme.colors().red, wickDownColor: JTTheme.colors().green });
+                labEqSeries.applyOptions({ lineColor: JTTheme.colors().accent, topColor: JTTheme.toRgba(JTTheme.colors().accent, .25), bottomColor: JTTheme.toRgba(JTTheme.colors().accent, JTTheme.isDark() ? .05 : .02) });
+                if (typeof LAB_RESULT !== 'undefined' && LAB_RESULT && labCurrentCode) renderLabStock(labCurrentCode); }
+            const chipCanvas = document.getElementById('chip-canvas');
+            if (chipCanvas && chipCanvas.offsetParent && typeof CHIP_LAST !== 'undefined' && CHIP_LAST) drawChipChart(CHIP_LAST.dist, CHIP_LAST.close, CHIP_LAST.peak);
+        });
         document.getElementById('chip-more').addEventListener('click', () => {
             chipExpanded = !chipExpanded;
             const body = document.getElementById('chip-body');
@@ -1031,8 +1043,10 @@
 
         // ---------- 5. 大盘点金（智能点金） ----------
         let sentInited = false, sentChart = null, sentData = null;
-        const SENT_RED = getComputedStyle(document.documentElement).getPropertyValue('--red').trim() || '#d92d20';
-        const SENT_GREEN = getComputedStyle(document.documentElement).getPropertyValue('--green').trim() || '#0a7d57';
+        // 黑夜模式（t_712add03）：涨跌色改为函数运行时读 token，主题切换自动跟
+        const _sentCs = () => getComputedStyle(document.documentElement);
+        const SENT_RED = () => _sentCs().getPropertyValue('--red').trim() || '#d92d20';
+        const SENT_GREEN = () => _sentCs().getPropertyValue('--green').trim() || '#0a7d57';
         function initSentIfNeeded() {
             if (sentInited) { if (sentChart) sentChart.resize(); return; }
             sentInited = true;
@@ -1056,20 +1070,20 @@
             const forceTxt = L.force == null ? (noForce ? '源不可达' : '—') : (L.force > 0 ? '+' : '') + L.force.toFixed(2) + '%';
             document.getElementById('sent-kpi').innerHTML = `
                 <div class="k"><div class="l">收盘（${L.date.slice(5)}）</div><div class="v">${L.close}</div></div>
-                <div class="k"><div class="l">趋势线（MA20）</div><div class="v" style="color:${L.trendRed ? SENT_RED : SENT_GREEN}">${L.trendRed ? '红 · 多头' : '绿 · 空头'}</div></div>
-                <div class="k"><div class="l">阳谱 / 阴谱</div><div class="v"><span style="color:${SENT_RED}">${L.yang.toFixed(1)}%</span> / <span style="color:${SENT_GREEN}">${L.yin.toFixed(1)}%</span></div></div>
-                <div class="k"><div class="l">机构力道（3日EMA）</div><div class="v" style="color:${L.force == null ? 'var(--muted-2)' : (L.force > 0 ? SENT_RED : SENT_GREEN)};${noForce ? 'font-size:13px' : ''}">${forceTxt}</div></div>`;
+                <div class="k"><div class="l">趋势线（MA20）</div><div class="v" style="color:${L.trendRed ? SENT_RED() : SENT_GREEN()}">${L.trendRed ? '红 · 多头' : '绿 · 空头'}</div></div>
+                <div class="k"><div class="l">阳谱 / 阴谱</div><div class="v"><span style="color:${SENT_RED()}">${L.yang.toFixed(1)}%</span> / <span style="color:${SENT_GREEN()}">${L.yin.toFixed(1)}%</span></div></div>
+                <div class="k"><div class="l">机构力道（3日EMA）</div><div class="v" style="color:${L.force == null ? 'var(--muted-2)' : (L.force > 0 ? SENT_RED() : SENT_GREEN())};${noForce ? 'font-size:13px' : ''}">${forceTxt}</div></div>`;
             // 图例：阳谱/阴谱用实心点，机构力道用空心环，避免同色歧义
             const ring = (c) => `<span class="dot" style="background:transparent;border:2px solid ${c};width:8px;height:8px"></span>`;
             document.getElementById('sent-legend').innerHTML = noForce ? `
-                <span><span class="dot" style="background:${SENT_RED}"></span>阳谱 ${L.yang.toFixed(1)}%</span>
-                <span><span class="dot" style="background:${SENT_GREEN}"></span>阴谱 ${L.yin.toFixed(1)}%</span>
+                <span><span class="dot" style="background:${SENT_RED()}"></span>阳谱 ${L.yang.toFixed(1)}%</span>
+                <span><span class="dot" style="background:${SENT_GREEN()}"></span>阴谱 ${L.yin.toFixed(1)}%</span>
                 <span style="color:var(--amber)">▲金手指 / ▼银手指（趋势+阳谱双确认）</span>
                 <span style="color:var(--muted-2)">机构力道源暂不可达</span>` : `
-                <span><span class="dot" style="background:${SENT_RED}"></span>阳谱 ${L.yang.toFixed(1)}%</span>
-                <span><span class="dot" style="background:${SENT_GREEN}"></span>阴谱 ${L.yin.toFixed(1)}%</span>
-                <span>${ring(SENT_RED)}机构吸筹力道</span>
-                <span>${ring(SENT_GREEN)}机构抛压力道</span>
+                <span><span class="dot" style="background:${SENT_RED()}"></span>阳谱 ${L.yang.toFixed(1)}%</span>
+                <span><span class="dot" style="background:${SENT_GREEN()}"></span>阴谱 ${L.yin.toFixed(1)}%</span>
+                <span>${ring(SENT_RED())}机构吸筹力道</span>
+                <span>${ring(SENT_GREEN())}机构抛压力道</span>
                 <span style="color:var(--amber)">▲金手指 / ▼银手指</span>`;
             renderSentChart(d);
             // 智能点金表（近14日，最新两列高亮圈注）
@@ -1106,6 +1120,7 @@
         function renderSentChart(d) {
             const el = document.getElementById('sent-chart');
             if (!sentChart) sentChart = echarts.init(el);
+            const T = JTTheme.colors(), rgba = JTTheme.toRgba;   // 图表色运行时读 token
             const rows = d.series;
             const dates = rows.map(r => r.date);
             // ECharts candlestick 数据序：[open, close, low, high]
@@ -1115,21 +1130,21 @@
             const force = rows.map(r => r.force);
             const fingers = rows.map((r, i) => r.finger ? {
                 coord: [r.date, r.close], value: r.finger === 'gold' ? '▲' : '▼',
-                itemStyle: { color: r.finger === 'gold' ? '#f59e0b' : '#64748b' },
-                label: { color: r.finger === 'gold' ? '#b45309' : '#475569' }
+                itemStyle: { color: r.finger === 'gold' ? T.warn : T.muted2 },
+                label: { color: r.finger === 'gold' ? T.amber : T.textSoft }
             } : null).filter(Boolean);
             const trendAreas = [];
             let segStart = null, segRed = null;
             rows.forEach((r, i) => {
                 if (segRed === null || r.trendRed !== segRed) {
-                    if (segStart !== null) trendAreas.push([{ xAxis: dates[segStart], itemStyle: { color: segRed ? 'rgba(217,45,32,0.06)' : 'rgba(11,143,98,0.06)' } }, { xAxis: dates[i - 1] }]);
+                    if (segStart !== null) trendAreas.push([{ xAxis: dates[segStart], itemStyle: { color: rgba(segRed ? T.red : T.green, T.dark ? 0.13 : 0.06) } }, { xAxis: dates[i - 1] }]);
                     segStart = i; segRed = r.trendRed;
                 }
             });
-            if (segStart !== null) trendAreas.push([{ xAxis: dates[segStart], itemStyle: { color: segRed ? 'rgba(217,45,32,0.06)' : 'rgba(11,143,98,0.06)' } }, { xAxis: dates[dates.length - 1] }]);
+            if (segStart !== null) trendAreas.push([{ xAxis: dates[segStart], itemStyle: { color: rgba(segRed ? T.red : T.green, T.dark ? 0.13 : 0.06) } }, { xAxis: dates[dates.length - 1] }]);
             const markPtsAll = rows.map((r, i) => r.mark ? {
                 coord: [r.date, r.force], value: r.mark,
-                itemStyle: { color: r.mark === '吸' ? SENT_RED : (r.mark === '减' ? SENT_GREEN : '#f59e0b') }
+                itemStyle: { color: r.mark === '吸' ? SENT_RED() : (r.mark === '减' ? SENT_GREEN() : T.warn) }
             } : null).filter(Boolean);
             // 窄屏抽稀标注防重叠（保留最近一个），桌面全显
             const narrow = el.clientWidth < 560;
@@ -1138,11 +1153,11 @@
             sentChart.setOption({
                 animation: false,
                 axisPointer: { link: [{ xAxisIndex: 'all' }] },
-                tooltip: { trigger: 'axis', axisPointer: { type: 'cross' }, confine: true,
+                tooltip: { trigger: 'axis', axisPointer: { type: 'cross' }, confine: true, backgroundColor: T.dark ? T.panel2 : 'rgba(255,255,255,0.96)', borderColor: T.line, textStyle: { color: T.text },
                     formatter: (ps) => {
                         const i = ps[0].dataIndex, r = rows[i];
                         let t = `<b>${r.date}</b><br>收盘 ${r.close} · MA20 ${r.ma20 ?? '—'}<br>`;
-                        t += `<span style="color:${SENT_RED}">阳谱 ${r.yang.toFixed(1)}%</span> / <span style="color:${SENT_GREEN}">阴谱 ${r.yin.toFixed(1)}%</span><br>`;
+                        t += `<span style="color:${SENT_RED()}">阳谱 ${r.yang.toFixed(1)}%</span> / <span style="color:${SENT_GREEN()}">阴谱 ${r.yin.toFixed(1)}%</span><br>`;
                         t += `机构力道 ${r.force == null ? '—（无资金流数据）' : r.force.toFixed(2) + '%'}`;
                         if (r.mark) t += ` · 标记【${r.mark}】`;
                         if (r.finger) t += `<br><b style="color:var(--amber)">${r.finger === 'gold' ? '▲ 金手指' : '▼ 银手指'}</b>`;
@@ -1156,28 +1171,28 @@
                 xAxis: [
                     { type: 'category', data: dates, gridIndex: 0, axisLabel: { show: false }, axisTick: { show: false }, boundaryGap: true },
                     { type: 'category', data: dates, gridIndex: 1, axisLabel: { show: false }, axisTick: { show: false }, boundaryGap: true },
-                    { type: 'category', data: dates, gridIndex: 2, axisLabel: { fontSize: 10, color: '#64748b', formatter: v => v.slice(5) }, boundaryGap: true }
+                    { type: 'category', data: dates, gridIndex: 2, axisLabel: { fontSize: 10, color: T.axis, formatter: v => v.slice(5) }, axisLine: { lineStyle: { color: T.lineStrong } }, axisTick: { show: false }, boundaryGap: true }
                 ],
                 yAxis: [
-                    { gridIndex: 0, scale: true, axisLabel: { fontSize: 10, color: '#64748b' }, splitLine: { lineStyle: { color: '#f1f5f9' } } },
-                    { gridIndex: 1, min: 0, max: 100, axisLabel: { fontSize: 10, color: '#64748b', formatter: '{value}%' }, splitLine: { lineStyle: { color: '#f1f5f9' } } },
-                    { gridIndex: 2, scale: true, axisLabel: { fontSize: 10, color: '#64748b', formatter: '{value}%' }, splitLine: { lineStyle: { color: '#f1f5f9' } } }
+                    { gridIndex: 0, scale: true, axisLabel: { fontSize: 10, color: T.axis }, splitLine: { lineStyle: { color: T.grid } } },
+                    { gridIndex: 1, min: 0, max: 100, axisLabel: { fontSize: 10, color: T.axis, formatter: '{value}%' }, splitLine: { lineStyle: { color: T.grid } } },
+                    { gridIndex: 2, scale: true, axisLabel: { fontSize: 10, color: T.axis, formatter: '{value}%' }, splitLine: { lineStyle: { color: T.grid } } }
                 ],
                 dataZoom: [
                     { type: 'inside', xAxisIndex: [0, 1, 2], start: narrow ? 40 : 0, end: 100 },
-                    { type: 'slider', xAxisIndex: [0, 1, 2], bottom: 2, height: narrow ? 22 : 16, borderColor: '#e2e8f0', fillerColor: 'rgba(102,126,234,0.12)', handleSize: narrow ? '110%' : '80%' }
+                    { type: 'slider', xAxisIndex: [0, 1, 2], bottom: 2, height: narrow ? 22 : 16, borderColor: T.line, fillerColor: rgba(T.accent, T.dark ? 0.2 : 0.12), handleStyle: { color: T.accent }, textStyle: { color: T.axis }, handleSize: narrow ? '110%' : '80%' }
                 ],
                 series: [
                     { name: '上证指数', type: 'candlestick', data: ohlc, xAxisIndex: 0, yAxisIndex: 0,
-                      itemStyle: { color: SENT_RED, color0: SENT_GREEN, borderColor: SENT_RED, borderColor0: SENT_GREEN },
+                      itemStyle: { color: SENT_RED(), color0: SENT_GREEN(), borderColor: SENT_RED(), borderColor0: SENT_GREEN() },
                       markArea: { silent: true, data: trendAreas },
                       markPoint: { symbol: 'triangle', symbolSize: narrow ? 14 : 12, data: fingers.map(f => ({ ...f, symbolRotate: f.value === '▼' ? 180 : 0 })), label: { show: false } } },
-                    { name: 'MA20', type: 'line', data: rows.map(r => r.ma20), xAxisIndex: 0, yAxisIndex: 0, symbol: 'none', lineStyle: { width: 1.2, color: '#f59e0b', type: 'dashed' } },
-                    { name: '阳谱', type: 'line', data: yang, xAxisIndex: 1, yAxisIndex: 1, symbol: 'none', lineStyle: { width: 1, color: SENT_RED }, areaStyle: { color: 'rgba(217,45,32,0.30)' }, stack: 'spec' },
-                    { name: '阴谱', type: 'line', data: yin, xAxisIndex: 1, yAxisIndex: 1, symbol: 'none', lineStyle: { width: 0 }, areaStyle: { color: 'rgba(11,143,98,0.30)' }, stack: 'spec' },
-                    { name: '机构力道', type: 'bar', data: force.map(v => v == null ? null : { value: v, itemStyle: { color: v >= 0 ? SENT_RED : SENT_GREEN } }), xAxisIndex: 2, yAxisIndex: 2, barMaxWidth: 7,
-                      markPoint: { symbol: 'circle', symbolSize: 1, data: markPts, label: { show: true, position: 'top', fontSize: 10, fontWeight: 700, formatter: p => p.value, color: '#334155' } },
-                      markLine: { silent: true, symbol: 'none', lineStyle: { color: '#cbd5e1', type: 'dashed' }, data: [{ yAxis: 0 }], label: { show: false } } }
+                    { name: 'MA20', type: 'line', data: rows.map(r => r.ma20), xAxisIndex: 0, yAxisIndex: 0, symbol: 'none', lineStyle: { width: 1.2, color: T.warn, type: 'dashed' } },
+                    { name: '阳谱', type: 'line', data: yang, xAxisIndex: 1, yAxisIndex: 1, symbol: 'none', lineStyle: { width: 1, color: SENT_RED() }, areaStyle: { color: rgba(T.red, 0.30) }, stack: 'spec' },
+                    { name: '阴谱', type: 'line', data: yin, xAxisIndex: 1, yAxisIndex: 1, symbol: 'none', lineStyle: { width: 0 }, areaStyle: { color: rgba(T.green, 0.30) }, stack: 'spec' },
+                    { name: '机构力道', type: 'bar', data: force.map(v => v == null ? null : { value: v, itemStyle: { color: v >= 0 ? SENT_RED() : SENT_GREEN() } }), xAxisIndex: 2, yAxisIndex: 2, barMaxWidth: 7,
+                      markPoint: { symbol: 'circle', symbolSize: 1, data: markPts, label: { show: true, position: 'top', fontSize: 10, fontWeight: 700, formatter: p => p.value, color: T.textSoft } },
+                      markLine: { silent: true, symbol: 'none', lineStyle: { color: T.lineStrong, type: 'dashed' }, data: [{ yAxis: 0 }], label: { show: false } } }
                 ]
             }, true);
             document.getElementById('sent-chart-sub').textContent = `日K + MA20 · 红带=趋势多头区 绿带=空头区`;
@@ -1214,6 +1229,7 @@
                 ];
                 document.getElementById('chip-detail-metrics').innerHTML = items.map(i =>
                     `<div class="detail-item"><div class="k">${i[0]}</div><div class="v">${i[1]}</div></div>`).join('');
+                CHIP_LAST = { dist: d.distribution, close: d.close, peak: m.peak_price };
                 drawChipChart(d.distribution, d.close, m.peak_price);
             } catch (e) {
                 document.getElementById('chip-detail-sub').textContent = '加载失败：' + e.message;
@@ -1238,23 +1254,24 @@
             const y = (ratio) => h - padB - ratio / maxRatio * (h - padT - padB);
 
             // 分布柱状（canvas 不支持 CSS 变量，取主题色字面值）
-            const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#667eea';
+            const T = JTTheme.colors();
+            const accent = T.accent;
             const barW = Math.max(2, (w - padL - padR) / dist.length - 1);
             dist.forEach(p => {
-                ctx.fillStyle = Math.abs(p.price - peakPrice) < (pMax - pMin) * 0.03 ? '#f59e0b' : accent;
+                ctx.fillStyle = Math.abs(p.price - peakPrice) < (pMax - pMin) * 0.03 ? T.warn : accent;
                 ctx.fillRect(x(p.price) - barW / 2, y(p.ratio), barW, h - padB - y(p.ratio));
             });
             // 峰值价竖线
-            ctx.strokeStyle = '#f59e0b'; ctx.setLineDash([5, 4]); ctx.lineWidth = 1.5;
+            ctx.strokeStyle = T.warn; ctx.setLineDash([5, 4]); ctx.lineWidth = 1.5;
             ctx.beginPath(); ctx.moveTo(x(peakPrice), padT); ctx.lineTo(x(peakPrice), h - padB); ctx.stroke();
             // 现价竖线
-            const red = getComputedStyle(document.documentElement).getPropertyValue('--red').trim() || '#d92d20';
+            const red = T.red;
             ctx.strokeStyle = red; ctx.setLineDash([]);
             ctx.beginPath(); ctx.moveTo(x(currentPrice), padT); ctx.lineTo(x(currentPrice), h - padB); ctx.stroke();
             // 轴
-            ctx.strokeStyle = '#e2e8f0'; ctx.lineWidth = 1;
+            ctx.strokeStyle = T.line; ctx.lineWidth = 1;
             ctx.beginPath(); ctx.moveTo(padL, h - padB); ctx.lineTo(w - padR, h - padB); ctx.stroke();
-            ctx.fillStyle = '#64748b'; ctx.font = '11px sans-serif';
+            ctx.fillStyle = T.axis; ctx.font = '11px sans-serif';
             // 轴标签数量按宽度自适应，首尾对齐防裁切
             const ticks = narrow ? 3 : 4;
             for (let i = 0; i <= ticks; i++) {
@@ -1266,7 +1283,7 @@
             ctx.textAlign = 'left';
             // 图例：固定右上角堆叠，避免与竖线/彼此重叠（窄屏缩短文案）
             const legend = [
-                { c: '#f59e0b', t: (narrow ? '峰 ' : '峰值价 ') + peakPrice },
+                { c: T.warn, t: (narrow ? '峰 ' : '峰值价 ') + peakPrice },
                 { c: red, t: (narrow ? '现 ' : '现价 ') + currentPrice },
             ];
             ctx.font = '11px sans-serif';
@@ -1296,17 +1313,15 @@
 
         function ensureLabCharts() {
             if (labChartsReady || typeof LightweightCharts === "undefined") return;
+            const T = JTTheme.colors();
             const base = {
-                layout: { background: { color: "#ffffff" }, textColor: "#475569", fontSize: 11 },
-                grid: { vertLines: { color: "#f1f5f9" }, horzLines: { color: "#f1f5f9" } },
-                rightPriceScale: { borderColor: "#e2e8f0" },
-                timeScale: { borderColor: "#e2e8f0", rightOffset: 4 },
+                layout: { background: { color: T.panel }, textColor: T.textSoft, fontSize: 11 },
+                grid: { vertLines: { color: T.grid }, horzLines: { color: T.grid } },
+                rightPriceScale: { borderColor: T.line },
+                timeScale: { borderColor: T.line, rightOffset: 4 },
                 crosshair: { mode: 0 },
             };
-            const CSSVAR = getComputedStyle(document.documentElement);
-            const C_RED = (CSSVAR.getPropertyValue("--red") || "#d92d20").trim();
-            const C_GREEN = (CSSVAR.getPropertyValue("--green") || "#0a7d57").trim();
-            const C_ACCENT = (CSSVAR.getPropertyValue("--accent") || "#667eea").trim();
+            const C_RED = T.red, C_GREEN = T.green, C_ACCENT = T.accent;
             labKChart = LightweightCharts.createChart(lab$("lab-kline-chart"),
                 { ...base, width: lab$("lab-kline-chart").clientWidth || 600, height: 300 });
             labKSeries = labKChart.addCandlestickSeries({
@@ -1317,8 +1332,8 @@
             labEqChart = LightweightCharts.createChart(lab$("lab-equity-chart"),
                 { ...base, width: lab$("lab-equity-chart").clientWidth || 600, height: 150 });
             labEqSeries = labEqChart.addAreaSeries({
-                lineColor: C_ACCENT, topColor: "rgba(102,126,234,.25)",
-                bottomColor: "rgba(102,126,234,.02)", lineWidth: 2, priceLineVisible: false,
+                lineColor: C_ACCENT, topColor: JTTheme.toRgba(C_ACCENT, .25),
+                bottomColor: JTTheme.toRgba(C_ACCENT, T.dark ? .05 : .02), lineWidth: 2, priceLineVisible: false,
             });
             new ResizeObserver(() => {
                 labKChart.applyOptions({ width: lab$("lab-kline-chart").clientWidth });
@@ -1345,8 +1360,8 @@
             labEqChart.applyOptions({ width: lab$("lab-equity-chart").clientWidth });
             labKSeries.setData(s.candles.map(x => ({ time: x.t, open: x.o, high: x.h, low: x.l, close: x.c })));
             const markers = [];
-            const C_RED2 = (getComputedStyle(document.documentElement).getPropertyValue("--red") || "#d92d20").trim();
-            const C_GREEN2 = (getComputedStyle(document.documentElement).getPropertyValue("--green") || "#0a7d57").trim();
+            const _T2 = JTTheme.colors();
+            const C_RED2 = _T2.red, C_GREEN2 = _T2.green;
             for (const t of s.trades) {
                 markers.push({ time: t.entry_date, position: "belowBar", color: C_RED2, shape: "arrowUp", text: "买" });
                 if (t.status !== "Open") markers.push({ time: t.exit_date, position: "aboveBar", color: C_GREEN2, shape: "arrowDown", text: "卖" });

@@ -980,6 +980,7 @@
         <script id="position-edit-data" type="application/json">{{ edit_json | safe }}</script>
     </div>
 
+    <script src="/static/theme.js?v=20261121a"></script>
     <script src="/static/app.js?v=20261119a"></script>
 <script>(function(){var btn=document.getElementById("theme-toggle");if(!btn)return;function tip(){btn.title=document.documentElement.getAttribute("data-theme")==="dark"?"切换到白天模式":"切换到黑夜模式";}tip();btn.addEventListener("click",function(){var next=document.documentElement.getAttribute("data-theme")==="dark"?"light":"dark";document.documentElement.setAttribute("data-theme",next);try{localStorage.setItem("jt-theme",next);}catch(e){}tip();window.dispatchEvent(new Event("jt-theme-change"));});window.addEventListener("storage",function(e){if(e.key==="jt-theme"){var v=e.newValue||"auto";if(v!=="light"&&v!=="dark"){v=(window.matchMedia&&matchMedia("(prefers-color-scheme: dark)").matches)?"dark":"light";}document.documentElement.setAttribute("data-theme",v);tip();}});})();</script>
 </body>

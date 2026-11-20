@@ -8,6 +8,7 @@
     <link rel="stylesheet" href="/static/styles.css?v=20261119a">
     <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
     <script src="/static/echarts.min.js?v=20261119a"></script>
+    <script src="/static/theme.js?v=20261121a"></script>
     <style>
         .page { max-width: 1100px; margin: 0 auto; padding: 20px; }
         .header {
@@ -108,6 +109,7 @@
 <script>
 const PWD = "{{ pwd }}";
 let chart = null;
+let VAL_LAST = null;
 function $(id){ return document.getElementById(id); }
 function showErr(m){ const b=$('err-banner'); b.textContent=m; b.style.display='block'; }
 function pctCls(v){ return v > 0 ? 'gain' : (v < 0 ? 'loss' : ''); }
@@ -147,25 +149,27 @@ function renderCmp(bt){
 }
 
 function renderChart(data){
+    VAL_LAST = data;
     const el = $('pe-chart');
     if (!chart) chart = echarts.init(el);
-    const root = getComputedStyle(document.documentElement);
-    const RED = root.getPropertyValue('--red').trim() || '#d92d20';
+    const T = JTTheme.colors();
+    const RED = T.red;
     const marks = (data.backtest.event_marks || []).map(e => ({
         coord: [e.date, e.pe], value: e.act,
-        itemStyle: { color: e.act === '减仓' ? RED : (root.getPropertyValue('--green').trim() || '#0a7d57') },
+        itemStyle: { color: e.act === '减仓' ? RED : T.green },
         symbolSize: 9
     }));
     chart.setOption({
-        tooltip: { trigger: 'axis' },
-        legend: { data: ['PE-TTM', '10年均值'], top: 0 },
+        tooltip: { trigger: 'axis', backgroundColor: T.dark ? T.panel2 : 'rgba(255,255,255,0.96)', borderColor: T.line, textStyle: { color: T.text } },
+        textStyle: { color: T.text },
+        legend: { data: ['PE-TTM', '10年均值'], top: 0, textStyle: { color: T.axis } },
         grid: { left: 44, right: 16, top: 30, bottom: 28 },
-        xAxis: { type: 'time' },
-        yAxis: { type: 'value', scale: true },
+        xAxis: { type: 'time', axisLine: { lineStyle: { color: T.lineStrong } }, axisLabel: { color: T.axis } },
+        yAxis: { type: 'value', scale: true, axisLabel: { color: T.axis }, splitLine: { lineStyle: { color: T.grid } } },
         series: [
-            { name: 'PE-TTM', type: 'line', data: data.chart.map(p => [p.date, p.pe]), showSymbol: false, lineStyle: { width: 1.6, color: '#6366f1' },
+            { name: 'PE-TTM', type: 'line', data: data.chart.map(p => [p.date, p.pe]), showSymbol: false, lineStyle: { width: 1.6, color: T.accent },
               markPoint: { data: marks, label: { fontSize: 10 } } },
-            { name: '10年均值', type: 'line', data: data.chart.map(p => [p.date, p.mean]), showSymbol: false, lineStyle: { width: 1.2, type: 'dashed', color: '#94a3b8' } }
+            { name: '10年均值', type: 'line', data: data.chart.map(p => [p.date, p.mean]), showSymbol: false, lineStyle: { width: 1.2, type: 'dashed', color: T.muted } }
         ]
     });
     chart.resize();
@@ -191,6 +195,7 @@ $('btn-run').addEventListener('click', load);
 $('sel-index').addEventListener('change', load);
 load();
 window.addEventListener('resize', () => { if (chart) chart.resize(); });
+if (window.JTTheme) JTTheme.onTheme(() => { if (VAL_LAST) renderChart(VAL_LAST); });
 </script>
 <script>(function(){var btn=document.getElementById("theme-toggle");if(!btn)return;function tip(){btn.title=document.documentElement.getAttribute("data-theme")==="dark"?"切换到白天模式":"切换到黑夜模式";}tip();btn.addEventListener("click",function(){var next=document.documentElement.getAttribute("data-theme")==="dark"?"light":"dark";document.documentElement.setAttribute("data-theme",next);try{localStorage.setItem("jt-theme",next);}catch(e){}tip();window.dispatchEvent(new Event("jt-theme-change"));});window.addEventListener("storage",function(e){if(e.key==="jt-theme"){var v=e.newValue||"auto";if(v!=="light"&&v!=="dark"){v=(window.matchMedia&&matchMedia("(prefers-color-scheme: dark)").matches)?"dark":"light";}document.documentElement.setAttribute("data-theme",v);tip();}});})();</script>
 </body>

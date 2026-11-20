@@ -529,6 +529,7 @@
         }
     </style>
     <script src="/static/echarts.min.js?v=20261119a"></script>
+    <script src="/static/theme.js?v=20261121a"></script>
 </head>
 <body>
     <div class="backtest-container">
@@ -1438,7 +1439,8 @@
         let btChartResults = [];
 
         function buildBtChartOption(ch) {
-            const RED = '#d92d20', GREEN = '#0a7d57';   // A股语义：红涨绿跌
+            const T = JTTheme.colors();
+            const RED = T.red, GREEN = T.green;   // A股语义：红涨绿跌（跟随主题 token）
             let lo = Infinity, hi = -Infinity;
             ch.ohlc.forEach(o => { if (o[2] < lo) lo = o[2]; if (o[3] > hi) hi = o[3]; });
             const pad = Math.max((hi - lo) * 0.035, 0.01);
@@ -1463,7 +1465,7 @@
                 animation: false,
                 axisPointer: { link: [{ xAxisIndex: 'all' }] },
                 tooltip: {
-                    trigger: 'axis', confine: true, axisPointer: { type: 'cross' },
+                    trigger: 'axis', confine: true, axisPointer: { type: 'cross' }, backgroundColor: T.dark ? T.panel2 : 'rgba(255,255,255,0.96)', borderColor: T.line, textStyle: { color: T.text },
                     formatter: (params) => {
                         const di = params[0].dataIndex;
                         const dt = ch.dates[di];
@@ -1484,16 +1486,16 @@
                     { left: 56, right: 14, top: '66%', height: '17%' },
                 ],
                 xAxis: [
-                    { type: 'category', data: ch.dates, gridIndex: 0, boundaryGap: true, axisLine: { lineStyle: { color: '#cbd5e1' } }, axisTick: { show: false }, axisLabel: { show: false }, splitLine: { show: false } },
-                    { type: 'category', data: ch.dates, gridIndex: 1, axisLine: { lineStyle: { color: '#cbd5e1' } }, axisTick: { show: false }, axisLabel: { fontSize: 10, color: '#64748b' }, splitLine: { show: false } },
+                    { type: 'category', data: ch.dates, gridIndex: 0, boundaryGap: true, axisLine: { lineStyle: { color: T.lineStrong } }, axisTick: { show: false }, axisLabel: { show: false }, splitLine: { show: false } },
+                    { type: 'category', data: ch.dates, gridIndex: 1, axisLine: { lineStyle: { color: T.lineStrong } }, axisTick: { show: false }, axisLabel: { fontSize: 10, color: T.axis }, splitLine: { show: false } },
                 ],
                 yAxis: [
-                    { scale: true, gridIndex: 0, splitLine: { lineStyle: { color: '#f1f5f9' } }, axisLabel: { fontSize: 10, color: '#64748b' } },
-                    { scale: true, gridIndex: 1, splitLine: { show: false }, axisLabel: { fontSize: 10, color: '#64748b', formatter: (v) => { const p = (v / ch.eq0 - 1) * 100; return (p >= 0 ? '+' : '') + p.toFixed(ch.eqDec) + '%'; } } },
+                    { scale: true, gridIndex: 0, splitLine: { lineStyle: { color: T.grid } }, axisLabel: { fontSize: 10, color: T.axis } },
+                    { scale: true, gridIndex: 1, splitLine: { show: false }, axisLabel: { fontSize: 10, color: T.axis, formatter: (v) => { const p = (v / ch.eq0 - 1) * 100; return (p >= 0 ? '+' : '') + p.toFixed(ch.eqDec) + '%'; } } },
                 ],
                 dataZoom: [
                     { type: 'inside', xAxisIndex: [0, 1], start: 0, end: 100 },
-                    { type: 'slider', xAxisIndex: [0, 1], height: 16, bottom: 2, borderColor: 'transparent', fillerColor: 'rgba(102,126,234,0.10)', handleStyle: { color: '#8ea2ec' }, textStyle: { fontSize: 9, color: '#64748b' } },
+                    { type: 'slider', xAxisIndex: [0, 1], height: 16, bottom: 2, borderColor: 'transparent', fillerColor: T.dark ? 'rgba(139,157,255,0.18)' : 'rgba(102,126,234,0.10)', handleStyle: { color: T.accent }, textStyle: { fontSize: 9, color: T.axis } },
                 ],
                 series: [
                     {
@@ -1511,8 +1513,8 @@
                     {
                         name: '账户资金', type: 'line', xAxisIndex: 1, yAxisIndex: 1,
                         data: ch.equity, showSymbol: false,
-                        lineStyle: { width: 1.6, color: '#2563eb' },
-                        areaStyle: { opacity: 0.07, color: '#2563eb' },
+                        lineStyle: { width: 1.6, color: T.blue },
+                        areaStyle: { opacity: 0.07, color: T.blue },
                     },
                 ],
             };
@@ -1548,6 +1550,13 @@
         }
 
         window.addEventListener('resize', () => { if (btChart) btChart.resize(); });
+        if (window.JTTheme) JTTheme.onTheme(() => {
+            if (btChart && btChartResults.length) {
+                const active = [...document.querySelectorAll('#bt-chart-tabs .bct-tab')].findIndex(el => el.classList.contains('on'));
+                const idx = active >= 0 && active < btChartResults.length ? active : 0;
+                btChart.setOption(buildBtChartOption(btChartResults[idx].result.chart), true);
+            }
+        });
 
         // 显示结果
         function displayResults(results, periods) {

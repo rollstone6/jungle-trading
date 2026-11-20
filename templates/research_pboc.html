@@ -8,6 +8,7 @@
     <link rel="stylesheet" href="/static/styles.css?v=20261119a">
     <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
     <script src="/static/echarts.min.js?v=20261119a"></script>
+    <script src="/static/theme.js?v=20261121a"></script>
     <style>
         body { background: var(--panel-2); }
         .hero {
@@ -163,9 +164,9 @@
     <script>
         const pwd = "{{ pwd }}";
         // echarts/canvas 不认 CSS 变量：从 :root 取涨跌色字面值（单一真源仍是 styles.css token）
-        const _cs = getComputedStyle(document.documentElement);
-        const RED = _cs.getPropertyValue('--red').trim() || '#d92d20';
-        const GREEN = _cs.getPropertyValue('--green').trim() || '#0a7d57';
+        // 涨跌色运行时读 token（黑夜模式 t_712add03）
+        const RED = () => JTTheme.colors().red;
+        const GREEN = () => JTTheme.colors().green;
         const fmt = n => n == null ? '-' : Number(n).toLocaleString('zh-CN', { maximumFractionDigits: 0 });
         let D = null;
 
@@ -223,10 +224,12 @@
             }).join('') || '<div style="font-size:12px;color:var(--muted-2)">未来95天内无可推算到期</div>';
 
             renderCharts(d);
+            themeCharts();
             renderTables(d);
         }
 
         function renderCharts(d) {
+            const T = JTTheme.colors();
             const all = d.daily || [];
             const days = all.map(x => x.date.slice(5));
             const C = { net: null, type: null, future: null };
@@ -242,8 +245,8 @@
             const maturityPast = all.map(x => x.future ? null : x.maturity);
             const maturityFuture = all.map((x, i) => (i >= (fi < 0 ? all.length : fi - 1) && x.future) || i === fi - 1 ? x.maturity : null);
             const markAreaFuture = fi >= 0 ? [[
-                { xAxis: days[fi], itemStyle: { color: 'rgba(14,165,233,0.07)' },
-                  label: { show: true, position: 'insideTop', color: '#0369a1', fontSize: 11, formatter: '未来推算到期' } },
+                { xAxis: days[fi], itemStyle: { color: JTTheme.toRgba(T.info, T.dark ? 0.13 : 0.07) },
+                  label: { show: true, position: 'insideTop', color: T.blue, fontSize: 11, formatter: '未来推算到期' } },
                 { xAxis: days[days.length - 1] },
             ]] : [];
             C.net.setOption({
@@ -255,7 +258,7 @@
                     { left: 55, right: 55, top: '58%', bottom: 58 },
                 ],
                 xAxis: [
-                    { type: 'category', data: days, gridIndex: 0, axisLabel: { rotate: 45, fontSize: 10 }, axisLine: { lineStyle: { color: '#cbd5e1' } } },
+                    { type: 'category', data: days, gridIndex: 0, axisLabel: { rotate: 45, fontSize: 10 }, axisLine: { lineStyle: { color: T.lineStrong } }, axisLabel: { color: T.axis } },
                     { type: 'category', data: days, gridIndex: 1, axisLabel: { show: false }, axisTick: { show: false } },
                 ],
                 yAxis: [
@@ -264,18 +267,18 @@
                     { type: 'value', name: '净投放', gridIndex: 1, splitLine: { lineStyle: { type: 'dashed' } } },
                 ],
                 series: [
-                    { name: '当日投放', type: 'bar', xAxisIndex: 0, yAxisIndex: 0, data: all.map(x => x.future ? null : x.inflow), itemStyle: { color: RED } },
+                    { name: '当日投放', type: 'bar', xAxisIndex: 0, yAxisIndex: 0, data: all.map(x => x.future ? null : x.inflow), itemStyle: { color: RED() } },
                     { name: '推算到期', type: 'line', xAxisIndex: 0, yAxisIndex: 0, data: maturityPast,
-                      lineStyle: { color: '#0ea5e9', width: 2 }, itemStyle: { color: '#0ea5e9' }, symbolSize: 4,
+                      lineStyle: { color: T.cyan, width: 2 }, itemStyle: { color: T.cyan }, symbolSize: 4,
                       markArea: { silent: true, data: markAreaFuture } },
                     { name: '推算到期', type: 'line', xAxisIndex: 0, yAxisIndex: 0, data: maturityFuture,
-                      lineStyle: { color: '#0ea5e9', width: 2, type: 'dashed' }, itemStyle: { color: '#0ea5e9' }, symbolSize: 4 },
+                      lineStyle: { color: T.cyan, width: 2, type: 'dashed' }, itemStyle: { color: T.cyan }, symbolSize: 4 },
                     { name: '上证指数', type: 'line', xAxisIndex: 0, yAxisIndex: 1, data: all.map(x => x.index),
-                      smooth: true, lineStyle: { color: '#f59e0b', width: 2 }, itemStyle: { color: '#f59e0b' }, symbolSize: 3 },
+                      smooth: true, lineStyle: { color: T.warn, width: 2 }, itemStyle: { color: T.warn }, symbolSize: 3 },
                     { name: '净投放', type: 'bar', xAxisIndex: 1, yAxisIndex: 2, data: all.map(x => x.net),
-                      itemStyle: { color: pr => pr.value >= 0 ? RED : GREEN } },
+                      itemStyle: { color: pr => pr.value >= 0 ? RED() : GREEN() } },
                     { name: '累计净投放', type: 'line', xAxisIndex: 1, yAxisIndex: 2, data: all.map(x => x.cum),
-                      lineStyle: { type: 'dashed', color: '#8b5cf6' }, itemStyle: { color: '#8b5cf6' }, symbol: 'circle', symbolSize: 3 },
+                      lineStyle: { type: 'dashed', color: T.accent2 }, itemStyle: { color: T.accent2 }, symbol: 'circle', symbolSize: 3 },
                 ],
             });
 
@@ -288,10 +291,10 @@
                 yAxis: { type: 'value', name: '亿元' },
                 series: [
                     { name: '逆回购', type: 'line', data: past.map(x => x.rr), symbolSize: 4,
-                      lineStyle: { color: '#3b82f6' }, itemStyle: { color: '#3b82f6' },
-                      areaStyle: { color: 'rgba(59,130,246,0.08)' } },
+                      lineStyle: { color: T.info }, itemStyle: { color: T.info },
+                      areaStyle: { color: JTTheme.toRgba(T.info, 0.08) } },
                     { name: '买断式逆回购', type: 'line', data: past.map(x => x.bo > 0 ? x.bo : null), symbolSize: 6,
-                      lineStyle: { color: '#8b5cf6' }, itemStyle: { color: '#8b5cf6' }, connectNulls: false },
+                      lineStyle: { color: T.accent2 }, itemStyle: { color: T.accent2 }, connectNulls: false },
                 ],
             });
 
@@ -304,12 +307,24 @@
                 xAxis: { type: 'category', data: fd.map(x => x.month) },
                 yAxis: { type: 'value', name: '亿元' },
                 series: [
-                    { name: '逆回购', type: 'bar', stack: 't', data: fd.map(x => x.rr), itemStyle: { color: RED } },
-                    { name: '买断式逆回购', type: 'bar', stack: 't', data: fd.map(x => x.bo), itemStyle: { color: '#8b5cf6' } },
+                    { name: '逆回购', type: 'bar', stack: 't', data: fd.map(x => x.rr), itemStyle: { color: RED() } },
+                    { name: '买断式逆回购', type: 'bar', stack: 't', data: fd.map(x => x.bo), itemStyle: { color: T.accent2 } },
                 ],
             });
             window.addEventListener('resize', () => Object.values(C).forEach(c => c && c.resize()));
         }
+        function themeCharts() {
+            const T = JTTheme.colors();
+            ['chart-net','chart-type','chart-future'].forEach(id => {
+                const el = document.getElementById(id);
+                const inst = el && echarts.getInstanceByDom(el);
+                if (!inst) return;
+                inst.setOption({ textStyle: { color: T.text },
+                    legend: { textStyle: { color: T.axis } },
+                    tooltip: { backgroundColor: T.dark ? T.panel2 : 'rgba(255,255,255,0.96)', borderColor: T.line, textStyle: { color: T.text } } });
+            });
+        }
+        if (window.JTTheme) JTTheme.onTheme(() => { if (D) { renderCharts(D); themeCharts(); } });
 
         function renderTables(d) {
             const rateMap = {};
