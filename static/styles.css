@@ -3167,7 +3167,7 @@ body:not(.pboc-page):not(.valuation-page) .data-table tr:hover td { background: 
 /* 顶栏非 relative 定位的页面（各模板 header 结构不同）兜底：给带按钮的 header 提定位 */
 .topbar:has(> .theme-toggle), .quant-header:has(> .theme-toggle),
 .backtest-header:has(> .theme-toggle), .hub-header:has(> .theme-toggle),
-.hero:has(> .theme-toggle), header:has(> .theme-toggle) { position: relative; }
+.hero:has(> .theme-toggle), header:has(> .theme-toggle), .header:has(> .theme-toggle) { position: relative; }
 /* pboc hero 深色横幅上的按钮反色 */
 .hero .theme-toggle {
   background: rgba(255, 255, 255, 0.14);
