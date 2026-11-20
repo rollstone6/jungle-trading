@@ -567,60 +567,6 @@
             cursor: pointer;
         }
         .regime-pool-toggle:hover { background: #f0eeff; }
-        .regime-chip {
-            border-radius: 10px;
-            padding: 10px 12px;
-            color: #fff;
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
-            box-shadow: 0 2px 6px rgba(0,0,0,0.12);
-            min-width: 0;
-        }
-        .regime-chip .rc-evidence {
-            overflow-wrap: anywhere;
-        }
-        .regime-chip.squeeze { background: linear-gradient(135deg, #f59e0b, #ef4444); }
-        .regime-chip.trending { background: linear-gradient(135deg, #10b981, #0ea5e9); }
-        .regime-chip.ranging { background: linear-gradient(135deg, #3b82f6, #6366f1); }
-        .regime-chip.neutral { background: linear-gradient(135deg, #64748b, #94a3b8); }
-        .regime-chip .rc-top {
-            display: flex;
-            justify-content: space-between;
-            align-items: baseline;
-            gap: 6px;
-        }
-        .regime-chip .rc-name {
-            font-weight: 700;
-            font-size: 14px;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-        .regime-chip .rc-label {
-            font-size: 12px;
-            font-weight: 700;
-            background: rgba(255,255,255,0.25);
-            padding: 1px 8px;
-            border-radius: 999px;
-            white-space: nowrap;
-        }
-        .regime-chip .rc-tf {
-            font-size: 11px;
-            opacity: 0.95;
-        }
-        .regime-chip .rc-evidence {
-            font-size: 10px;
-            opacity: 0.85;
-        }
-        .regime-chip .rc-alert {
-            font-size: 11px;
-            background: #fff;
-            color: #dc2626;
-            border-radius: 6px;
-            padding: 2px 6px;
-            font-weight: 700;
-        }
         @media (max-width: 480px) {
             .regime-panel-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
         }
@@ -951,7 +897,7 @@
                     <div class="etf-loading">正在计算分类...</div>
                 </div>
                 <div class="regime-pool" id="regime-pool" hidden></div>
-                <div class="vol-note">解读规则：挤压待变 + 波动收敛（或分位≤25%）→ 变盘窗口；趋势型 + 扩张 → 趋势加速；区间型 + 收敛 → 窄幅蓄势；其余组合不强行解读。口径：HV=对数收益标准差×√252 年化；分位=HV20 在近一年滚动值中的排名；扩张/收敛=HV20 相对 HV60 ≥1.25× / ≤0.75×；ATR14=Wilder 真实波幅/现价。高波动≠必跌，提示的是振幅与回撤风险。</div>
+                <div class="vol-note">解读规则：挤压待变 + 波动收敛或扩张（或分位≤25%）→ 变盘窗口（挤压形态无论波动收敛/放大均提示变盘）；趋势型 + 扩张 → 趋势加速；区间型 + 收敛 → 窄幅蓄势；其余组合不强行解读。口径：HV=对数收益标准差×√252 年化；分位=HV20 在近一年滚动值中的排名；扩张/收敛=HV20 相对 HV60 ≥1.25× / ≤0.75×；ATR14=Wilder 真实波幅/现价。高波动≠必跌，提示的是振幅与回撤风险。</div>
             </div>
         </section>
 

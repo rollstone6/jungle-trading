@@ -9,17 +9,21 @@
 - 新缓存（含 vol 且当日、覆盖持仓）命中直接返回，不重扫。
 
 不走 HTTP（避免 TestClient 启动 scheduler / 鉴权），直接 await 路由协程，
-fetcher 用 monkeypatch 注入合成 K 线。DB 用 worktree 内 gitignore 的
-data/jungle.db（init_db 建表，测完还原为空仓不影响验证实例）。
+fetcher 用 monkeypatch 注入合成 K 线。DB 与 regime 扫描缓存全部重定向到
+tempfile 临时目录（见下方隔离块），init_db/get_db/缓存读写只作用于临时
+路径，生产库与生产缓存零触碰；teardown 只删临时目录。
 
 运行: cd 仓库根 && /opt/hermes-agent/.venv/bin/python -m pytest tests/test_regime_vol.py -q
 或直接 /opt/hermes-agent/.venv/bin/python tests/test_regime_vol.py
 """
 import asyncio
+import atexit
 import json
 import math
 import os
+import shutil
 import sys
+import tempfile
 from datetime import datetime
 from pathlib import Path
 
@@ -30,11 +34,23 @@ sys.path.insert(0, str(ROOT))
 os.environ.setdefault("SITE_PASSWORD", "test-dummy-n… real")
 
 import app.main as m  # noqa: E402
+import app.models.database as db_mod  # noqa: E402
 import app.services.market as market_mod  # noqa: E402
 from app.models.database import init_db, get_db  # noqa: E402
 from app.services.volatility import calc_volatility, combined_read  # noqa: E402
 from app.services.portfolio import calc_volatility_watch  # noqa: E402
 from app.services.regime import REGIME_LABEL  # noqa: E402
+
+# ── P0 隔离（审查 t_c86fbad9）：DB 与 regime 缓存重定向到 tempfile 目录 ──
+# database.get_db()/init_db() 与 main.regime_latest() 都在调用时刻读取模块级
+# DB_PATH / REGIME_CACHE_FILE（非 cwd 解析），这里在任何首次 DB/缓存操作前
+# patch 两个模块属性即全局生效；teardown 只删临时目录，生产库与生产缓存
+# 零触碰（主仓、worktree 一律安全）。
+_TMP_DIR = Path(tempfile.mkdtemp(prefix="jt_regime_vol_"))
+db_mod.DB_PATH = _TMP_DIR / "jungle.db"
+m.REGIME_CACHE_FILE = _TMP_DIR / "regime_scan.json"
+
+atexit.register(shutil.rmtree, _TMP_DIR, ignore_errors=True)
 
 HELD = [("600001", "测试甲"), ("000002", "测试乙")]
 # STOCK_LIST 其余票的 K 线用同一生成器（mock 不区分代码）
@@ -65,6 +81,11 @@ async def _fake_sina_minute(code, scale=30):
 
 
 def _setup_db():
+    # 保险丝：隔离未生效（DB/缓存仍指仓库 data/）直接拒绝运行，绝不写生产库。
+    assert db_mod.DB_PATH.resolve().parent == _TMP_DIR, \
+        f"DB 隔离失效: {db_mod.DB_PATH}"
+    assert m.REGIME_CACHE_FILE.resolve().parent == _TMP_DIR, \
+        f"缓存隔离失效: {m.REGIME_CACHE_FILE}"
     init_db()
     conn = get_db()
     conn.execute("DELETE FROM positions")
@@ -155,7 +176,8 @@ async def main():
     # 8) summary 含四分类计数
     check("counts 四分类齐全", {"squeeze", "trending", "ranging", "neutral"} <= set(data3["counts"]))
 
-    # 还原：清掉测试写入的缓存与持仓，避免污染 worktree 内后续验证实例
+    # 还原：仅清临时目录内的缓存与持仓（生产库/缓存从未被写入，见顶部隔离块；
+    # 临时目录整体由 atexit shutil.rmtree 删除）
     _clean_cache()
     conn = get_db()
     conn.execute("DELETE FROM positions")
