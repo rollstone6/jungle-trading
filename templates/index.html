@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>持仓工作台</title>
-    <link rel="stylesheet" href="/static/styles.css?v=20261118a">
+    <link rel="stylesheet" href="/static/styles.css?v=20261119a">
     <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
     <!-- ===== 量化回测实验室 UI 风格覆盖层 ===== -->
     <style>
@@ -327,13 +327,7 @@
             border-radius: 12px;
             padding: 14px 16px;
         }
-        /* 波动率观察面板 */
-        .vol-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(min(210px, 100%), 1fr));
-            gap: 10px;
-        }
-        .vol-grid > * { min-width: 0; }
+        /* 波动率观察（合并卡复用：走势 × 波动 面板内 vol-chip 白底卡） */
         .vol-chip {
             border-radius: 10px;
             padding: 10px 12px;
@@ -430,9 +424,63 @@
             color: #64748b;
             line-height: 1.6;
         }
-        @media (max-width: 380px) {
-            .vol-grid { grid-template-columns: 1fr; }
+        /* 走势 × 波动 合并卡扩展元素 */
+        .rv-badge {
+            font-size: 11px;
+            font-weight: 700;
+            color: #fff;
+            padding: 2px 8px;
+            border-radius: 999px;
+            white-space: nowrap;
+            flex-shrink: 0;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.15);
         }
+        .rv-pos-tag {
+            font-size: 10px;
+            font-weight: 700;
+            color: #fff;
+            background: #6366f1;
+            border-radius: 4px;
+            padding: 1px 5px;
+            flex-shrink: 0;
+        }
+        .vol-chip .rv-tf {
+            font-size: 11px;
+            color: #64748b;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .vol-chip .rv-ev {
+            font-size: 10.5px;
+            color: #64748b;
+            overflow-wrap: anywhere;
+        }
+        .vol-chip .rv-bottom {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            align-items: center;
+        }
+        .vol-chip .rc-alert {
+            font-size: 11px;
+            background: #fef2f2;
+            color: #dc2626;
+            border: 1px solid rgba(217, 45, 32, 0.3);
+            border-radius: 6px;
+            padding: 2px 6px;
+            font-weight: 700;
+        }
+        .rv-combined {
+            font-size: 11px;
+            font-weight: 700;
+            border-radius: 6px;
+            padding: 2px 8px;
+            display: inline-block;
+            white-space: nowrap;
+        }
+        .rv-combined.warn { background: #fff7ed; color: #c2410c; border: 1px solid rgba(245, 158, 11, 0.55); }
+        .rv-combined.info { background: #eef2ff; color: #4338ca; border: 1px solid rgba(99, 102, 241, 0.4); }
         .regime-panel-header {
             display: flex;
             align-items: baseline;
@@ -519,60 +567,6 @@
             cursor: pointer;
         }
         .regime-pool-toggle:hover { background: #f0eeff; }
-        .regime-chip {
-            border-radius: 10px;
-            padding: 10px 12px;
-            color: #fff;
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
-            box-shadow: 0 2px 6px rgba(0,0,0,0.12);
-            min-width: 0;
-        }
-        .regime-chip .rc-evidence {
-            overflow-wrap: anywhere;
-        }
-        .regime-chip.squeeze { background: linear-gradient(135deg, #f59e0b, #ef4444); }
-        .regime-chip.trending { background: linear-gradient(135deg, #10b981, #0ea5e9); }
-        .regime-chip.ranging { background: linear-gradient(135deg, #3b82f6, #6366f1); }
-        .regime-chip.neutral { background: linear-gradient(135deg, #64748b, #94a3b8); }
-        .regime-chip .rc-top {
-            display: flex;
-            justify-content: space-between;
-            align-items: baseline;
-            gap: 6px;
-        }
-        .regime-chip .rc-name {
-            font-weight: 700;
-            font-size: 14px;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-        .regime-chip .rc-label {
-            font-size: 12px;
-            font-weight: 700;
-            background: rgba(255,255,255,0.25);
-            padding: 1px 8px;
-            border-radius: 999px;
-            white-space: nowrap;
-        }
-        .regime-chip .rc-tf {
-            font-size: 11px;
-            opacity: 0.95;
-        }
-        .regime-chip .rc-evidence {
-            font-size: 10px;
-            opacity: 0.85;
-        }
-        .regime-chip .rc-alert {
-            font-size: 11px;
-            background: #fff;
-            color: #dc2626;
-            border-radius: 6px;
-            padding: 2px 6px;
-            font-weight: 700;
-        }
         @media (max-width: 480px) {
             .regime-panel-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
         }
@@ -891,55 +885,10 @@
                 {% endfor %}
             </div>
 
-            <!-- 波动率观察（HV20/HV60 年化 + 一年分位 + ATR14% · 扩张/收敛状态） -->
-            <div class="regime-panel vol-panel" id="position-vol">
-                <div class="regime-panel-header">
-                    <h3><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12h4l3-8 4 16 3-8h6"/></svg> 波动率观察 <small>HV20/HV60 年化 · 一年分位 · ATR14 日均波幅</small></h3>
-                    <span class="regime-panel-time">日线口径 · 随行情刷新</span>
-                </div>
-                {% set vol_alerts = positions | selectattr('vol.alert') | list %}
-                {% if vol_alerts %}
-                <div class="regime-alerts">
-                    {% for p in vol_alerts %}
-                    <div class="ra-row {% if p.vol.state_cls == 'expand' %}up{% elif p.vol.state_cls == 'squeeze' %}down{% endif %}"><strong>{{ p.name }}</strong>：{{ p.vol.alert_text }}</div>
-                    {% endfor %}
-                </div>
-                {% endif %}
-                <div class="vol-grid">
-                    {% for p in positions | sort(attribute='vol.hv20', reverse=True) %}
-                    {% if p.vol.hv20 %}
-                    <div class="vol-chip {{ p.vol.state_cls }}">
-                        <div class="vc-top">
-                            <span class="vc-name" title="{{ p.name }} {{ p.code }}">{{ p.name }}</span>
-                            <span class="vc-state">{{ p.vol.state }}</span>
-                        </div>
-                        <div class="vc-hv">
-                            <strong>{{ p.vol.hv20 }}%</strong>
-                            <small>HV20 年化{% if p.vol.hv60 %} · HV60 {{ p.vol.hv60 }}%{% endif %}</small>
-                        </div>
-                        {% if p.vol.pctile is not none %}
-                        <div class="vc-barwrap" title="当前 HV20 在近一年滚动值中的分位：{{ p.vol.pctile }}%">
-                            <div class="vc-bar">
-                                <div class="vc-fill {% if p.vol.pctile >= 80 %}hot{% elif p.vol.pctile <= 25 %}cold{% endif %}" style="width: {{ p.vol.pctile }}%"></div>
-                            </div>
-                            <span class="vc-pct">{{ p.vol.pctile }}%分位</span>
-                        </div>
-                        {% endif %}
-                        <div class="vc-foot">
-                            {% if p.vol.atr_pct %}<span title="ATR14 / 现价：日均真实波幅，可对照止损距离">日均波幅 {{ p.vol.atr_pct }}%</span>{% endif %}
-                            <a href="#pos-{{ p.code }}" class="vc-link">看持仓 ↗</a>
-                        </div>
-                    </div>
-                    {% endif %}
-                    {% endfor %}
-                </div>
-                <div class="vol-note">口径：HV=对数收益标准差×√252 年化；分位=当前 HV20 在近一年滚动值中的排名；扩张/收敛=HV20 相对 HV60 ≥1.25× / ≤0.75×。高波动≠必跌，提示的是振幅与回撤风险。</div>
-            </div>
-
-            <!-- 走势分类扫描（日线+30分钟双周期共振 · 股票池+持仓合并） -->
+            <!-- 走势 × 波动 合并面板（日线+30分钟双周期分类 × HV20/HV60 波动状态 · 股票池+持仓） -->
             <div class="regime-panel" id="position-regime">
                 <div class="regime-panel-header">
-                    <h3><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20Z M16.2 7.8l-2.9 6.3-6.3 2.9 2.9-6.3 6.3-2.9Z"/></svg> 走势分类 <small>双周期共振 · 股票池+持仓</small></h3>
+                    <h3><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20Z M16.2 7.8l-2.9 6.3-6.3 2.9 2.9-6.3 6.3-2.9Z"/></svg> 走势 × 波动 <small>双周期分类 · HV20/HV60 年化 · 一年分位 · ATR14</small></h3>
                     <span class="regime-panel-time" id="regime-panel-time">加载中...</span>
                 </div>
                 <div class="regime-countbar" id="regime-countbar"></div>
@@ -948,6 +897,7 @@
                     <div class="etf-loading">正在计算分类...</div>
                 </div>
                 <div class="regime-pool" id="regime-pool" hidden></div>
+                <div class="vol-note">解读规则：挤压待变 + 波动收敛或扩张（或分位≤25%）→ 变盘窗口（挤压形态无论波动收敛/放大均提示变盘）；趋势型 + 扩张 → 趋势加速；区间型 + 收敛 → 窄幅蓄势；其余组合不强行解读。口径：HV=对数收益标准差×√252 年化；分位=HV20 在近一年滚动值中的排名；扩张/收敛=HV20 相对 HV60 ≥1.25× / ≤0.75×；ATR14=Wilder 真实波幅/现价。高波动≠必跌，提示的是振幅与回撤风险。</div>
             </div>
         </section>
 
@@ -1029,6 +979,6 @@
         <script id="position-edit-data" type="application/json">{{ edit_json | safe }}</script>
     </div>
 
-    <script src="/static/app.js?v=20261118a"></script>
+    <script src="/static/app.js?v=20261119a"></script>
 </body>
 </html>

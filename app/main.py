@@ -29,6 +29,7 @@ from app.services.portfolio import (
     calc_risk, get_summary, calc_volatility_watch
 )
 from app.services.reports import get_available_dates, get_report
+from app.services.volatility import calc_volatility, combined_read
 # 量化策略统一股票池（与 app/quant 各策略共用同一份）
 from app.quant.config import STOCK_LIST
 
@@ -662,6 +663,7 @@ async def regime_latest(request: Request, pwd: str = Depends(check_password), re
             pos_codes = {r["code"] for r in pconn.execute("SELECT code FROM positions").fetchall()}
             pconn.close()
             if (cached.get("asOf") == today and cached.get("stocks")
+                    and all("vol" in st for st in cached["stocks"])
                     and pos_codes <= cached_codes):
                 return cached
         except Exception as exc:
@@ -698,6 +700,9 @@ async def regime_latest(request: Request, pwd: str = Depends(check_password), re
         info_d = classify_regime(kl_d)
         info_m = classify_regime(kl_m) if len(kl_m) >= 30 else None
         regime = combine_timeframes(info_d, info_m)
+        # 波动率 × 走势 合并面板：与持仓卡 calc_volatility_watch 同口径（共享真源
+        # app/services/volatility.py），旧缓存无 vol 字段视为过期自动重扫。
+        vol = calc_volatility(kl_d)
         return {
             "code": s["symbol"], "name": s["name"],
             "regime": regime, "label": REGIME_LABEL[regime],
@@ -708,6 +713,8 @@ async def regime_latest(request: Request, pwd: str = Depends(check_password), re
             "bandwidth_pct": info_d["bandwidth_pct"],
             "bandwidth_pct_30m": info_m["bandwidth_pct"] if info_m else None,
             "ma_dev_pct": info_d["ma_dev_pct"],
+            "vol": vol,
+            "combined": combined_read(regime, vol),
             "alert": info_d.get("alert"),
             "as_of": kl_d[-1]["date"],
         }

@@ -1629,34 +1629,84 @@ async function loadPositionRegime(refresh = false) {
             });
         }
 
-        // 0.5) 带宽张开预警（全池）
+        // 0.5) 预警区合并展示：带宽张开预警 + 波动率警示（扩张红/收敛绿，A股语义）
         if (alertEl) {
-            alertEl.innerHTML = (data.alerts || []).map(a =>
-                `<div class="ra-row ${a.type === 'squeeze_break_up' ? 'up' : 'down'}">${a.name}（${a.code}）：${a.text}</div>`
+            const volAlerts = (data.stocks || []).filter(s => s.vol && s.vol.alert)
+                .map(s => ({
+                    code: s.code, name: s.name, text: s.vol.alert_text,
+                    cls: s.vol.state_cls === 'expand' ? 'up' : s.vol.state_cls === 'squeeze' ? 'down' : '',
+                }));
+            const bwAlerts = (data.alerts || []).map(a => ({
+                code: a.code, name: a.name, text: a.text,
+                cls: a.type === 'squeeze_break_up' ? 'up' : 'down',
+            }));
+            alertEl.innerHTML = [...bwAlerts, ...volAlerts].map(a =>
+                `<div class="ra-row ${a.cls}">${esc(a.name)}（${esc(a.code)}）：${esc(a.text)}</div>`
             ).join('');
         }
 
-        // chip 渲染器（持仓与股票池共用）
-        function chipHtml(s, al) {
-            const alertHtml = al ? `<div class="rc-alert"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 2L3 14h7l-1 8 10-12h-7l1-8Z"/></svg> ${al.text || '带宽张开预警'}</div>` : '';
-            return `
-                <div class="regime-chip ${s.regime}" title="日线 ${s.label_daily || s.label} / 30分钟 ${s.label_30m}；轨外${(s.outside_ratio*100).toFixed(0)}% 带宽分位${(s.bandwidth_pct*100).toFixed(0)}%">
-                    <div class="rc-top">
-                        <span class="rc-name">${s.name}</span>
-                        <span class="rc-label">${s.label}</span>
+        // chip 渲染器（持仓与股票池共用）：走势分类 × 波动率观察 合并卡
+        // 组合解读规则与后端 app/services/volatility.py::combined_read 同口径
+        function combinedRead(s) {
+            const v = s.vol;
+            if (!v || v.hv20 == null) return null;
+            const st = v.state_cls, pct = v.pctile;
+            if (s.regime === 'squeeze') {
+                if (st === 'squeeze') return { label: '变盘窗口', cls: 'warn', title: '形态挤压 + 波动收敛，双信号共振，变盘概率上升' };
+                if (st === 'expand') return { label: '变盘窗口', cls: 'warn', title: '形态挤压但波动已放大，方向即将选择，注意振幅' };
+                if (pct != null && pct <= 25) return { label: '变盘窗口', cls: 'warn', title: `形态挤压 + 波动处一年低位（${pct}%分位），留意变盘窗口` };
+                return null;
+            }
+            if (s.regime === 'trending' && st === 'expand') return { label: '趋势加速', cls: 'info', title: '趋势延续且波动放大，顺势但注意回撤幅度' };
+            if (s.regime === 'ranging' && st === 'squeeze') return { label: '窄幅蓄势', cls: 'info', title: '区间震荡且波动收敛，等待方向' };
+            return null;
+        }
+
+        function esc(t) { const d = document.createElement('div'); d.textContent = t == null ? '' : String(t); return d.innerHTML; }
+
+        function chipHtml(s, al, isHeld) {
+            if (!s) return `<div class="vol-chip"><div class="vc-top"><span class="vc-name">计算中…</span></div></div>`;
+            const v = s.vol || {};
+            const hasVol = v.hv20 != null;
+            const grad = PALETTE.regimeGrad[s.regime] || PALETTE.regimeGrad.neutral;
+            const alertHtml = al ? `<div class="rc-alert"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 2L3 14h7l-1 8 10-12h-7l1-8Z"/></svg> ${esc(al.text || '带宽张开预警')}</div>` : '';
+            const cb = s.combined || combinedRead(s);
+            const cbHtml = cb ? `<span class="rv-combined ${esc(cb.cls)}" title="${esc(cb.title)}">${esc(cb.label)}</span>` : '';
+            const posTag = isHeld ? '<span class="rv-pos-tag">持仓</span>' : '';
+            const volBlock = hasVol ? `
+                    <div class="vc-hv">
+                        <strong>${v.hv20}%</strong>
+                        <small>HV20 年化${v.hv60 ? ' · HV60 ' + v.hv60 + '%' : ''}</small>
+                        <span class="vc-state">${esc(v.state)}</span>
                     </div>
-                    <div class="rc-tf">日K ${s.label_daily || '-'} · 30分 ${s.label_30m}</div>
-                    <div class="rc-evidence">轨外${(s.outside_ratio*100).toFixed(0)}% · 带宽分位${(s.bandwidth_pct*100).toFixed(0)}% · 偏离MA20 ${s.ma_dev_pct > 0 ? '+' : ''}${s.ma_dev_pct.toFixed(1)}%</div>
+                    ${v.pctile != null ? `<div class="vc-barwrap" title="当前 HV20 在近一年滚动值中的分位：${v.pctile}%">
+                        <div class="vc-bar"><div class="vc-fill ${v.pctile >= 80 ? 'hot' : v.pctile <= 25 ? 'cold' : ''}" style="width: ${v.pctile}%"></div></div>
+                        <span class="vc-pct">${v.pctile}%分位</span>
+                    </div>` : ''}` : `<div class="vc-hv"><small>波动数据不足</small></div>`;
+            return `
+                <div class="vol-chip ${esc(v.state_cls || '')}" data-rv-code="${esc(s.code)}" title="${esc(s.name)}：日线 ${esc(s.label_daily || s.label)} / 30分钟 ${esc(s.label_30m)}；轨外${(s.outside_ratio*100).toFixed(0)}% 带宽分位${(s.bandwidth_pct*100).toFixed(0)}%">
+                    <div class="vc-top">
+                        <span class="vc-name" title="${esc(s.name)} ${esc(s.code)}">${posTag}${esc(s.name)}</span>
+                        <span class="rv-badge" style="background:${grad}">${esc(s.label)}</span>
+                    </div>
+                    <div class="rv-tf">日K ${esc(s.label_daily || '-')} · 30分 ${esc(s.label_30m)}</div>
+                    ${volBlock}
+                    <div class="rv-ev">轨外${(s.outside_ratio*100).toFixed(0)}% · 带宽分位${(s.bandwidth_pct*100).toFixed(0)}% · 偏离MA20 ${s.ma_dev_pct > 0 ? '+' : ''}${s.ma_dev_pct.toFixed(1)}%</div>
+                    ${v.atr_pct ? `<div class="vc-foot"><span title="ATR14 / 现价：日均真实波幅，可对照止损距离">日均波幅 ${v.atr_pct}%</span></div>` : ''}
                     ${alertHtml}
+                    <div class="rv-bottom">${cbHtml}${isHeld ? `<a href="#pos-${esc(s.code)}" class="vc-link">看持仓 ↗</a>` : ''}</div>
                 </div>`;
         }
 
-        // 1) 面板：持仓 chip（按分类排序）+ 更新时间
-        const posChips = posCodes.map(code => {
-            const s = byCode[code];
-            if (!s) return `<div class="regime-chip neutral"><div class="rc-top"><span class="rc-name">${code}</span><span class="rc-label">计算中</span></div></div>`;
-            return chipHtml(s, alertByCode[code]);
-        });
+        // 1) 面板：持仓合并卡（置顶，按分类排序）+ 更新时间
+        const posChips = posCodes
+            .map(code => ({ code, s: byCode[code] }))
+            .sort((a, b) => {
+                const ra = a.s ? (ORDER[a.s.regime] ?? 9) : 8;
+                const rb = b.s ? (ORDER[b.s.regime] ?? 9) : 8;
+                return ra - rb;
+            })
+            .map(({ code, s }) => chipHtml(s, alertByCode[code], true));
         listEl.innerHTML = posChips.join('');
 
         // 1.5) 股票池其余票（默认折叠，点开渲染）
@@ -1666,7 +1716,7 @@ async function loadPositionRegime(refresh = false) {
                 .sort((a, b) => (ORDER[a.regime] ?? 9) - (ORDER[b.regime] ?? 9));
             if (!others.length) { poolEl.hidden = true; return; }
             poolEl.classList.add('regime-panel-list');
-            poolEl.innerHTML = others.map(s => chipHtml(s, alertByCode[s.code])).join('');
+            poolEl.innerHTML = others.map(s => chipHtml(s, alertByCode[s.code], false)).join('');
             poolEl.dataset.rendered = '1';
         }
         // 2) 卡片徽章：升级为双周期结果 + 子标签显示分周期
