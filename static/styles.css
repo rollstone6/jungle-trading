@@ -1,24 +1,24 @@
 :root {
   color-scheme: light;
-  --bg: var(--bg);
-  --panel: var(--panel);
-  --text: var(--text);
-  --muted: var(--muted);
-  --line: var(--line);
-  --blue: var(--blue);
-  --cyan: var(--cyan);
-  --green: var(--green);
-  --red: var(--red);
-  --accent: var(--accent);
-  --accent-2: var(--accent-2);
+  --bg: #eef3f8;
+  --panel: #ffffff;
+  --text: #121826;
+  --muted: #667085;
+  --line: #d9e2ec;
+  --blue: #1764d8;
+  --cyan: #0e8aa8;
+  --green: #0a7d57;
+  --red: #d92d20;
+  --accent: #667eea;
+  --accent-2: #764ba2;
   --accent-rgb: 102, 126, 234;
-  --accent-grad: var(--accent-grad);
-  --amber: var(--amber);
+  --accent-grad: linear-gradient(135deg, #667eea, #764ba2);
+  --amber: #b76e00;
   --shadow: 0 12px 32px rgba(var(--text-rgb), 0.08);
   /* ===== 批次0：UI 统一 design tokens（ui-unify-plan §1.3，新增别名不改动既有值） ===== */
   --gain: var(--red); --loss: var(--green);   /* 红涨绿跌语义别名，全站唯一来源 */
-  --warn: var(--warn); --info: var(--info);           /* 警示/信息，只给需关注项 */
-  --neutral-bg: var(--neutral-bg); --neutral-fg: var(--neutral-fg);
+  --warn: #f59e0b; --info: #3b82f6;           /* 警示/信息，只给需关注项 */
+  --neutral-bg: #f3f4f6; --neutral-fg: #6b7280;
   --brand-1: var(--accent); --brand-2: var(--accent-2);     /* 紫渐变横幅/active */
   --sp-1: 4px; --sp-2: 8px; --sp-3: 12px; --sp-4: 16px; --sp-5: 24px;
   --r-pill: 999px; --r-card: 12px; --r-btn: 8px;
@@ -26,18 +26,18 @@
   --topbar-h: 42px;                            /* 顶栏目标高度 */
   --container-w: 1200px; --container-w-wide: 1280px;
   /* ===== 黑夜模式扩展语义 token（t_712add03）：亮色=现值，dark 块统一覆盖 ===== */
-  --panel-2: var(--panel-2);      /* 次级面板/隔行底 */
-  --panel-3: var(--panel-3);      /* hover/chip 底 */
-  --chip-bg: var(--chip-bg);      /* 彩色淡底 chip */
-  --line-strong: var(--line-strong);  /* 深一档边框 */
-  --text-soft: var(--text-soft);    /* 深灰正文 */
-  --text-mid: var(--text-mid);     /* 次灰正文 */
-  --muted-2: var(--muted-2);      /* 小字灰（全站规范色） */
-  --tint-red-bg: var(--tint-red-bg);  --tint-red-fg: var(--tint-red-fg);      /* 红语义淡底/深字 */
-  --tint-green-bg: var(--tint-green-bg); --tint-green-fg: var(--tint-green-fg);
-  --tint-amber-bg: var(--tint-amber-bg); --tint-amber-fg: var(--tint-amber-fg);
-  --tint-blue-bg: var(--chip-bg);  --tint-blue-fg: var(--tint-blue-fg);
-  --tint-violet-bg: var(--tint-violet-bg); --tint-violet-fg: var(--tint-violet-fg);
+  --panel-2: #f8fafc;      /* 次级面板/隔行底 */
+  --panel-3: #f1f5f9;      /* hover/chip 底 */
+  --chip-bg: #eef4fb;      /* 彩色淡底 chip */
+  --line-strong: #cbd5e1;  /* 深一档边框 */
+  --text-soft: #334155;    /* 深灰正文 */
+  --text-mid: #475569;     /* 次灰正文 */
+  --muted-2: #64748b;      /* 小字灰（全站规范色） */
+  --tint-red-bg: #fff7f6;  --tint-red-fg: #b42318;      /* 红语义淡底/深字 */
+  --tint-green-bg: #f1fbf7; --tint-green-fg: #065f46;
+  --tint-amber-bg: #fff8e8; --tint-amber-fg: #92400e;
+  --tint-blue-bg: #eef4fb;  --tint-blue-fg: #184a90;
+  --tint-violet-bg: #f8f7ff; --tint-violet-fg: #3730a3;
   --glow-rgb: 23, 100, 216; /* 品牌蓝辉光基色（dark 下提亮低透明） */
   --grid-line: rgba(var(--line-rgb), 0.9);  /* 图表网格线 */
   --chart-axis: var(--muted-2);                   /* 图表轴文字 */
