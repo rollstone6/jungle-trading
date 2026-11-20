@@ -1771,11 +1771,11 @@ li {
 }
 
 .k-bg {
-  fill: #fbfdff;
+  fill: var(--panel);
 }
 
 .k-grid {
-  stroke: #d9e2ec;
+  stroke: var(--line);
   stroke-dasharray: 4 4;
   stroke-width: 1;
 }
@@ -2365,7 +2365,7 @@ pre {
   overflow-x: auto;
   border: 1px solid var(--line);
   border-radius: 8px;
-  background: white;
+  background: var(--panel);
 }
 
 .review-table {
@@ -2985,6 +2985,7 @@ h1 svg.ic, h2 svg.ic, h3 svg.ic { width: 1.05em; height: 1.05em; }
   -webkit-backdrop-filter: blur(8px);
   scrollbar-width: none;
 }
+:root[data-theme="dark"] .mobile-quicknav { background: rgba(13, 17, 23, 0.92); }
 .mobile-quicknav::-webkit-scrollbar { display: none; }
 .mobile-quicknav a {
   flex-shrink: 0;

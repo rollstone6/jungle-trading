@@ -25,7 +25,7 @@
         .tab-row { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
         .tab-btn {
             padding: 7px 16px; border-radius: 999px; border: 1.5px solid var(--line);
-            background: white; color: var(--text-soft); font-weight: 600; cursor: pointer;
+            background: var(--panel); color: var(--text-soft); font-weight: 600; cursor: pointer;
             transition: all 0.2s; font-size: 13px; min-height: 34px;
             display: inline-flex; align-items: center; gap: 6px;
         }
@@ -104,7 +104,7 @@
         .mk-toggle.on { color: var(--accent); font-weight: 600; }
 
         .scan-bar {
-            background: white; border: 2px solid var(--line); border-radius: 12px;
+            background: var(--panel); border: 2px solid var(--line); border-radius: 12px;
             padding: 14px 18px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);
             display: flex; justify-content: space-between; align-items: center;
             gap: 12px; flex-wrap: wrap; margin-bottom: 20px;
@@ -118,7 +118,7 @@
         .scan-btn:disabled { /* 统一走全局 0.45 */ }
         .sel {
             padding: 8px 12px; border: 2px solid var(--line); border-radius: 8px;
-            font-size: 14px; color: var(--text-soft); background: white;
+            font-size: 14px; color: var(--text-soft); background: var(--panel);
         }
 
         .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 16px; margin-bottom: 20px; }
@@ -129,7 +129,7 @@
         /* loading/空态占位跨全列，避免被当成 grid item 挤占首列致卡片宽度失衡 */
         .kpi-grid > .loading, .kpi-grid > .empty-state { grid-column: 1 / -1; }
         .kpi-card {
-            background: white; border: 2px solid var(--line); border-radius: 12px;
+            background: var(--panel); border: 2px solid var(--line); border-radius: 12px;
             padding: 18px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); text-align: center;
         }
         .kpi-card .v { font-size: 32px; font-weight: 800; font-variant-numeric: normal; }
@@ -138,10 +138,10 @@
         .kpi-card.box .v { color: var(--warn); }
         .kpi-card.score-badge .v { color: var(--accent); }
         /* 全局 .score-badge 是持仓页小徽章（justify-self:end+小padding），会污染同名 KPI 卡，此处重置 */
-        .kpi-card.score-badge { justify-self: stretch; align-self: stretch; padding: 18px; border: 2px solid var(--line); border-radius: 12px; background: white; color: inherit; }
+        .kpi-card.score-badge { justify-self: stretch; align-self: stretch; padding: 18px; border: 2px solid var(--line); border-radius: 12px; background: var(--panel); color: inherit; }
 
         .data-table {
-            width: 100%; border-collapse: collapse; background: white;
+            width: 100%; border-collapse: collapse; background: var(--panel);
             border: 2px solid var(--line); border-radius: 12px; overflow: hidden;
             box-shadow: 0 2px 8px rgba(0,0,0,0.1);
         }
@@ -242,7 +242,7 @@
         }
 
         .detail-box {
-            display: none; background: white; border: 2px solid var(--line);
+            display: none; background: var(--panel); border: 2px solid var(--line);
             border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);
             padding: 18px; margin-bottom: 20px;
         }
@@ -262,7 +262,7 @@
         .lab-kpi .kpi-item + .kpi-item { border-left: 1px solid var(--line); }
         .lab-kpi .kpi-label { font-size: 12px; color: var(--muted-2); }
         .lab-kpi .kpi-value { font-size: 16px; font-weight: 700; font-variant-numeric: tabular-nums; }
-        .lab-ctrl { background: white; border: 2px solid var(--line); border-radius: 12px; padding: 14px 18px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 16px; font-size: 14px; color: var(--muted-2); }
+        .lab-ctrl { background: var(--panel); border: 2px solid var(--line); border-radius: 12px; padding: 14px 18px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 16px; font-size: 14px; color: var(--muted-2); }
         .lab-ctrl label { font-size: 13px; color: var(--text-soft); display: flex; align-items: center; gap: 6px; }
         .lab-ctrl input { width: 64px; padding: 6px 8px; border: 1.5px solid var(--line); border-radius: 8px; font-size: 14px; }
         .lab-ctrl input:focus-visible { outline: 2px solid var(--accent); border-color: var(--accent); }
@@ -273,7 +273,7 @@
         .lab-subtabs { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
         .lab-subtab-btn { padding: 7px 16px; border-radius: 999px; border: 1.5px solid var(--line); background: var(--panel); font-size: 13px; font-weight: 600; color: var(--text-soft); cursor: pointer; min-height: 32px; }
         .lab-subtab-btn.on { background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: #fff; border-color: transparent; }
-        .lab-panel-card { background: white; border: 2px solid var(--line); border-radius: 12px; padding: 14px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-bottom: 16px; min-width: 0; }
+        .lab-panel-card { background: var(--panel); border: 2px solid var(--line); border-radius: 12px; padding: 14px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-bottom: 16px; min-width: 0; }
         .lab-panel-card[hidden] { display: none; }
         /* 筹码列表收缩：默认前10，展开行用 class 控制（不用 hidden 属性，避免被 td display 覆盖） */
         #chip-body tr.chip-extra { display: none; }
