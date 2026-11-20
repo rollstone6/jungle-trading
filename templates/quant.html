@@ -86,6 +86,8 @@
         .sent-seg td.rowlab { text-align: left; font-weight: 700; background: var(--neutral-bg); }
         .sent-seg tr.grp td { color: var(--muted); font-weight: 600; font-size: 11px; text-align: left; background: transparent; }
         .sent-seg td.warncell { color: var(--amber); font-weight: 700; text-align: left; }
+        .sent-breadth-warn { display: flex; align-items: center; gap: 8px; background: var(--neutral-bg); border: 1.5px solid var(--warn); color: var(--amber); border-radius: 10px; padding: 8px 12px; font-size: 12.5px; font-weight: 600; margin-bottom: 10px; line-height: 1.5; }
+        .sent-breadth-warn[hidden] { display: none; }
         .sent-note { font-size: 11.5px; color: #64748b; margin-top: 8px; line-height: 1.6; }
         .sent-err { display: flex; align-items: center; gap: 8px; background: #fef2f2; border: 1.5px solid #fecaca; color: #b91c1c; border-radius: 10px; padding: 8px 12px; font-size: 13px; margin-bottom: 10px; }
         .sent-err[hidden] { display: none; }
@@ -507,6 +509,7 @@
                 <span class="scan-meta" id="sent-meta" aria-live="polite">加载中...</span>
             </div>
             <div class="sent-err" id="sent-err" hidden role="alert"><span id="sent-err-text"></span><button class="scan-btn" id="sent-retry" type="button">重试</button></div>
+            <div class="sent-breadth-warn" id="sent-breadth-warn" hidden role="status" aria-live="polite"></div>
             <div class="sent-kpi" id="sent-kpi"></div>
             <div class="sent-grid">
                 <div style="display:flex;flex-direction:column;gap:14px;min-width:0">
@@ -529,7 +532,7 @@
                     <div class="sent-card">
                         <h3>近三年大数据回测 <span class="sub" id="sent-bt-sub"></span></h3>
                         <div class="sent-bt" id="sent-bt"><div class="loading">加载中...</div></div>
-                        <div class="sent-note">口径：信号描述与下表统计均为每次金/银手指信号后 20 个交易日的指数真实涨跌，历史统计非预测，不构成投资建议。机构力道依赖东财大盘资金流（本机若被封锁则自动降级为趋势+阳谱双确认，全历史可算）。</div>
+                        <div class="sent-note">口径：信号描述与下表统计均为每次金/银手指信号后 20 个交易日的指数真实涨跌，历史统计非预测，不构成投资建议。回测按确认口径分段：双重确认段（力道覆盖前/源不可达时=趋势翻转+阳谱穿50）与三重确认段（力道覆盖期=趋势翻转+力道同向+阳谱同侧），两段混算会互相稀释故分行呈现，分段 n&lt;10 仅供方向参考。机构力道为东财加工口径，存在拆单失真。</div>
                     </div>
                 </div>
             </div>
@@ -1053,14 +1056,6 @@
         function renderSentiment(d) {
             sentData = d;
             document.getElementById('sent-err').hidden = true;
-            const meta = document.getElementById('sent-meta');
-            const btn = document.getElementById('sent-refresh');
-            const url = `/api/quant/sentiment?pwd=${pwd}` + (refresh ? '&refresh=1' : '');
-            return pollScan('sentiment', url, renderSentiment, meta, btn, '首次约10-30秒');
-        }
-        function renderSentiment(d) {
-            sentData = d;
-            document.getElementById('sent-err').hidden = true;
             // 广度降级横幅：unavailable=退回指数自身口径（显著标注）；stale=沿用旧缓存+截至日
             const bw = document.getElementById('sent-breadth-warn');
             const bd = d.breadth || {};
@@ -1075,6 +1070,9 @@
                 bw.textContent = '';
             }
             const meta = document.getElementById('sent-meta');
+            const yangTag = d.yangSource === 'hs300_breadth'
+                ? `阳谱口径 <b>广度·HS300上涨家数占比</b>${d.breadth && d.breadth.asOf && d.breadth.asOf !== d.asOf ? `（广度截至 ${d.breadth.asOf}）` : ''}`
+                : `阳谱口径 <b style="color:var(--amber)">指数自身（降级）</b>`;
             meta.innerHTML = metaHTML([
                 `数据截至 <b>${d.asOf}</b>`, d.index, `窗口 <b>${d.series.length}</b> 个交易日`,
                 yangTag,

@@ -301,10 +301,12 @@ def _compute_core(df: pd.DataFrame, breadth: dict | None,
                   force_map: dict[str, float] | None,
                   now: datetime | None = None,
                   force_pre_smoothed: bool = False,
-                  years: int = YEARS) -> dict:
+                  years: int = YEARS,
+                  long_ctx: dict | None = None) -> dict:
     """force_pre_smoothed=True：force_map 已是力道值（跳过3日EMA）。仅供离线
     复算/测试与研究卡同口径比对；生产走原始净占比→EMA3。
-    years=窗口年数（3=面板主窗口；5=长窗口统计）。"""
+    years=窗口年数（3=面板主窗口；5=长窗口统计）。
+    long_ctx=长窗口（5年）银手指统计摘要，注入银手指降级句与研究卡实证对齐。"""
     now = now or datetime.now()
     df = df.copy()
     df["date"] = pd.to_datetime(df["date"])
@@ -450,19 +452,23 @@ def _compute_core(df: pd.DataFrame, breadth: dict | None,
     last_rebound = -10
     for i in range(1, n):
         if fingers[i] == "gold":
+            seg = "triple" if force[i] is not None else "double"
             signals.append({"date": dates[i], "type": "opportunity", "tag": "低吸",
-                            "finger": "金手指",
-                            "text": _signal_text("gold", bt_gold,
-                                                 dual=None if force[i] is not None else dual_reason)})
+                            "finger": "金手指", "seg": seg,
+                            "text": _signal_text("gold", bt_gold["segments"][seg], seg,
+                                                 dual=None if force[i] is not None else dual_reason,
+                                                 baseline=baseline)})
         elif fingers[i] == "silver":
-            signals.append({"date": dates[i], "type": "risk", "tag": "减仓",
-                            "finger": "银手指",
-                            "text": _signal_text("silver", bt_silver,
-                                                 dual=None if force[i] is not None else dual_reason)})
+            seg = "triple" if force[i] is not None else "double"
+            signals.append({"date": dates[i], "type": "risk", "tag": "风险",
+                            "finger": "银手指", "seg": seg,
+                            "text": _signal_text("silver", bt_silver["segments"][seg], seg,
+                                                 dual=None if force[i] is not None else dual_reason,
+                                                 baseline=baseline, long_ctx=long_ctx)})
         elif (trend_red[i] and force[i] is not None and force[i] > 0
               and yang[i] < 50 and i - last_rebound >= 5 and ma20[i] is not None):
             signals.append({"date": dates[i], "type": "opportunity", "tag": "反弹",
-                            "finger": None,
+                            "finger": None, "seg": None,
                             "text": "趋势线在红区、机构力道吸筹，但阳谱仍低于50，赚钱效应未确认，反弹信号仅供参考，宜待阳谱站上50再评估。"})
             last_rebound = i
     signals.reverse()  # 新→旧
@@ -499,13 +505,15 @@ def _compute_core(df: pd.DataFrame, breadth: dict | None,
         "randomBaseline": baseline,
         "backtest": {"gold": bt_gold, "silver": bt_silver,
                      "years": years,
+                     "long": (long_ctx or {}).get("summary"),
                      "sample_start": dates[0], "sample_end": dates[-1]},
-        "note": _build_note(breadth_status, b_asof, force_source, yang_src),
+        "note": _build_note(breadth_status, b_asof, force_source, yang_src, long_ctx),
     }
 
 
 def _build_note(breadth_status: str, b_asof: str | None,
-                force_source: str, yang_src: str) -> str:
+                force_source: str, yang_src: str,
+                long_ctx: dict | None = None) -> str:
     if yang_src == "hs300_breadth":
         if breadth_status == "ok":
             bdesc = f"阳谱=沪深300成分股当日上涨家数占比·EMA5（广度口径，数据截至{b_asof}）"
@@ -518,21 +526,30 @@ def _build_note(breadth_status: str, b_asof: str | None,
                  "历史命中率≈随机），仅供占位参考")
     fdesc = ("机构力道源当前不可达，金/银手指按「趋势翻转+阳谱穿50」双重确认（全历史口径）"
              if force_source == "none"
-             else "机构力道=东财主力净占比3日EMA（东财加工口径存在拆单失真，覆盖约半年），"
-                  "力道覆盖前金/银手指按趋势翻转+阳谱穿50双重确认")
-    return (f"规则透明：{bdesc}；{fdesc}。"
-            "回测统计按双重/三重确认段分段呈现（两段规则不同，混算会误导）。"
+             else "机构力道=东财主力净占比3日EMA，为交易所Level-2加工口径，大单可拆小单存在统计失真；"
+                  "力道仅覆盖约半年，回测按双重确认段（力道缺失期）/三重确认段（力道覆盖期）分段呈现，分段 n<10 为小样本")
+    silver_desc = "银手指历史方向命中率与随机日基线无统计差异（详见回测表对照），已降级为仅风险提示。"
+    if long_ctx and long_ctx.get("silver"):
+        ls = long_ctx["silver"]
+        lb = long_ctx.get("baseline") or {}
+        silver_desc = (f"银手指历史方向命中率与随机基线无异"
+                       f"（近{long_ctx.get('years', 5)}年{ls['hit_prob']:g}%"
+                       f" vs 随机{lb.get('down_prob', '?')}%，n={ls['count']}），仅作风险提醒参考。")
+    return (f"规则透明：{bdesc}。{fdesc}。{silver_desc}"
             "信号描述中的历史统计=同窗口同类信号后20个交易日真实涨跌，非预测，不构成投资建议。")
 
 
-def _signal_text(kind: str, bt: dict, dual: str | None = None) -> str:
-    """金/银手指信号文案：触发规则（透明口径）+ 真实回测统计 + 温和参考（非指令）。
+def _signal_text(kind: str, stats: dict, seg: str, dual: str | None = None,
+                 baseline: dict | None = None, long_ctx: dict | None = None) -> str:
+    """金/银手指信号文案：触发规则（透明口径）+ 同口径段真实回测统计 + 温和参考。
 
-    bt 为该方向 eval_finger 结果；count=0（样本不足）时退化为不含统计句，
-    绝不渲染 0%/NaN。dual 非空表示该日力道未计入，值为降级原因短语（与 note
-    口径一致）。历史统计非预测，不构成投资建议（免责统一在 note）。
+    stats 为信号所在确认段（double/triple）的 eval_finger 结果，与面板回测表
+    分段行逐字同源；count=0（样本不足）退化为不含统计句，绝不渲染 0%/NaN。
+    银手指为风险提示语境：明示与随机基线对比（优先5年长窗口证据=研究卡主证据，
+    long_ctx 缺失时退3年窗口 baseline；数字全部动态注入，禁硬编码）。
     """
     gold = kind == "gold"
+    seg_label = {"double": "双重确认", "triple": "三重确认"}[seg]
     if dual is not None:
         rule = (f"趋势线转{'红' if gold else '绿'}且阳谱{'≥50' if gold else '≤50'}，"
                 f"双重确认触发（{dual}）。")
@@ -540,18 +557,38 @@ def _signal_text(kind: str, bt: dict, dual: str | None = None) -> str:
         rule = "趋势线转红、阳谱≥45、机构力道为正，三重确认触发。"
     else:
         rule = "趋势线转绿、阳谱≤55、机构力道转负，三重确认触发。"
-    side, prob_key = ("上涨", "up_prob") if gold else ("下跌", "down_prob")
-    ref = "多头窗口或开启，可关注低吸机会。" if gold else "注意回撤风险，参考控制仓位。"
+    side = "上涨" if gold else "下跌"
     stat = ""
-    if bt.get("count"):
-        stat = (f"近{YEARS}年同类信号后{HORIZON}个交易日{side}概率"
-                f"{bt[prob_key]:g}%（{bt['count']}次样本）。")
+    if stats.get("count"):
+        n = stats["count"]
+        warn = f"（样本仅{n}次，n<10不作依据）" if n < 10 else ""
+        if gold:
+            stat = (f"近{YEARS}年{seg_label}同类信号后{HORIZON}个交易日{side}概率"
+                    f"{stats['hit_prob']:g}%（95%CI {stats['ci']}，{n}次样本）。")
+        else:
+            rand = ""
+            ls, lb = (long_ctx or {}).get("silver"), (long_ctx or {}).get("baseline")
+            if ls and lb and ls.get("count") and lb.get("down_prob") is not None:
+                _lctx = long_ctx or {}
+                rand = (f"；更长样本（近{_lctx.get('years', 5)}年）方向命中率{ls['hit_prob']:g}%"
+                        f"（n={ls['count']}）vs 随机日下跌基线{lb['down_prob']:g}%，与随机无异")
+            elif baseline and baseline.get("down_prob") is not None:
+                rand = f"，同窗口随机日下跌基线{baseline['down_prob']:g}%，统计上与随机无异"
+            stat = (f"近{YEARS}年{seg_label}同类信号后{HORIZON}个交易日{side}概率"
+                    f"{stats['hit_prob']:g}%（{n}次样本，95%CI {stats['ci']}）{rand}。")
+    if gold:
+        ref = "多头窗口或开启，可关注低吸机会。"
+    else:
+        ref = "仅作风险提醒参考，请结合广度与自身仓位判断，不宜单独据此行动。"
     return rule + stat + ref
 
 
 # ======================================================================
 # 编排入口
 # ======================================================================
+
+LONG_YEARS = 5  # 长窗口：银手指降级句与随机基线对比的主证据窗（研究卡实证窗）
+
 
 def compute_sentiment() -> dict:
     import akshare as ak
@@ -576,7 +613,26 @@ def compute_sentiment() -> dict:
     except Exception as exc:  # noqa: BLE001  资金流失败不阻塞（降级双确认）
         logger.warning("东财大盘资金流拉取失败，机构力道留空(前端降级): %s", exc)
 
-    return _compute_core(df, breadth, force_map)
+    # 长窗口（5年）先算：银手指文案/note 的「vs 随机基线」主证据（纯计算，毫秒级）
+    long_payload = _compute_core(df, breadth, force_map, years=LONG_YEARS)
+    long_ctx = {"years": LONG_YEARS,
+                "silver": long_payload["backtest"]["silver"],
+                "gold": long_payload["backtest"]["gold"],
+                "baseline": long_payload["randomBaseline"],
+                "summary": {
+                    "years": LONG_YEARS,
+                    "silver_hit": long_payload["backtest"]["silver"].get("hit_prob"),
+                    "silver_count": long_payload["backtest"]["silver"].get("count"),
+                    "baseline_down": long_payload["randomBaseline"].get("down_prob"),
+                    "gold_hit": long_payload["backtest"]["gold"].get("hit_prob"),
+                    "gold_count": long_payload["backtest"]["gold"].get("count"),
+                    "baseline_up": long_payload["randomBaseline"].get("up_prob")}}
+
+    payload = _compute_core(df, breadth, force_map, long_ctx=long_ctx)
+    payload["backtest"]["long"]["gold"] = long_ctx["gold"]
+    payload["backtest"]["long"]["silver"] = long_ctx["silver"]
+    payload["backtest"]["long"]["baseline"] = long_ctx["baseline"]
+    return payload
 
 
 def compute_sentiment_cached() -> dict:
