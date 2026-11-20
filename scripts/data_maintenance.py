@@ -62,6 +62,9 @@ CACHE_GLOBS = [
     "quant_scan_*.json",
     "pipeline_result.json",
     "valuation_*.pkl",
+    # 广度日序缓存（t_ba8ee005）：gitignore 可再生（种子=scripts/build_breadth_seed.py），
+    # 但 mtime>7天 清理后日常只能增量无法回补历史 → 归 cache 但按 7 天规则安全
+    "sentiment_breadth.json",
 ]
 PROTECTED_GLOBS = [
     "jungle.db",
