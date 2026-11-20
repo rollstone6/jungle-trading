@@ -254,7 +254,11 @@ def update_breadth(idx_dates: list[str]) -> dict:
                 if not cons:
                     raise BreadthUpdateFailed("成分股列表不可用")
                 need = [t for t in tail if t <= idx_last]
-                hist = [t for t in need if t != idx_last or idx_last != today]
+                # 种子起点之前=广度覆盖范围外（阳谱 warm-up 50，与研究卡同语义），
+                # 不算缺口；否则全指数历史会被判成超上限缺口错误降级 stale。
+                seed_start = min(daily, default=None)
+                hist = [t for t in need if (t != idx_last or idx_last != today)
+                        and (seed_start is None or t >= seed_start)]
                 if hist:
                     if len(hist) > BACKFILL_MAX_DAYS:
                         raise BreadthUpdateFailed(
