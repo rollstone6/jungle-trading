@@ -47,7 +47,10 @@
             text-align: center; box-shadow: 0 2px 6px rgba(0,0,0,0.08);
         }
         .hot-item .n { font-weight: 700; font-size: 14px; }
-        .hot-item .c { font-size: 12px; color: var(--warn); font-weight: 700; }
+        /* QA t_c4e8437c P3既有①：亮色 --warn #f59e0b 在白卡上 2.15:1。
+           该元素亮色调深琥珀 #a16207（白底 4.92:1），暗色维持 var(--warn) 不受影响。 */
+        .hot-item .c { font-size: 12px; color: #a16207; font-weight: 700; }
+        :root[data-theme="dark"] .hot-item .c { color: var(--warn); }
         h3.sec { color: var(--text-soft); font-size: 15px; margin: 18px 0 10px; }
         .loading { text-align: center; padding: 40px; color: var(--text-mid); }
         .two-col { display: grid; grid-template-columns: 1fr; gap: 20px; }
