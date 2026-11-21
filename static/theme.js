@@ -81,9 +81,13 @@
     ax.axisLine = Object.assign({}, base.axisLine, ax.axisLine || {});
     if (ax.axisLine && ax.axisLine.lineStyle) { /* keep merged color if not set */ }
     ax.axisLabel = Object.assign({}, base.axisLabel, ax.axisLabel || {});
+    // splitLine 补色判定看 lineStyle.color 是否缺失，而不是整个 lineStyle 是否缺失
+    // （QA t_c4e8437c P3③：模板写 splitLine:{lineStyle:{type:'dashed'}} 有对象无 color，
+    //   旧条件跳过 → 暗色 --grid-line 没吃上，浅灰网格在暗底刺眼）
     if (ax.splitLine === undefined) ax.splitLine = { lineStyle: { color: base.splitLine.lineStyle.color } };
-    else if (ax.splitLine && ax.splitLine.show !== false && !ax.splitLine.lineStyle) {
-      ax.splitLine.lineStyle = { color: base.splitLine.lineStyle.color };
+    else if (ax.splitLine && ax.splitLine.show !== false) {
+      if (!ax.splitLine.lineStyle) ax.splitLine.lineStyle = {};
+      if (!ax.splitLine.lineStyle.color) ax.splitLine.lineStyle.color = base.splitLine.lineStyle.color;
     }
   }
   // 重绘回调注册表：主题切换时统一触发（模板各自 redraw，图表不重建）。

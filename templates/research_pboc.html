@@ -262,9 +262,11 @@
                     { type: 'category', data: days, gridIndex: 1, axisLabel: { show: false }, axisTick: { show: false } },
                 ],
                 yAxis: [
-                    { type: 'value', name: '金额(亿元)', gridIndex: 0, splitLine: { lineStyle: { type: 'dashed' } } },
+                    // splitLine 显式吃 T.grid（--grid-line token）：此前只给 type:'dashed' 无 color，
+                    // 暗色下落到 ECharts 默认 #E0E6F1 浅灰网格刺眼（QA t_c4e8437c P3③）
+                    { type: 'value', name: '金额(亿元)', gridIndex: 0, splitLine: { lineStyle: { type: 'dashed', color: T.grid } } },
                     { type: 'value', name: '点位', gridIndex: 0, scale: true, splitLine: { show: false }, position: 'right' },
-                    { type: 'value', name: '净投放', gridIndex: 1, splitLine: { lineStyle: { type: 'dashed' } } },
+                    { type: 'value', name: '净投放', gridIndex: 1, splitLine: { lineStyle: { type: 'dashed', color: T.grid } } },
                 ],
                 series: [
                     { name: '当日投放', type: 'bar', xAxisIndex: 0, yAxisIndex: 0, data: all.map(x => x.future ? null : x.inflow), itemStyle: { color: RED() } },
