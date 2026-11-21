@@ -290,7 +290,8 @@
                 legend: { data: ['逆回购', '买断式逆回购'], top: 4 },
                 grid: { left: 50, right: 20, top: 36, bottom: 60 },
                 xAxis: { type: 'category', data: pastDays, axisLabel: { rotate: 45, fontSize: 10 } },
-                yAxis: { type: 'value', name: '亿元' },
+                // splitLine 显式吃 T.grid（同 chart-net，0e5639e 漏修的两张之一，QA t_e616d3ea）
+                yAxis: { type: 'value', name: '亿元', splitLine: { lineStyle: { type: 'dashed', color: T.grid } } },
                 series: [
                     { name: '逆回购', type: 'line', data: past.map(x => x.rr), symbolSize: 4,
                       lineStyle: { color: T.info }, itemStyle: { color: T.info },
@@ -307,7 +308,8 @@
                 legend: { data: ['逆回购', '买断式逆回购'], top: 4 },
                 grid: { left: 55, right: 20, top: 36, bottom: 30 },
                 xAxis: { type: 'category', data: fd.map(x => x.month) },
-                yAxis: { type: 'value', name: '亿元' },
+                // splitLine 显式吃 T.grid（同 chart-net，0e5639e 漏修的两张之一，QA t_e616d3ea）
+                yAxis: { type: 'value', name: '亿元', splitLine: { lineStyle: { type: 'dashed', color: T.grid } } },
                 series: [
                     { name: '逆回购', type: 'bar', stack: 't', data: fd.map(x => x.rr), itemStyle: { color: RED() } },
                     { name: '买断式逆回购', type: 'bar', stack: 't', data: fd.map(x => x.bo), itemStyle: { color: T.accent2 } },
