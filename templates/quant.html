@@ -752,7 +752,10 @@
 
         // ---------- 全市场开关（成交额前300粗筛池） ----------
         const MK_KEY = '***';
-        const mkState = JSON.parse(localStorage.getItem(MK_KEY) || '{}');
+        let mkState = {};
+        // storage 禁用（隐私模式/注入拦截）时裸 getItem 抛 SecurityError 中断整段脚本
+        // （QA t_c4e8437c §10 quant 'blocked'）→ try/catch 退化为默认全关
+        try { mkState = JSON.parse(localStorage.getItem(MK_KEY) || '{}'); } catch (e) {}
         function mkOn(id) { return !!document.getElementById(id).checked; }
         function mkScopeTag(d) {
             return d.scope === 'market' ? `全市场粗筛 ${d.poolSize || 300} 只（展示top${d.stocks ? Math.min(d.stocks.length,200) : d.total || 0}）` : `股票池 ${d.poolSize || ''} 只`;
@@ -764,7 +767,7 @@
             lab.classList.toggle('on', inp.checked);
             inp.addEventListener('change', () => {
                 mkState[id] = inp.checked;
-                localStorage.setItem(MK_KEY, JSON.stringify(mkState));
+                try { localStorage.setItem(MK_KEY, JSON.stringify(mkState)); } catch (e) {}
                 lab.classList.toggle('on', inp.checked);
                 ({signals: () => loadSignals(false), trend: () => loadTrend(false),
                   box: () => loadBox(false), chip: () => loadChip(false)})[id]();

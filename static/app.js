@@ -379,9 +379,9 @@ function bindManualPositionForm() {
     try { raw = localStorage.getItem(DRAFT_KEY); } catch (e) { return; }
     if (!raw) return;
     let items;
-    try { items = JSON.parse(raw); } catch (e) { localStorage.removeItem(DRAFT_KEY); return; }
+    try { items = JSON.parse(raw); } catch (e) { try { localStorage.removeItem(DRAFT_KEY); } catch (_) {} return; }
     if (!Array.isArray(items) || !items.length) return;
-    if (!draftDiffers(items)) { localStorage.removeItem(DRAFT_KEY); return; }
+    if (!draftDiffers(items)) { try { localStorage.removeItem(DRAFT_KEY); } catch (_) {} return; }
     draftBar.querySelector("[data-pm-draft-text]").textContent =
       `发现上次未保存的编辑（${items.length} 行），是否恢复？`;
     draftBar.hidden = false;
@@ -405,7 +405,7 @@ function bindManualPositionForm() {
     updateChanges();
   });
   form.querySelector("[data-draft-discard]").addEventListener("click", () => {
-    localStorage.removeItem(DRAFT_KEY);
+    try { localStorage.removeItem(DRAFT_KEY); } catch (_) {}
     draftBar.hidden = true;
   });
 
@@ -493,9 +493,9 @@ function bindManualPositionForm() {
       });
       const result = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(result.detail || "持仓更新失败。");
-      localStorage.removeItem(DRAFT_KEY);
+      try { localStorage.removeItem(DRAFT_KEY); } catch (_) {}
       showToast(result.message || "持仓已更新。");
-      window.sessionStorage.setItem("jungle-scroll-restore", String(window.scrollY || 0));
+      try { window.sessionStorage.setItem("jungle-scroll-restore", String(window.scrollY || 0)); } catch (_) {}
       window.setTimeout(() => window.location.reload(), 1200);
     } catch (error) {
       showToast(error.message || "持仓更新失败，请检查输入。");
@@ -677,17 +677,21 @@ function bindCollapsiblePanelState() {
       panel.open = Boolean(state[key]);
     }
     panel.addEventListener("toggle", () => {
-      const nextState = readPanelState();
-      nextState[key] = panel.open;
-      window.localStorage.setItem(PANEL_STATE_KEY, JSON.stringify(nextState));
+      try {
+        const nextState = readPanelState();
+        nextState[key] = panel.open;
+        window.localStorage.setItem(PANEL_STATE_KEY, JSON.stringify(nextState));
+      } catch (_) { /* storage 禁用/配额：状态不持久化即可，功能不炸 */ }
     });
   });
 
-  const savedScroll = Number.parseInt(window.sessionStorage.getItem(SCROLL_STATE_KEY) || "", 10);
-  if (Number.isFinite(savedScroll)) {
-    window.sessionStorage.removeItem(SCROLL_STATE_KEY);
-    window.requestAnimationFrame(() => window.scrollTo({ top: savedScroll, behavior: "auto" }));
-  }
+  try {
+    const savedScroll = Number.parseInt(window.sessionStorage.getItem(SCROLL_STATE_KEY) || "", 10);
+    if (Number.isFinite(savedScroll)) {
+      window.sessionStorage.removeItem(SCROLL_STATE_KEY);
+      window.requestAnimationFrame(() => window.scrollTo({ top: savedScroll, behavior: "auto" }));
+    }
+  } catch (_) { /* storage 禁用：跳过滚动恢复 */ }
 }
 
 bindCollapsiblePanelState();
@@ -1543,7 +1547,8 @@ function initRegimeFilter() {
     bar.querySelectorAll('.rf-btn').forEach(btn => {
         btn.addEventListener('click', () => applyRegimeFilter(btn.dataset.filter, true));
     });
-    const saved = localStorage.getItem(RF_FILTER_KEY) || 'all';
+    let saved = 'all';
+    try { saved = localStorage.getItem(RF_FILTER_KEY) || 'all'; } catch (_) {}
     const exists = bar.querySelector(`.rf-btn[data-filter="${CSS.escape(saved)}"]`);
     applyRegimeFilter(exists ? saved : 'all', false);
 }
@@ -1551,7 +1556,7 @@ function initRegimeFilter() {
 function applyRegimeFilter(filter, remember) {
     const bar = document.querySelector('.regime-filter');
     if (!bar) return;
-    if (remember) localStorage.setItem(RF_FILTER_KEY, filter);
+    if (remember) { try { localStorage.setItem(RF_FILTER_KEY, filter); } catch (_) {} }
     bar.querySelectorAll('.rf-btn').forEach(b => {
         const on = b.dataset.filter === filter;
         b.classList.toggle('on', on);
@@ -1782,7 +1787,7 @@ function isCnTradingRefreshWindow() {
 function bindAutoRefresh() {
   window.setInterval(() => {
     if (isCnTradingRefreshWindow()) {
-      window.sessionStorage.setItem(SCROLL_STATE_KEY, String(window.scrollY || 0));
+      try { window.sessionStorage.setItem(SCROLL_STATE_KEY, String(window.scrollY || 0)); } catch (_) {}
       window.location.reload();
     }
   }, 15 * 60 * 1000);
