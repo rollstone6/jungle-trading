@@ -3155,7 +3155,13 @@ body:not(.pboc-page):not(.valuation-page) .data-table tr:hover td { background: 
   border-color: rgba(var(--accent-rgb), 0.5);
   background: var(--tint-violet-bg);
 }
-.theme-toggle:active { transform: translateY(-50%) scale(0.94); }
+/* 按压反馈不得移动命中盒（QA t_c4e8437c P1）：
+   真凶是下方 :active 一旦丢掉 translateY(-50%) 锚点（或被通用规则
+   button:not(:disabled):active 的 translateY(1px) 覆盖，特异性 0,2,1 > 0,2,0），
+   按钮命中盒按下瞬间下移 ~16px，浏览器按"按下点"合成 click → 抬手落空。
+   故选择器特异性必须 ≥ 通用按钮规则，且 transform 保持与基础态完全一致。
+   反馈改用 filter，不触碰布局。 */
+button.theme-toggle:not(:disabled):active { transform: translateY(-50%); filter: brightness(0.78) saturate(0.9); }
 .theme-toggle:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
