@@ -166,5 +166,62 @@ if gold_sigs:
     check("e4 金手指文案引用同段数字+CI", f"{g_stat['hit_prob']:g}%" in gt and g_stat["ci"] in gt,
           gt[:110])
 
+# ── f) 跨日 provisional 冻结回归（t_73d0235d P1）+ provisional 披露 ──
+# 缺陷场景：T日盘中写 provisional 后无人访问，T+1 起旧删除条件（三者相等）永不
+# 成立 → T 日盘中值永久冻结冒充定稿且无披露。修复后按日期比较+收盘判定。
+class _FD(datetime):
+    _frozen = (2026, 11, 23, 10, 0)
+    @classmethod
+    def now(cls, tz=None): return cls(*cls._frozen)
+
+_orig_dt = ms.datetime
+ms.datetime = _FD
+try:
+    bd_f = {"version": 1, "updated_at": "2026-11-20", "cons": ["600000"],
+            "cons_updated_at": "2026-11-01",
+            "daily": {"2026-11-18": 50.0, "2026-11-19": 51.0, "2026-11-20": 52.0},
+            "provisional_date": "2026-11-20"}  # 周五11-20盘中快照 52.0
+    (qs.DATA_DIR / "sentiment_breadth.json").write_text(json.dumps(bd_f), encoding="utf-8")
+    _oc, _ot, _ob = ms._ensure_cons, ms._today_breadth, ms._backfill_days
+    ms._ensure_cons = lambda d: ["600000"]
+    ms._today_breadth = lambda cons: 60.0
+    ms._backfill_days = lambda cons, need: {x: 55.0 for x in need}  # 收盘定稿回补值
+    FDATES = ["2026-11-18", "2026-11-19", "2026-11-20", "2026-11-23"]
+    try:
+        rf = ms.update_breadth(FDATES)  # 周一 10:00 运行
+        dfr = json.loads((qs.DATA_DIR / "sentiment_breadth.json").read_text(encoding="utf-8"))
+        check("f1 跨日provisional被定稿重算(52→55)不冻结",
+              dfr["daily"]["2026-11-20"] == 55.0, str(dfr["daily"]))
+        check("f2 当日盘中新provisional标记", dfr.get("provisional_date") == "2026-11-23",
+              str(dfr.get("provisional_date")))
+        check("f3 update_breadth返回值带provisionalDate", rf.get("provisionalDate") == "2026-11-23",
+              str(rf.get("provisionalDate")))
+        pay_f = ms._compute_core(df, rf, fmap, now=datetime(2026, 11, 23, 10, 0))
+        check("f4 payload.breadth.provisionalDate透传",
+              pay_f["breadth"].get("provisionalDate") == "2026-11-23", str(pay_f["breadth"]))
+        check("f5 note含盘中暂定值披露", "盘中暂定值" in pay_f["note"], pay_f["note"][:70])
+        # 同日收盘后正常定稿路径不回归：16:00 再运行 → 盘中值删除重算+标记清除
+        bd_g = {"version": 1, "updated_at": "2026-11-23", "cons": ["600000"],
+                "cons_updated_at": "2026-11-01",
+                "daily": {"2026-11-18": 50.0, "2026-11-19": 51.0, "2026-11-20": 55.0,
+                          "2026-11-23": 60.0},
+                "provisional_date": "2026-11-23"}  # 周一盘中 60.0
+        (qs.DATA_DIR / "sentiment_breadth.json").write_text(json.dumps(bd_g), encoding="utf-8")
+        _FD._frozen = (2026, 11, 23, 16, 0)
+        ms._today_breadth = lambda cons: 56.0  # 收盘后实时拉=定稿收盘价
+        rg = ms.update_breadth(FDATES)
+        dgr = json.loads((qs.DATA_DIR / "sentiment_breadth.json").read_text(encoding="utf-8"))
+        check("f6 同日收盘后定稿重算(60→56)+标记清除",
+              dgr["daily"]["2026-11-23"] == 56.0 and "provisional_date" not in dgr,
+              str(dgr["daily"]))
+        check("f7 定稿后返回值无provisionalDate", rg.get("provisionalDate") is None,
+              str(rg.get("provisionalDate")))
+        pay_g = ms._compute_core(df, rg, fmap, now=datetime(2026, 11, 23, 16, 0))
+        check("f8 定稿后note无暂定值标注（不误报）", "盘中暂定值" not in pay_g["note"])
+    finally:
+        ms._ensure_cons, ms._today_breadth, ms._backfill_days = _oc, _ot, _ob
+finally:
+    ms.datetime = _orig_dt
+
 print(f"\n{PASS} passed, {FAIL} failed")
 sys.exit(1 if FAIL else 0)

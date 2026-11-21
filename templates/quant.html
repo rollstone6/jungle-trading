@@ -1057,21 +1057,27 @@
             sentData = d;
             document.getElementById('sent-err').hidden = true;
             // 广度降级横幅：unavailable=退回指数自身口径（显著标注）；stale=沿用旧缓存+截至日
+            // provisional=盘中暂定值披露（诚实性红线 t_73d0235d：盘中值不得冒充收盘定稿）
             const bw = document.getElementById('sent-breadth-warn');
             const bd = d.breadth || {};
+            const provTxt = (d.yangSource === 'hs300_breadth' && bd.provisionalDate)
+                ? `⚠ ${bd.provisionalDate} 广度为盘中暂定值（非收盘定稿），收盘后自动重算定稿` : '';
             if (d.yangSource === 'index_self') {
                 bw.hidden = false;
                 bw.textContent = '⚠ 广度源不可用，当前阳谱为指数自身口径（历史命中率≈随机）——面板与信号统计可信度低，建议检查 data/sentiment_breadth.json 后点「重新计算」。';
             } else if (bd.status === 'stale') {
                 bw.hidden = false;
-                bw.textContent = `⚠ 广度增量更新失败，沿用旧缓存：广度数据截至 ${bd.asOf || '未知'}（指数已更新至 ${d.asOf}）。`;
+                bw.textContent = `⚠ 广度增量更新失败，沿用旧缓存：广度数据截至 ${bd.asOf || '未知'}（指数已更新至 ${d.asOf}）。` + (provTxt ? ` 注意：${provTxt}。` : '');
+            } else if (provTxt) {
+                bw.hidden = false;
+                bw.textContent = provTxt + '。';
             } else {
                 bw.hidden = true;
                 bw.textContent = '';
             }
             const meta = document.getElementById('sent-meta');
             const yangTag = d.yangSource === 'hs300_breadth'
-                ? `阳谱口径 <b>广度·HS300上涨家数占比</b>${d.breadth && d.breadth.asOf && d.breadth.asOf !== d.asOf ? `（广度截至 ${d.breadth.asOf}）` : ''}`
+                ? `阳谱口径 <b>广度·HS300上涨家数占比</b>${d.breadth && d.breadth.asOf && d.breadth.asOf !== d.asOf ? `（广度截至 ${d.breadth.asOf}）` : ''}${bd.provisionalDate ? ' <span style="color:var(--amber)">盘中暂定值</span>' : ''}`
                 : `阳谱口径 <b style="color:var(--amber)">指数自身（降级）</b>`;
             meta.innerHTML = metaHTML([
                 `数据截至 <b>${d.asOf}</b>`, d.index, `窗口 <b>${d.series.length}</b> 个交易日`,

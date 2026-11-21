@@ -241,12 +241,18 @@ def update_breadth(idx_dates: list[str]) -> dict:
         idx_last = idx_dates[-1]
         today = now.strftime("%Y-%m-%d")
         changed = False
-        # 盘中 provisional：过15点且当日仍是最新交易日 → 删除待定稿重算
-        if d.get("provisional_date") == idx_last == today and now.hour >= PROVISIONAL_CUTOFF_HOUR:
-            daily.pop(idx_last, None)
+        # 盘中 provisional 定稿删除（P1修复 t_73d0235d）：按日期比较，不按三者相等。
+        # 旧条件 provisional_date == idx_last == today 在 T 日盘中写入、T 日收盘后无人
+        # 访问的场景下，T+1 起 idx_last 永不再等于 provisional_date → T 日盘中值永久
+        # 冻结冒充定稿（跨日/周末同样中招）。新条件：该日已收盘即删除待回补定稿——
+        # prov < today ⇒ 必已收盘（跨日/周末场景）；prov == today ⇒ 需过收盘时刻。
+        # prov > idx_last 属数据异常，保留原值不盲删（回补范围外，删了也补不回）。
+        prov = d.get("provisional_date")
+        if prov and prov <= idx_last and (prov < today or now.hour >= PROVISIONAL_CUTOFF_HOUR):
+            daily.pop(prov, None)
             d.pop("provisional_date", None)
             d["updated_at"] = today
-            _save_breadth(d)  # 落盘删除：盘中快照不可当定稿数据用
+            _save_breadth(d)  # 落盘删除：盘中快照不可当定稿数据用，交给下方缺口回补定稿
         tail = [x for x in idx_dates if x not in daily]
         if tail:
             try:
@@ -281,17 +287,20 @@ def update_breadth(idx_dates: list[str]) -> dict:
                 if changed:
                     _save_breadth(d)
                 cov = max((k for k in daily if daily[k] is not None), default=None)
-                return {"status": "stale", "asOf": cov, "daily": daily, "error": str(exc)}
+                return {"status": "stale", "asOf": cov, "daily": daily,
+                        "provisionalDate": d.get("provisional_date"), "error": str(exc)}
             except Exception as exc:  # noqa: BLE001  红线：网络层失败2次即停，不重试风暴
                 logger.warning("广度增量更新异常: %s", exc)
                 if changed:
                     _save_breadth(d)
                 cov = max((k for k in daily if daily[k] is not None), default=None)
-                return {"status": "stale", "asOf": cov, "daily": daily, "error": str(exc)}
+                return {"status": "stale", "asOf": cov, "daily": daily,
+                        "provisionalDate": d.get("provisional_date"), "error": str(exc)}
         covered = {k for k, v in daily.items() if v is not None}
         as_of = max(covered, default=None)
         status = "ok" if as_of and as_of >= idx_last else "stale"
-        return {"status": status, "asOf": as_of, "daily": {k: daily[k] for k in covered}}
+        return {"status": status, "asOf": as_of, "daily": {k: daily[k] for k in covered},
+                "provisionalDate": d.get("provisional_date")}
     except Exception as exc:  # noqa: BLE001  广度层任何异常不许炸掉整个面板
         logger.exception("广度数据层异常")
         return {"status": "unavailable", "asOf": None, "daily": {}, "error": str(exc)}
@@ -494,6 +503,7 @@ def _compute_core(df: pd.DataFrame, breadth: dict | None,
 
     latest = series[-1]
     b_asof = (breadth or {}).get("asOf")
+    b_prov = (breadth or {}).get("provisionalDate")
     return {
         "asOf": dates[-1],
         "index": "上证指数",
@@ -505,19 +515,24 @@ def _compute_core(df: pd.DataFrame, breadth: dict | None,
         "forceSource": force_source,
         "yangSource": yang_src,
         "breadth": {"status": breadth_status, "asOf": b_asof,
+                    "provisionalDate": b_prov,
                     "error": (breadth or {}).get("error")},
         "randomBaseline": baseline,
         "backtest": {"gold": bt_gold, "silver": bt_silver,
                      "years": years,
                      "long": (long_ctx or {}).get("summary"),
                      "sample_start": dates[0], "sample_end": dates[-1]},
-        "note": _build_note(breadth_status, b_asof, force_source, yang_src, long_ctx),
+        "note": _build_note(breadth_status, b_asof, force_source, yang_src, long_ctx,
+                            b_prov),
     }
 
 
 def _build_note(breadth_status: str, b_asof: str | None,
                 force_source: str, yang_src: str,
-                long_ctx: dict | None = None) -> str:
+                long_ctx: dict | None = None,
+                b_prov: str | None = None) -> str:
+    # 盘中暂定值披露（诚实性红线 t_73d0235d：盘中值不得无标注冒充收盘定稿）
+    prov_desc = (f"⚠{b_prov} 广度为盘中暂定值，收盘后自动定稿重算。" if b_prov else "")
     if yang_src == "hs300_breadth":
         if breadth_status == "ok":
             bdesc = f"阳谱=沪深300成分股当日上涨家数占比·EMA5（广度口径，数据截至{b_asof}）"
@@ -539,7 +554,7 @@ def _build_note(breadth_status: str, b_asof: str | None,
         silver_desc = (f"银手指历史方向命中率与随机基线无异"
                        f"（近{long_ctx.get('years', 5)}年{ls['hit_prob']:g}%"
                        f" vs 随机{lb.get('down_prob', '?')}%，n={ls['count']}），仅作风险提醒参考。")
-    return (f"规则透明：{bdesc}。{fdesc}。{silver_desc}"
+    return (f"规则透明：{bdesc}。{prov_desc}{fdesc}。{silver_desc}"
             "信号描述中的历史统计=同窗口同类信号后20个交易日真实涨跌，非预测，不构成投资建议。")
 
 
