@@ -16,6 +16,20 @@ import httpx
 
 logger = logging.getLogger(__name__)
 
+
+def _safe_f(v, default: float = 0.0) -> float:
+    """安全转 float：None/''/'-'/非法字符串返回 default。
+
+    东财 push2 对停牌/无数据个股返回 '-' 字符串，`float(x or 0)` 里
+    '-' 为真值不兜底，直接抛 ValueError（moneyflow API 502 根因）。
+    正常数字（数值类型或合法数字串）解析结果与 float() 逐值一致。
+    """
+    try:
+        return float(v)
+    except (TypeError, ValueError):
+        return default
+
+
 UA = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
 }
@@ -397,8 +411,8 @@ async def fetch_money_flow() -> dict:
             "chg": chg, "main_inflow_wan": round(inflow / 10000, 1),
             "inflow_rate": round(rate, 2),
             "turnover_yi": round(turnover / 1e8, 2),
-            "super_inflow_wan": round(float(r.get("f128") or 0) / 10000, 1),
-            "large_inflow_wan": round(float(r.get("f136") or 0) / 10000, 1),
+            "super_inflow_wan": round(_safe_f(r.get("f128")) / 10000, 1),
+            "large_inflow_wan": round(_safe_f(r.get("f136")) / 10000, 1),
         }
         if inflow > 0:
             inflow_top.append(rec)
