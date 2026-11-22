@@ -79,6 +79,15 @@
         .sent-bt .row { margin-bottom: 6px; }
         .sent-bt b.up { color: var(--red); }
         .sent-bt b.down { color: var(--green); }
+        /* 分段回测表 + 广度降级标注（t_ba8ee005；颜色全走 token，暗色由黑夜卡统一覆盖） */
+        .sent-seg { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 6px; }
+        .sent-seg th, .sent-seg td { padding: 4px 6px; text-align: center; border-bottom: 1px solid var(--line); font-variant-numeric: tabular-nums; white-space: nowrap; }
+        .sent-seg th { color: var(--muted); font-weight: 600; background: var(--neutral-bg); }
+        .sent-seg td.rowlab { text-align: left; font-weight: 700; background: var(--neutral-bg); }
+        .sent-seg tr.grp td { color: var(--muted); font-weight: 600; font-size: 11px; text-align: left; background: transparent; }
+        .sent-seg td.warncell { color: var(--amber); font-weight: 700; text-align: left; }
+        .sent-breadth-warn { display: flex; align-items: center; gap: 8px; background: var(--neutral-bg); border: 1.5px solid var(--warn); color: var(--amber); border-radius: 10px; padding: 8px 12px; font-size: 12.5px; font-weight: 600; margin-bottom: 10px; line-height: 1.5; }
+        .sent-breadth-warn[hidden] { display: none; }
         .sent-note { font-size: 11.5px; color: #64748b; margin-top: 8px; line-height: 1.6; }
         .sent-err { display: flex; align-items: center; gap: 8px; background: #fef2f2; border: 1.5px solid #fecaca; color: #b91c1c; border-radius: 10px; padding: 8px 12px; font-size: 13px; margin-bottom: 10px; }
         .sent-err[hidden] { display: none; }
@@ -500,6 +509,7 @@
                 <span class="scan-meta" id="sent-meta" aria-live="polite">加载中...</span>
             </div>
             <div class="sent-err" id="sent-err" hidden role="alert"><span id="sent-err-text"></span><button class="scan-btn" id="sent-retry" type="button">重试</button></div>
+            <div class="sent-breadth-warn" id="sent-breadth-warn" hidden role="status" aria-live="polite"></div>
             <div class="sent-kpi" id="sent-kpi"></div>
             <div class="sent-grid">
                 <div style="display:flex;flex-direction:column;gap:14px;min-width:0">
@@ -522,7 +532,7 @@
                     <div class="sent-card">
                         <h3>近三年大数据回测 <span class="sub" id="sent-bt-sub"></span></h3>
                         <div class="sent-bt" id="sent-bt"><div class="loading">加载中...</div></div>
-                        <div class="sent-note">口径：每次金/银手指信号后 20 个交易日的指数真实涨跌统计，非预测。机构力道依赖东财大盘资金流（本机若被封锁则自动降级为趋势+阳谱双确认，全历史可算）。</div>
+                        <div class="sent-note">口径：信号描述与下表统计均为每次金/银手指信号后 20 个交易日的指数真实涨跌，历史统计非预测，不构成投资建议。回测按确认口径分段：双重确认段（力道覆盖前/源不可达时=趋势翻转+阳谱穿50）与三重确认段（力道覆盖期=趋势翻转+力道同向+阳谱同侧），两段混算会互相稀释故分行呈现，分段 n&lt;10 仅供方向参考。机构力道为东财加工口径，存在拆单失真。</div>
                     </div>
                 </div>
             </div>
@@ -1046,9 +1056,32 @@
         function renderSentiment(d) {
             sentData = d;
             document.getElementById('sent-err').hidden = true;
+            // 广度降级横幅：unavailable=退回指数自身口径（显著标注）；stale=沿用旧缓存+截至日
+            // provisional=盘中暂定值披露（诚实性红线 t_73d0235d：盘中值不得冒充收盘定稿）
+            const bw = document.getElementById('sent-breadth-warn');
+            const bd = d.breadth || {};
+            const provTxt = (d.yangSource === 'hs300_breadth' && bd.provisionalDate)
+                ? `⚠ ${bd.provisionalDate} 广度为盘中暂定值（非收盘定稿），收盘后自动重算定稿` : '';
+            if (d.yangSource === 'index_self') {
+                bw.hidden = false;
+                bw.textContent = '⚠ 广度源不可用，当前阳谱为指数自身口径（历史命中率≈随机）——面板与信号统计可信度低，建议检查 data/sentiment_breadth.json 后点「重新计算」。';
+            } else if (bd.status === 'stale') {
+                bw.hidden = false;
+                bw.textContent = `⚠ 广度增量更新失败，沿用旧缓存：广度数据截至 ${bd.asOf || '未知'}（指数已更新至 ${d.asOf}）。` + (provTxt ? ` 注意：${provTxt}。` : '');
+            } else if (provTxt) {
+                bw.hidden = false;
+                bw.textContent = provTxt + '。';
+            } else {
+                bw.hidden = true;
+                bw.textContent = '';
+            }
             const meta = document.getElementById('sent-meta');
+            const yangTag = d.yangSource === 'hs300_breadth'
+                ? `阳谱口径 <b>广度·HS300上涨家数占比</b>${d.breadth && d.breadth.asOf && d.breadth.asOf !== d.asOf ? `（广度截至 ${d.breadth.asOf}）` : ''}${bd.provisionalDate ? ' <span style="color:var(--amber)">盘中暂定值</span>' : ''}`
+                : `阳谱口径 <b style="color:var(--amber)">指数自身（降级）</b>`;
             meta.innerHTML = metaHTML([
                 `数据截至 <b>${d.asOf}</b>`, d.index, `窗口 <b>${d.series.length}</b> 个交易日`,
+                yangTag,
             ]);
             const L = d.latest;
             const noForce = d.forceSource === 'none';
@@ -1095,12 +1128,48 @@
             // 近三年回测
             const bt = d.backtest;
             document.getElementById('sent-bt-sub').textContent = `${d.index} · ${bt.sample_start} ~ ${bt.sample_end}`;
-            const g = bt.gold, s = bt.silver;
-            const fmt = (x) => (x > 0 ? '+' : '') + x.toFixed(2) + '%';
-            document.getElementById('sent-bt').innerHTML = `
-                <div class="row">出现<b class="up">金手指</b>共 <b class="up">${g.count || 0}</b> 次，后市上涨概率为 <b class="up">${g.count ? g.up_prob.toFixed(2) : '—'}%</b>，平均上涨幅度为 <b class="up">${g.count ? fmt(g.avg_up) : '—'}</b>，最大涨幅为 <b class="up">${g.count ? fmt(g.max_up) : '—'}</b>，最小涨幅为 <b class="up">${g.count ? fmt(g.min_up) : '—'}</b>。</div>
-                <div class="row">出现<b class="down">银手指</b>共 <b class="down">${s.count || 0}</b> 次，后市下跌概率为 <b class="down">${s.count ? s.down_prob.toFixed(2) : '—'}%</b>，平均下跌幅度为 <b class="down">${s.count ? fmt(s.avg_down) : '—'}</b>，最大跌幅为 <b class="down">${s.count ? fmt(s.max_down) : '—'}</b>，最小跌幅为 <b class="down">${s.count ? fmt(s.min_down) : '—'}</b>。</div>
-                ${(!g.count || !s.count) ? '<div class="sent-note">样本偏少：窗口内信号次数有限，统计仅供参考。</div>' : ''}`;
+            document.getElementById('sent-bt').innerHTML = segBtHTML(d);
+        }
+        // 分段回测表：全量/双重确认段/三重确认段各报一行，n<10 带 ⚠样本不足
+        function segBtHTML(d) {
+            const bt = d.backtest, g = bt.gold, s = bt.silver;
+            const rb = d.randomBaseline || {};
+            const esc2 = (x) => (x == null ? '—' : x);
+            function row(label, r, isGold) {
+                const cls = isGold ? 'up' : 'down';
+                if (!r || !r.count) {
+                    return `<tr><td class="rowlab">${label}</td><td class="warncell" colspan="4">窗口内 0 次信号 — 无统计</td></tr>`;
+                }
+                const warn = r.count < 10 ? ' <span style="color:var(--amber)">⚠样本不足</span>' : '';
+                return `<tr><td class="rowlab">${label}</td>` +
+                    `<td><b class="${cls}">${r.count}</b>${warn}</td>` +
+                    `<td><b class="${cls}">${r.hit_prob}%</b><br><small style="color:var(--muted)">95%CI ${r.ci}</small></td>` +
+                    `<td>${r.avg > 0 ? '+' : ''}${r.avg}%</td>` +
+                    `<td>${isGold ? esc2(r.max_up) + '% / ' + esc2(r.min_up) + '%' : esc2(r.max_down) + '% / ' + esc2(r.min_down) + '%'}</td></tr>`;
+            }
+            const grp = (t) => `<tr class="grp"><td colspan="5">${t}</td></tr>`;
+            let html = `<div class="table-scroll" style="overflow-x:auto"><table class="sent-seg" aria-label="金手指银手指分段回测表">` +
+                `<thead><tr><th>口径</th><th>信号次数</th><th>方向命中率<br><small>金=后20日上涨 / 银=后20日下跌</small></th><th>20日均幅</th><th>最好/最差</th></tr></thead><tbody>` +
+                grp(`近${bt.years}年窗口（广度阳谱口径 · 数据截至 ${d.asOf}）`) +
+                row('金手指 · 全量', g, true) +
+                row('└ 双重确认段', g.segments && g.segments.double, true) +
+                row('└ 三重确认段', g.segments && g.segments.triple, true) +
+                row('银手指 · 全量（仅风险提示）', s, false) +
+                row('└ 双重确认段', s.segments && s.segments.double, false) +
+                row('└ 三重确认段', s.segments && s.segments.triple, false);
+            if (bt.long && bt.long.silver) {
+                const lg = bt.long.gold, ls = bt.long.silver, lb = bt.long.baseline || {};
+                html += grp(`近${bt.long.years || 5}年长窗口（银手指降级主证据 + 随机基线对照）`) +
+                    row('金手指 · 全量', lg, true) +
+                    row('银手指 · 全量', ls, false) +
+                    `<tr><td class="rowlab">随机日基线</td><td>${lb.days ?? '—'}</td>` +
+                    `<td>上涨 ${lb.up_prob ?? '—'}% / 下跌 ${lb.down_prob ?? '—'}%</td><td colspan="2" style="color:var(--muted)">同窗口全部可评估交易日</td></tr>`;
+            }
+            html += '</tbody></table></div>';
+            if (s.count && rb.down_prob != null && Math.abs(s.hit_prob - rb.down_prob) <= 10) {
+                html += `<div class="sent-note">注：银手指方向命中率与随机日基线差距在10个百分点内，统计上无预测力，面板保留仅作风险提醒。</div>`;
+            }
+            return html;
         }
         function renderSentChart(d) {
             const el = document.getElementById('sent-chart');
