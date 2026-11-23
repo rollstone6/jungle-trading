@@ -53,3 +53,4 @@ data/jungle.duckdb*
 data/pipeline_result.json
 
 data/valuation_*.pkl
+data/sentiment_breadth.json
