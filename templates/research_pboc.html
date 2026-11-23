@@ -5,10 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>央行公开市场操作 · 流动性追踪面板 - 持仓工作台</title>
     <script>(function(){try{var t=localStorage.getItem("jt-theme");if(t!=="light"&&t!=="dark"){t=(window.matchMedia&&matchMedia("(prefers-color-scheme: dark)").matches)?"dark":"light";}document.documentElement.setAttribute("data-theme",t);}catch(e){document.documentElement.setAttribute("data-theme","light");}})();</script>
-    <link rel="stylesheet" href="/static/styles.css?v=20261121c">
+    <link rel="stylesheet" href="/static/styles.css?v=20261121d">
     <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
     <script src="/static/echarts.min.js?v=20261119a"></script>
-    <script src="/static/theme.js?v=20261121c"></script>
+    <script src="/static/theme.js?v=20261121d"></script>
     <style>
         body { background: var(--panel-2); }
         .hero {
@@ -41,7 +41,7 @@
         .card-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
         .card-head h3 { margin: 0; font-size: 15px; color: var(--text); }
         .tag { font-size: 11px; padding: 3px 10px; border-radius: 999px; color: #fff; font-weight: 600; }
-        .tag.green { background: var(--green); } .tag.red { background: var(--red); } .tag.blue { background: var(--info); }
+        .tag.green { background: var(--solid-green); } .tag.red { background: var(--solid-red); } .tag.blue { background: var(--solid-info); }
         .note {
             border-left: 4px solid var(--line-strong); border-radius: 6px; padding: 9px 12px;
             font-size: 12.5px; color: var(--text-soft); margin-bottom: 9px; line-height: 1.65;
@@ -52,7 +52,7 @@
         .note.y { border-color: var(--warn); background: var(--tint-amber-bg); }
         .note.r { border-color: var(--red); background: var(--tint-red-bg); }
         .bar-line { display: flex; align-items: center; gap: 8px; margin: 5px 0; font-size: 12px; }
-        .bar-line .bl-label { width: 74px; color: #fff; background: var(--red); border-radius: 3px;
+        .bar-line .bl-label { width: 74px; color: #fff; background: var(--solid-red); border-radius: 3px;
             padding: 2px 6px; font-size: 11px; white-space: nowrap; }
         .bar-line .bl-track { flex: 1; background: var(--panel-2); border-radius: 4px; height: 14px; position: relative; }
         .bar-line .bl-fill { height: 100%; border-radius: 4px; background: linear-gradient(90deg,#f97316,var(--red)); }

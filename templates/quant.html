@@ -5,16 +5,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>量化信号中心 - 持仓工作台</title>
     <script>(function(){try{var t=localStorage.getItem("jt-theme");if(t!=="light"&&t!=="dark"){t=(window.matchMedia&&matchMedia("(prefers-color-scheme: dark)").matches)?"dark":"light";}document.documentElement.setAttribute("data-theme",t);}catch(e){document.documentElement.setAttribute("data-theme","light");}})();</script>
-    <link rel="stylesheet" href="/static/styles.css?v=20261121c">
+    <link rel="stylesheet" href="/static/styles.css?v=20261121d">
     <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
     <script src="/static/lightweight-charts.standalone.production.js?v=20261119a"></script>
     <script src="/static/echarts.min.js?v=20261119a"></script>
-    <script src="/static/theme.js?v=20261121c"></script>
+    <script src="/static/theme.js?v=20261121d"></script>
     <style>
         .quant-container { max-width: 1280px; margin: 0 auto; padding: 20px; }
 
         .quant-header {
-            background: linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 100%);
+            background: var(--accent-grad);
             color: white; padding: 12px 18px; border-radius: 12px;
             margin-bottom: 12px; display: flex; align-items: baseline;
             justify-content: center; gap: 12px; flex-wrap: wrap;
@@ -30,7 +30,7 @@
             display: inline-flex; align-items: center; gap: 6px;
         }
         .tab-btn .ic { width: 15px; height: 15px; }
-        .tab-btn.active { background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: white; border-color: transparent; }
+        .tab-btn.active { background: var(--accent-grad); color: white; border-color: transparent; }
         .tab-btn:disabled { opacity: 0.6; cursor: not-allowed; }
 
         .sub-tab-row { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
@@ -39,7 +39,7 @@
             background: var(--panel); font-size: 12.5px; font-weight: 600; color: var(--muted-2);
             cursor: pointer; min-height: 30px; transition: all 0.15s;
         }
-        .sub-tab-btn.on { background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: #fff; border-color: transparent; }
+        .sub-tab-btn.on { background: var(--accent-grad); color: #fff; border-color: transparent; }
         .scan-section[hidden] { display: none; }
 
         /* ===== 大盘点金（智能点金） ===== */
@@ -107,7 +107,7 @@
         .mk-toggle input { position: absolute; opacity: 0; pointer-events: none; }
         .mk-track { width: 34px; height: 19px; border-radius: 10px; background: var(--line-strong); position: relative; transition: background 0.2s; flex-shrink: 0; }
         .mk-track::after { content: ''; position: absolute; left: 2px; top: 2px; width: 15px; height: 15px; border-radius: 50%; background: var(--panel); box-shadow: 0 1px 3px rgba(0,0,0,0.25); transition: left 0.2s; }
-        .mk-toggle input:checked + .mk-track { background: var(--accent); }
+        .mk-toggle input:checked + .mk-track { background: var(--solid-accent); }
         .mk-toggle input:checked + .mk-track::after { left: 17px; }
         .mk-toggle input:focus-visible + .mk-track { outline: 2px solid var(--accent); outline-offset: 2px; }
         .mk-toggle.on { color: var(--accent); font-weight: 600; }
@@ -120,7 +120,7 @@
             font-size: 14px; color: var(--muted-2);
         }
         .scan-btn {
-            background: linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 100%);
+            background: var(--accent-grad);
             color: #fff; border: none; border-radius: 8px; padding: 10px 22px;
             font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s;
         }
@@ -155,7 +155,7 @@
             box-shadow: 0 2px 8px rgba(0,0,0,0.1);
         }
         .data-table th {
-            background: var(--accent); color: #fff; padding: 11px 12px;
+            background: var(--solid-accent); color: #fff; padding: 11px 12px;
             font-size: 13px; text-align: left; white-space: nowrap;
         }
         .data-table td { padding: 9px 12px; font-size: 13px; border-bottom: 1px solid var(--panel-3); }
@@ -227,11 +227,11 @@
             display: inline-block; padding: 3px 12px; border-radius: 20px;
             font-size: 12px; font-weight: 600; color: #fff;
         }
-        .badge.ok { background: var(--green); }
+        .badge.ok { background: var(--solid-green); }
         .badge.no { background: var(--line); color: var(--text-mid); }
         /* 买卖徽章：A股语义 红=买入 绿=卖出 */
-        .badge.buy { background: var(--red); }
-        .badge.sell { background: var(--green); }
+        .badge.buy { background: var(--solid-red); }
+        .badge.sell { background: var(--solid-green); }
         .mark { font-size: 14px; }
         .mark.yes { color: var(--green); }
         .mark.no { color: var(--red); }
@@ -275,13 +275,13 @@
         .lab-ctrl label { font-size: 13px; color: var(--text-soft); display: flex; align-items: center; gap: 6px; }
         .lab-ctrl input { width: 64px; padding: 6px 8px; border: 1.5px solid var(--line); border-radius: 8px; font-size: 14px; }
         .lab-ctrl input:focus-visible { outline: 2px solid var(--accent); border-color: var(--accent); }
-        .lab-run-btn { padding: 8px 18px; border: none; border-radius: 8px; cursor: pointer; background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: #fff; font-size: 13.5px; font-weight: 600; }
+        .lab-run-btn { padding: 8px 18px; border: none; border-radius: 8px; cursor: pointer; background: var(--accent-grad); color: #fff; font-size: 13.5px; font-weight: 600; }
         .lab-run-btn:hover { filter: brightness(1.06); }
         .lab-run-btn:active { transform: scale(.98); }
         .lab-run-btn:disabled { opacity: .55; cursor: wait; }
         .lab-subtabs { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
         .lab-subtab-btn { padding: 7px 16px; border-radius: 999px; border: 1.5px solid var(--line); background: var(--panel); font-size: 13px; font-weight: 600; color: var(--text-soft); cursor: pointer; min-height: 32px; }
-        .lab-subtab-btn.on { background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: #fff; border-color: transparent; }
+        .lab-subtab-btn.on { background: var(--accent-grad); color: #fff; border-color: transparent; }
         .lab-panel-card { background: var(--panel); border: 2px solid var(--line); border-radius: 12px; padding: 14px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-bottom: 16px; min-width: 0; }
         .lab-panel-card[hidden] { display: none; }
         /* 筹码列表收缩：默认前10，展开行用 class 控制（不用 hidden 属性，避免被 td display 覆盖） */
@@ -308,7 +308,7 @@
         .lab-note { font-size: 12px; color: var(--muted-2); margin: 4px 0 10px; line-height: 1.6; }
         .lab-err-banner { display: none; align-items: center; justify-content: space-between; gap: 10px; background: var(--tint-red-bg); border: 1px solid var(--line); color: var(--red); border-radius: 10px; padding: 10px 14px; margin-bottom: 12px; font-size: 13px; }
         .lab-err-banner.show { display: flex; }
-        .lab-err-banner button { border: none; background: var(--red); color: #fff; border-radius: 6px; padding: 4px 10px; cursor: pointer; min-height: 24px; }
+        .lab-err-banner button { border: none; background: var(--solid-red); color: #fff; border-radius: 6px; padding: 4px 10px; cursor: pointer; min-height: 24px; }
         @media (max-width: 640px) { .lab-kpi .kpi-item { padding: 0 8px; } }
 
         /* ===== 2026-11-17 设计修复轮 ===== */

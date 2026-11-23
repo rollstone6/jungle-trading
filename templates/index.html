@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>持仓工作台</title>
     <script>(function(){try{var t=localStorage.getItem("jt-theme");if(t!=="light"&&t!=="dark"){t=(window.matchMedia&&matchMedia("(prefers-color-scheme: dark)").matches)?"dark":"light";}document.documentElement.setAttribute("data-theme",t);}catch(e){document.documentElement.setAttribute("data-theme","light");}})();</script>
-    <link rel="stylesheet" href="/static/styles.css?v=20261121c">
+    <link rel="stylesheet" href="/static/styles.css?v=20261121d">
     <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
     <!-- ===== 量化回测实验室 UI 风格覆盖层 ===== -->
     <style>
@@ -25,7 +25,7 @@
             justify-content: center;
             gap: 12px;
             padding: 12px 18px;
-            background: linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 100%);
+            background: var(--accent-grad);
             border: none;
             border-radius: 12px;
             box-shadow: 0 4px 12px rgba(var(--accent-rgb), 0.3);
@@ -164,7 +164,7 @@
 
         /* 徽章 chip */
         .badge {
-            background: linear-gradient(135deg, var(--accent), var(--accent-2));
+            background: var(--accent-grad);
             color: #fff;
             padding: 4px 12px;
             border-radius: 20px;
@@ -362,10 +362,10 @@
             border-radius: 999px;
             white-space: nowrap;
             color: #fff;
-            background: linear-gradient(135deg, var(--muted-2), var(--muted));
+            background: var(--rg-neutral-grad);
         }
-        .vol-chip.expand .vc-state { background: linear-gradient(135deg, var(--red), #f97316); }
-        .vol-chip.squeeze .vc-state { background: linear-gradient(135deg, var(--warn), var(--warn)); }
+        .vol-chip.expand .vc-state { background: var(--rg-expand-grad); }
+        .vol-chip.squeeze .vc-state { background: var(--solid-warn); }
         .vol-chip .vc-hv { display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; }
         .vol-chip .vc-hv strong {
             font-size: 19px;
@@ -440,7 +440,7 @@
             font-size: 10px;
             font-weight: 700;
             color: #fff;
-            background: var(--accent);
+            background: var(--solid-accent);
             border-radius: 4px;
             padding: 1px 5px;
             flex-shrink: 0;
@@ -525,10 +525,10 @@
             color: #fff;
             font-weight: 600;
         }
-        .regime-countbar .rc-cnt.squeeze { background: linear-gradient(135deg, var(--warn), var(--red)); }
-        .regime-countbar .rc-cnt.trending { background: linear-gradient(135deg, var(--green), var(--cyan)); }
-        .regime-countbar .rc-cnt.ranging { background: linear-gradient(135deg, var(--info), var(--accent)); }
-        .regime-countbar .rc-cnt.neutral { background: linear-gradient(135deg, var(--muted-2), var(--muted)); }
+        .regime-countbar .rc-cnt.squeeze { background: var(--rg-squeeze-grad); }
+        .regime-countbar .rc-cnt.trending { background: var(--rg-trending-grad); }
+        .regime-countbar .rc-cnt.ranging { background: var(--rg-ranging-grad); }
+        .regime-countbar .rc-cnt.neutral { background: var(--rg-neutral-grad); }
         .regime-countbar .rc-actions { margin-left: auto; display: flex; gap: 6px; }
         .regime-mini-btn {
             border: 1px solid var(--line);
@@ -607,7 +607,7 @@
             display: block;
             width: 100%;
             text-align: center;
-            background: linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 100%);
+            background: var(--accent-grad);
             color: #fff;
             border: none;
             border-radius: 8px;
@@ -660,7 +660,7 @@
             transition: all 0.15s;
         }
         .etf-tab.active {
-            background: linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 100%);
+            background: var(--accent-grad);
             border-color: transparent;
             color: #fff;
         }
@@ -829,7 +829,7 @@
                     <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px; flex-wrap: wrap;">
                         <h3 class="subhead tech-title" style="margin: 0;">技术面</h3>
                         <span class="badge regime-badge" {% if pos.regime_label %}data-fallback="{{ pos.regime_label }}"{% endif %}
-                            style="background: {% if pos.regime_label == '挤压待变' %}linear-gradient(135deg,var(--warn),var(--red)){% elif pos.regime_label == '趋势型' %}linear-gradient(135deg,var(--green),var(--cyan)){% elif pos.regime_label == '区间型' %}linear-gradient(135deg,var(--info),var(--accent)){% else %}linear-gradient(135deg,var(--neutral-fg),var(--muted)){% endif %}; color: #fff;">
+                            style="background: {% if pos.regime_label == '挤压待变' %}var(--rg-squeeze-grad){% elif pos.regime_label == '趋势型' %}var(--rg-trending-grad){% elif pos.regime_label == '区间型' %}var(--rg-ranging-grad){% else %}var(--rg-neutral-alt-grad){% endif %}; color: #fff;">
                             {% if pos.regime_label %}{{ pos.regime_label }}{% endif %}
                         </span>
                         <span class="regime-sub" style="font-size: 11px; color: var(--muted-2);"></span>
@@ -980,8 +980,8 @@
         <script id="position-edit-data" type="application/json">{{ edit_json | safe }}</script>
     </div>
 
-    <script src="/static/theme.js?v=20261121c"></script>
-    <script src="/static/app.js?v=20261121c"></script>
+    <script src="/static/theme.js?v=20261121d"></script>
+    <script src="/static/app.js?v=20261121d"></script>
 <script>(function(){var btn=document.getElementById("theme-toggle");if(!btn)return;function tip(){btn.title=document.documentElement.getAttribute("data-theme")==="dark"?"切换到白天模式":"切换到黑夜模式";}tip();btn.addEventListener("click",function(){var next=document.documentElement.getAttribute("data-theme")==="dark"?"light":"dark";document.documentElement.setAttribute("data-theme",next);try{localStorage.setItem("jt-theme",next);}catch(e){}tip();window.dispatchEvent(new Event("jt-theme-change"));});window.addEventListener("storage",function(e){if(e.key==="jt-theme"){var v=e.newValue||"auto";if(v!=="light"&&v!=="dark"){v=(window.matchMedia&&matchMedia("(prefers-color-scheme: dark)").matches)?"dark":"light";}document.documentElement.setAttribute("data-theme",v);tip();}});})();</script>
 </body>
 </html>

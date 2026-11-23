@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>量化回测 - 持仓工作台</title>
     <script>(function(){try{var t=localStorage.getItem("jt-theme");if(t!=="light"&&t!=="dark"){t=(window.matchMedia&&matchMedia("(prefers-color-scheme: dark)").matches)?"dark":"light";}document.documentElement.setAttribute("data-theme",t);}catch(e){document.documentElement.setAttribute("data-theme","light");}})();</script>
-    <link rel="stylesheet" href="/static/styles.css?v=20261121c">
+    <link rel="stylesheet" href="/static/styles.css?v=20261121d">
     <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
     <style>
         .backtest-container {
@@ -15,7 +15,7 @@
         }
         
         .backtest-header {
-            background: linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 100%);
+            background: var(--accent-grad);
             color: white;
             padding: 12px 18px;
             border-radius: 12px;
@@ -220,7 +220,7 @@
                 width: 18px;
                 height: 18px;
                 border-radius: 50%;
-                background: linear-gradient(135deg, var(--accent), var(--accent-2));
+                background: var(--accent-grad);
                 color: #fff;
                 font-size: 11px;
                 line-height: 18px;
@@ -245,10 +245,10 @@
             font-weight: 700;
             font-size: 14px;
         }
-        .regime-badge.ranging { background: linear-gradient(135deg, var(--info), var(--accent)); }
-        .regime-badge.trending { background: linear-gradient(135deg, var(--green), var(--cyan)); }
-        .regime-badge.squeeze { background: linear-gradient(135deg, var(--warn), var(--red)); }
-        .regime-badge.neutral { background: var(--neutral-fg); }
+        .regime-badge.ranging { background: var(--rg-ranging-grad); }
+        .regime-badge.trending { background: var(--rg-trending-grad); }
+        .regime-badge.squeeze { background: var(--rg-squeeze-grad); }
+        .regime-badge.neutral { background: var(--solid-neutral); }
         .regime-metrics {
             display: flex;
             flex-wrap: wrap;
@@ -266,7 +266,7 @@
         .regime-note { color: var(--muted-2); margin: 6px 0 10px; line-height: 1.6; }
         .regime-chips { display: flex; flex-wrap: wrap; gap: 8px; }
         .regime-chip {
-            background: linear-gradient(135deg, var(--accent), var(--accent-2));
+            background: var(--accent-grad);
             color: #fff;
             border: none;
             border-radius: 16px;
@@ -280,7 +280,7 @@
         .run-button {
             width: 100%;
             padding: 16px;
-            background: linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 100%);
+            background: var(--accent-grad);
             color: white;
             border: none;
             border-radius: 8px;
@@ -445,7 +445,7 @@
         .st-pool-grp { font-size: 11.5px; color: var(--muted-2); background: var(--panel-3); border-radius: 6px; padding: 2px 8px; }
         .st-pick { border: 1px solid var(--line); background: var(--panel); color: var(--text-mid); border-radius: 999px; padding: 3px 11px; font-size: 12.5px; cursor: pointer; transition: all .12s; }
         .st-pick:hover { border-color: var(--accent); color: var(--accent); }
-        .st-pick.picked { border-color: var(--accent); background: var(--accent); color: #fff; font-weight: 600; }
+        .st-pick.picked { border-color: var(--accent); background: var(--solid-accent); color: #fff; font-weight: 600; }
         @media (max-width: 480px) { .st-pool-chips { max-height: 168px; overflow-y: auto; } }
         /* 交叉对比矩阵 */
         .mtx-wrap { overflow-x: auto; margin-bottom: 18px; }
@@ -529,7 +529,7 @@
         }
     </style>
     <script src="/static/echarts.min.js?v=20261119a"></script>
-    <script src="/static/theme.js?v=20261121c"></script>
+    <script src="/static/theme.js?v=20261121d"></script>
 </head>
 <body>
     <div class="backtest-container">

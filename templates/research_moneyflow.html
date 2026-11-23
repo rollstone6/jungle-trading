@@ -5,12 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>资金流向背离监测 - 持仓工作台</title>
     <script>(function(){try{var t=localStorage.getItem("jt-theme");if(t!=="light"&&t!=="dark"){t=(window.matchMedia&&matchMedia("(prefers-color-scheme: dark)").matches)?"dark":"light";}document.documentElement.setAttribute("data-theme",t);}catch(e){document.documentElement.setAttribute("data-theme","light");}})();</script>
-    <link rel="stylesheet" href="/static/styles.css?v=20261121c">
+    <link rel="stylesheet" href="/static/styles.css?v=20261121d">
     <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
     <style>
         .page { max-width: 1100px; margin: 0 auto; padding: 20px; }
         .header {
-            background: linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 100%);
+            background: var(--accent-grad);
             color: #fff; padding: 12px 18px; border-radius: 12px; margin-bottom: 12px;
             display: flex; align-items: baseline; justify-content: center; gap: 12px; flex-wrap: wrap;
         }
@@ -34,7 +34,7 @@
             border: 2px solid var(--line); border-radius: 12px; overflow: hidden;
             box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-bottom: 20px;
         }
-        .data-table th { background: var(--accent); color: #fff; padding: 10px 10px; font-size: 12px; text-align: left; }
+        .data-table th { background: var(--solid-accent); color: #fff; padding: 10px 10px; font-size: 12px; text-align: left; }
         .data-table td { padding: 8px 10px; font-size: 12px; border-bottom: 1px solid var(--panel-3); }
         .data-table tr:hover { background: var(--tint-violet-bg); }
         .up { color: var(--red); font-weight: 600; } .down { color: var(--green); font-weight: 600; }
@@ -44,7 +44,7 @@
             margin-bottom: 16px; font-size: 13px; color: var(--muted-2);
         }
         .scan-btn {
-            background: linear-gradient(135deg, var(--accent) 0%, var(--accent-2) 100%); color: #fff;
+            background: var(--accent-grad); color: #fff;
             border: none; border-radius: 8px; padding: 8px 18px; font-size: 13px; font-weight: 600; cursor: pointer;
         }
         h3.sec { color: var(--text-soft); font-size: 15px; margin: 18px 0 10px; }

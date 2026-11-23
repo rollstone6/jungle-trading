@@ -27,11 +27,12 @@ function buildPalette() {
     panel: t("--panel", "#ffffff"),
     text: t("--text", "#121826"),
   };
+  // t_915d5714 P2：徽章渐变改读 --rg-* 单一真源（暗色端点已降亮保白字≥4.5:1，亮色与原值字面一致）
   p.regimeGrad = {
-    squeeze: grad(p.warn, p.redBright),
-    trending: grad(p.emerald, p.sky),
-    ranging: grad(p.info, p.indigo),
-    neutral: grad(p.slate, p.slateLight),
+    squeeze: t("--rg-squeeze-grad", grad(p.warn, p.redBright)),
+    trending: t("--rg-trending-grad", grad(p.emerald, p.sky)),
+    ranging: t("--rg-ranging-grad", grad(p.info, p.indigo)),
+    neutral: t("--rg-neutral-grad", grad(p.slate, p.slateLight)),
   };
   return p;
 }
