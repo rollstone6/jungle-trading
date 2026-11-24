@@ -4,11 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>央行公开市场操作 · 流动性追踪面板 - 持仓工作台</title>
-    <script>(function(){try{var t=localStorage.getItem("jt-theme");if(t!=="light"&&t!=="dark"){t=(window.matchMedia&&matchMedia("(prefers-color-scheme: dark)").matches)?"dark":"light";}document.documentElement.setAttribute("data-theme",t);}catch(e){document.documentElement.setAttribute("data-theme","light");}})();</script>
-    <link rel="stylesheet" href="/static/styles.css?v=20261121e">
+    <script>(function(){var t=null;try{t=localStorage.getItem("jt-theme");}catch(e){}if(t!=="light"&&t!=="dark"){var h=new Date().getHours();t=(h>=18||h<6)?"dark":"light";}document.documentElement.setAttribute("data-theme",t);})();</script>
+    <link rel="stylesheet" href="/static/styles.css?v=20261121f">
     <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
     <script src="/static/echarts.min.js?v=20261119a"></script>
-    <script src="/static/theme.js?v=20261121e"></script>
+    <script src="/static/theme.js?v=20261121f"></script>
     <style>
         body { background: var(--panel-2); }
         .hero {
@@ -83,7 +83,7 @@
     <div class="hero">
         <h1><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 21h18 M4 10h16 M6 10v8 M10 10v8 M14 10v8 M18 10v8 M12 3l9 5H3l9-5Z"/></svg> 央行公开市场操作流动性追踪面板</h1>
         <div class="sub" id="meta">加载中...</div>
-        <button type="button" class="theme-toggle" id="theme-toggle" aria-label="切换黑夜/白天模式" title="切换主题"><svg class="tt-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/></svg><svg class="tt-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg></button>
+        <button type="button" class="theme-toggle" id="theme-toggle" aria-label="主题模式：自动/白天/黑夜三态切换" title="主题模式：自动/白天/黑夜三态切换"><svg class="tt-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/></svg><svg class="tt-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg></button>
     </div>
     <div class="wrap">
         <div class="back-row">
@@ -351,6 +351,6 @@
         document.getElementById('refresh').addEventListener('click', () => load(true));
         load();
     </script>
-<script>(function(){var btn=document.getElementById("theme-toggle");if(!btn)return;function tip(){btn.title=document.documentElement.getAttribute("data-theme")==="dark"?"切换到白天模式":"切换到黑夜模式";}tip();btn.addEventListener("click",function(){var next=document.documentElement.getAttribute("data-theme")==="dark"?"light":"dark";document.documentElement.setAttribute("data-theme",next);try{localStorage.setItem("jt-theme",next);}catch(e){}tip();window.dispatchEvent(new Event("jt-theme-change"));});window.addEventListener("storage",function(e){if(e.key==="jt-theme"){var v=e.newValue||"auto";if(v!=="light"&&v!=="dark"){v=(window.matchMedia&&matchMedia("(prefers-color-scheme: dark)").matches)?"dark":"light";}document.documentElement.setAttribute("data-theme",v);tip();}});})();</script>
+<script>(function(){var btn=document.getElementById("theme-toggle");if(!btn)return;function mode(){var m=null;try{m=localStorage.getItem("jt-theme");}catch(e){}return(m==="light"||m==="dark")?m:"auto";}function timeTheme(){var h=new Date().getHours();return(h>=18||h<6)?"dark":"light";}function cur(){return document.documentElement.getAttribute("data-theme");}function tip(){var m=mode(),dark=cur()==="dark";var lbl=m==="auto"?("自动·当前"+(dark?"暗":"亮")+"（18:00-6:00暗色，点击→白天）"):m==="light"?("已固定白天（点击→黑夜）"):("已固定黑夜（点击→自动）");btn.title=lbl;btn.setAttribute("aria-label",lbl);}btn.addEventListener("click",function(){var m=mode();var next=m==="auto"?"light":m==="light"?"dark":"auto";try{localStorage.setItem("jt-theme",next);}catch(e){}document.documentElement.setAttribute("data-theme",next==="auto"?timeTheme():next);tip();window.dispatchEvent(new Event("jt-theme-change"));});window.addEventListener("storage",function(e){if(e.key==="jt-theme"){var m=mode();document.documentElement.setAttribute("data-theme",m==="auto"?timeTheme():m);tip();window.dispatchEvent(new Event("jt-theme-change"));}});/* t_76975559 auto态每分钟检查：仅跨18:00/6:00小时边界时切换并派发jt-theme-change；手动light/dark不覆盖；系统深色模式不再驱动(历史行为变更见theme.js) */setInterval(function(){if(mode()!=="auto")return;var want=timeTheme();if(cur()!==want){document.documentElement.setAttribute("data-theme",want);tip();window.dispatchEvent(new Event("jt-theme-change"))}},60000);tip();})();</script>
 </body>
 </html>
