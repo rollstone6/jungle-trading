@@ -107,18 +107,9 @@
   }
   global.JTTheme = { colors, isDark, applyECharts, onTheme, toRgba };
   global.addEventListener("jt-theme-change", emit);
-  // 系统主题在 auto 模式下变化也同步（仅当用户未手动选过）
-  if (global.matchMedia) {
-    const mq = global.matchMedia("(prefers-color-scheme: dark)");
-    const onChange = () => {
-      let stored = null;
-      try { stored = global.localStorage.getItem("jt-theme"); } catch (e) {}
-      if (stored !== "light" && stored !== "dark") {
-        document.documentElement.setAttribute("data-theme", mq.matches ? "dark" : "light");
-        emit();
-      }
-    };
-    if (mq.addEventListener) mq.addEventListener("change", onChange);
-    else if (mq.addListener) mq.addListener(onChange);
-  }
+  // 历史行为变更（t_76975559，2026-11-25）：此处原有 matchMedia("(prefers-color-scheme: dark)")
+  // 监听，auto 态下跟随系统深色模式切换。现 auto 态改为按本地时间驱动
+  // （18:00–6:00 暗色，其余亮色；手动 light/dark 优先），系统主题变化不再驱动切换——
+  // 时间驱动逻辑收敛在各模板 theme-toggle 脚本的每分钟 setInterval 边界检查中
+  // （仅 auto 态且跨小时边界才写 data-theme 并派发 jt-theme-change，图表重绘走本文件 emit 通道）。
 })(window);
