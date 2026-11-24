@@ -5,11 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>量化信号中心 - 持仓工作台</title>
     <script>(function(){try{var t=localStorage.getItem("jt-theme");if(t!=="light"&&t!=="dark"){t=(window.matchMedia&&matchMedia("(prefers-color-scheme: dark)").matches)?"dark":"light";}document.documentElement.setAttribute("data-theme",t);}catch(e){document.documentElement.setAttribute("data-theme","light");}})();</script>
-    <link rel="stylesheet" href="/static/styles.css?v=20261121d">
+    <link rel="stylesheet" href="/static/styles.css?v=20261121e">
     <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
     <script src="/static/lightweight-charts.standalone.production.js?v=20261119a"></script>
     <script src="/static/echarts.min.js?v=20261119a"></script>
-    <script src="/static/theme.js?v=20261121d"></script>
+    <script src="/static/theme.js?v=20261121e"></script>
     <style>
         .quant-container { max-width: 1280px; margin: 0 auto; padding: 20px; }
 
@@ -228,7 +228,7 @@
             font-size: 12px; font-weight: 600; color: #fff;
         }
         .badge.ok { background: var(--solid-green); }
-        .badge.no { background: var(--line); color: var(--text-mid); }
+        .badge.no { background: #e2e8f0; color: #475569; }   /* main 原字面（--line token 化=#d9e2ec 系 0e9aca9 遗留亮色回归）；dark 覆盖见 styles.css */
         /* 买卖徽章：A股语义 红=买入 绿=卖出 */
         .badge.buy { background: var(--solid-red); }
         .badge.sell { background: var(--solid-green); }

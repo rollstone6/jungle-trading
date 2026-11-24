@@ -19,13 +19,14 @@
   --gain: var(--red); --loss: var(--green);   /* 红涨绿跌语义别名，全站唯一来源 */
   --warn: #f59e0b; --info: #3b82f6;           /* 警示/信息，只给需关注项 */
   --neutral-bg: #f3f4f6; --neutral-fg: #6b7280;
-  /* 走势四色渐变 token（t_915d5714 P2）：亮色=各模板现值字面（零回归）；dark 块降亮端点保白字≥4.5:1 */
-  --rg-squeeze-grad: linear-gradient(135deg, #f59e0b, #d92d20);
-  --rg-trending-grad: linear-gradient(135deg, #0a7d57, #0e8aa8);
-  --rg-ranging-grad: linear-gradient(135deg, #3b82f6, #667eea);
-  --rg-neutral-grad: linear-gradient(135deg, #64748b, #667085);
-  --rg-neutral-alt-grad: linear-gradient(135deg, #6b7280, #667085);  /* index SSR 徽章 neutral 现值 */
-  --rg-expand-grad: linear-gradient(135deg, #d92d20, #f97316);       /* 波动扩张红橙现值 */
+  /* 走势四色渐变 token（t_915d5714 P2）：亮色=main 原字面（零回归）；dark 块降亮端点保白字≥4.5:1 */
+  --rg-squeeze-grad: linear-gradient(135deg, #f59e0b, #ef4444);
+  --rg-trending-grad: linear-gradient(135deg, #10b981, #0ea5e9);
+  --rg-ranging-grad: linear-gradient(135deg, #3b82f6, #6366f1);
+  --rg-neutral-grad: linear-gradient(135deg, #64748b, #94a3b8);
+  --rg-neutral-alt-grad: linear-gradient(135deg, #6b7280, #94a3b8);  /* index SSR 徽章 neutral 现值 */
+  --rg-expand-grad: linear-gradient(135deg, #ef4444, #f97316);       /* 波动扩张红橙现值 */
+  --rg-squeeze-alt-grad: linear-gradient(135deg, #f59e0b, #eab308);  /* vc-state.squeeze 原渐变（亮色零回归） */
   /* 语义彩底徽章的「白字安全底」token（t_915d5714 P2）：亮色=现值别名零回归；dark 降亮≥4.5:1 */
   --solid-accent: var(--accent);
   --solid-green: var(--green);
@@ -92,6 +93,7 @@
   --rg-neutral-grad: linear-gradient(135deg, #475569, #55637a);
   --rg-neutral-alt-grad: linear-gradient(135deg, #55637a, #475569);
   --rg-expand-grad: linear-gradient(135deg, #b91c1c, #c2410c);
+  --rg-squeeze-alt-grad: linear-gradient(135deg, #b45309, #a16207); /* 白字 5.02/4.92:1 */
   /* 语义彩底暗色安全底（白字 5.17–7.68:1；与 rg-* 同一套降亮策略，端点经 WCAG 独立复算） */
   --solid-accent: #4c5a9e;
   --solid-green: #065f46;
@@ -3241,3 +3243,7 @@ button.theme-toggle:not(:disabled):active { transform: translateY(-50%); filter:
 :root[data-theme="dark"] .pm-draft-btn.restore { background: var(--solid-warn); }
 /* 日历选中日：暗色 --red #f04a3e 配白字仅 3.65 → 降亮实底 6.47 */
 :root[data-theme="dark"] .calendar-grid button.active { background: var(--solid-red); }
+/* .rv-pos-tag 亮色保 main 原字面 #6366f1（与 --solid-accent #667eea 不同源），暗色改降亮实底（白字 6.43:1） */
+:root[data-theme="dark"] .rv-pos-tag { background: var(--solid-accent); }
+/* quant .badge.no 亮色恢复 main 字面后，暗色维持本分支原态（#2a3547 底/#aab7c8 字，深字浅底无白字问题） */
+:root[data-theme="dark"] .badge.no { background: var(--line); color: var(--text-mid); }

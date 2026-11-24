@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>持仓工作台</title>
     <script>(function(){try{var t=localStorage.getItem("jt-theme");if(t!=="light"&&t!=="dark"){t=(window.matchMedia&&matchMedia("(prefers-color-scheme: dark)").matches)?"dark":"light";}document.documentElement.setAttribute("data-theme",t);}catch(e){document.documentElement.setAttribute("data-theme","light");}})();</script>
-    <link rel="stylesheet" href="/static/styles.css?v=20261121d">
+    <link rel="stylesheet" href="/static/styles.css?v=20261121e">
     <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
     <!-- ===== 量化回测实验室 UI 风格覆盖层 ===== -->
     <style>
@@ -365,7 +365,7 @@
             background: var(--rg-neutral-grad);
         }
         .vol-chip.expand .vc-state { background: var(--rg-expand-grad); }
-        .vol-chip.squeeze .vc-state { background: var(--solid-warn); }
+        .vol-chip.squeeze .vc-state { background: var(--rg-squeeze-alt-grad); }
         .vol-chip .vc-hv { display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; }
         .vol-chip .vc-hv strong {
             font-size: 19px;
@@ -440,7 +440,7 @@
             font-size: 10px;
             font-weight: 700;
             color: #fff;
-            background: var(--solid-accent);
+            background: #6366f1;   /* main 原值（--solid-accent 亮色=#667eea 与本组件不同源，不可共用；dark 覆盖见 styles.css） */
             border-radius: 4px;
             padding: 1px 5px;
             flex-shrink: 0;
@@ -980,8 +980,8 @@
         <script id="position-edit-data" type="application/json">{{ edit_json | safe }}</script>
     </div>
 
-    <script src="/static/theme.js?v=20261121d"></script>
-    <script src="/static/app.js?v=20261121d"></script>
+    <script src="/static/theme.js?v=20261121e"></script>
+    <script src="/static/app.js?v=20261121e"></script>
 <script>(function(){var btn=document.getElementById("theme-toggle");if(!btn)return;function tip(){btn.title=document.documentElement.getAttribute("data-theme")==="dark"?"切换到白天模式":"切换到黑夜模式";}tip();btn.addEventListener("click",function(){var next=document.documentElement.getAttribute("data-theme")==="dark"?"light":"dark";document.documentElement.setAttribute("data-theme",next);try{localStorage.setItem("jt-theme",next);}catch(e){}tip();window.dispatchEvent(new Event("jt-theme-change"));});window.addEventListener("storage",function(e){if(e.key==="jt-theme"){var v=e.newValue||"auto";if(v!=="light"&&v!=="dark"){v=(window.matchMedia&&matchMedia("(prefers-color-scheme: dark)").matches)?"dark":"light";}document.documentElement.setAttribute("data-theme",v);tip();}});})();</script>
 </body>
 </html>
