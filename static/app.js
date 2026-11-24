@@ -1,33 +1,43 @@
 // ===== 批次0：集中色板（唯一色值字面量来源；语义色读 :root token） =====
 // canvas/SVG/echarts 不认 CSS 变量，必须内联的字面量统一在此管理，禁散落。
 // 语义色（gain/loss/warn/info）运行时读 styles.css token，单一真源仍是共享层。
-const PALETTE = (() => {
+// 黑夜模式（t_712add03）：buildPalette 可重建；主题切换时 refreshPalette 原地刷新
+// 同一对象引用（PALETTE.xxx 的运行时引用自动生效），K_MA_COLORS 改为函数取值。
+function buildPalette() {
   const cs = getComputedStyle(document.documentElement);
   const t = (name, fallback) => (cs.getPropertyValue(name).trim() || fallback);
   const grad = (a, b) => `linear-gradient(135deg,${a},${b})`;
+  const dark = document.documentElement.getAttribute("data-theme") === "dark";
   const p = {
-    ink: "#111827",          // K线主图深色线（MA5/EMA12）
-    purple: "#8b5cf6",       // MA10/牛熊线
-    gold: "#a16207",         // MA120
-    slate: "#64748b",        // MA250/中性渐变起色
-    slateLight: "#94a3b8",   // 中性渐变止色
-    redBright: "#ef4444",    // 轨道上沿/squeeze 渐变（比 --gain 亮的图表用红）
-    greenBright: "#22c55e",  // 轨道下沿（比 --loss 亮的图表用绿）
-    emerald: "#10b981", sky: "#0ea5e9", indigo: "#6366f1", // trending/ranging 渐变
+    ink: t("--text", "#111827"),          // K线主图深色线（MA5/EMA12）——暗底自动翻亮
+    purple: t("--accent-2", "#8b5cf6"),   // MA10/牛熊线
+    gold: dark ? "#e3b341" : "#a16207",   // MA120
+    slate: t("--muted-2", "#64748b"),     // MA250/中性渐变起色
+    slateLight: t("--muted", "#94a3b8"),  // 中性渐变止色
+    redBright: t("--red", "#ef4444"),     // 轨道上沿/squeeze 渐变（涨=红语义）
+    greenBright: t("--green", "#22c55e"), // 轨道下沿（跌=绿语义）
+    emerald: t("--green", "#10b981"), sky: t("--cyan", "#0ea5e9"), indigo: t("--accent", "#6366f1"), // trending/ranging 渐变
     white: "#fff",
     gain: t("--gain", "#d92d20"),
     loss: t("--loss", "#0a7d57"),
     warn: t("--warn", "#f59e0b"),
     info: t("--info", "#3b82f6"),
+    axis: t("--chart-axis", "#64748b"),
+    grid: t("--grid-line", "rgba(217, 226, 236, 0.9)"),
+    panel: t("--panel", "#ffffff"),
+    text: t("--text", "#121826"),
   };
+  // t_915d5714 P2：徽章渐变改读 --rg-* 单一真源（暗色端点已降亮保白字≥4.5:1，亮色与原值字面一致）
   p.regimeGrad = {
-    squeeze: grad(p.warn, p.redBright),
-    trending: grad(p.emerald, p.sky),
-    ranging: grad(p.info, p.indigo),
-    neutral: grad(p.slate, p.slateLight),
+    squeeze: t("--rg-squeeze-grad", grad(p.warn, p.redBright)),
+    trending: t("--rg-trending-grad", grad(p.emerald, p.sky)),
+    ranging: t("--rg-ranging-grad", grad(p.info, p.indigo)),
+    neutral: t("--rg-neutral-grad", grad(p.slate, p.slateLight)),
   };
   return p;
-})();
+}
+const PALETTE = buildPalette();
+function refreshPalette() { Object.assign(PALETTE, buildPalette()); }
 
 function pad(value) {
   return String(value).padStart(2, "0");
@@ -370,9 +380,9 @@ function bindManualPositionForm() {
     try { raw = localStorage.getItem(DRAFT_KEY); } catch (e) { return; }
     if (!raw) return;
     let items;
-    try { items = JSON.parse(raw); } catch (e) { localStorage.removeItem(DRAFT_KEY); return; }
+    try { items = JSON.parse(raw); } catch (e) { try { localStorage.removeItem(DRAFT_KEY); } catch (_) {} return; }
     if (!Array.isArray(items) || !items.length) return;
-    if (!draftDiffers(items)) { localStorage.removeItem(DRAFT_KEY); return; }
+    if (!draftDiffers(items)) { try { localStorage.removeItem(DRAFT_KEY); } catch (_) {} return; }
     draftBar.querySelector("[data-pm-draft-text]").textContent =
       `发现上次未保存的编辑（${items.length} 行），是否恢复？`;
     draftBar.hidden = false;
@@ -396,7 +406,7 @@ function bindManualPositionForm() {
     updateChanges();
   });
   form.querySelector("[data-draft-discard]").addEventListener("click", () => {
-    localStorage.removeItem(DRAFT_KEY);
+    try { localStorage.removeItem(DRAFT_KEY); } catch (_) {}
     draftBar.hidden = true;
   });
 
@@ -484,9 +494,9 @@ function bindManualPositionForm() {
       });
       const result = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(result.detail || "持仓更新失败。");
-      localStorage.removeItem(DRAFT_KEY);
+      try { localStorage.removeItem(DRAFT_KEY); } catch (_) {}
       showToast(result.message || "持仓已更新。");
-      window.sessionStorage.setItem("jungle-scroll-restore", String(window.scrollY || 0));
+      try { window.sessionStorage.setItem("jungle-scroll-restore", String(window.scrollY || 0)); } catch (_) {}
       window.setTimeout(() => window.location.reload(), 1200);
     } catch (error) {
       showToast(error.message || "持仓更新失败，请检查输入。");
@@ -668,17 +678,21 @@ function bindCollapsiblePanelState() {
       panel.open = Boolean(state[key]);
     }
     panel.addEventListener("toggle", () => {
-      const nextState = readPanelState();
-      nextState[key] = panel.open;
-      window.localStorage.setItem(PANEL_STATE_KEY, JSON.stringify(nextState));
+      try {
+        const nextState = readPanelState();
+        nextState[key] = panel.open;
+        window.localStorage.setItem(PANEL_STATE_KEY, JSON.stringify(nextState));
+      } catch (_) { /* storage 禁用/配额：状态不持久化即可，功能不炸 */ }
     });
   });
 
-  const savedScroll = Number.parseInt(window.sessionStorage.getItem(SCROLL_STATE_KEY) || "", 10);
-  if (Number.isFinite(savedScroll)) {
-    window.sessionStorage.removeItem(SCROLL_STATE_KEY);
-    window.requestAnimationFrame(() => window.scrollTo({ top: savedScroll, behavior: "auto" }));
-  }
+  try {
+    const savedScroll = Number.parseInt(window.sessionStorage.getItem(SCROLL_STATE_KEY) || "", 10);
+    if (Number.isFinite(savedScroll)) {
+      window.sessionStorage.removeItem(SCROLL_STATE_KEY);
+      window.requestAnimationFrame(() => window.scrollTo({ top: savedScroll, behavior: "auto" }));
+    }
+  } catch (_) { /* storage 禁用：跳过滚动恢复 */ }
 }
 
 bindCollapsiblePanelState();
@@ -730,7 +744,7 @@ function readKlinePoints(el) {
 }
 
 // ===== K线主图指标：计算（纯前端，基于已加载的日K序列） =====
-const K_MA_COLORS = { 5: PALETTE.ink, 10: PALETTE.purple, 20: PALETTE.warn, 60: PALETTE.info, 120: PALETTE.gold, 250: PALETTE.slate };
+function K_MA_COLORS() { return { 5: PALETTE.ink, 10: PALETTE.purple, 20: PALETTE.warn, 60: PALETTE.info, 120: PALETTE.gold, 250: PALETTE.slate }; }
 const K_MA_PERIODS = [5, 10, 20, 60, 120, 250];
 
 function kSMA(points, period) {
@@ -835,7 +849,8 @@ function kIndicatorLines(points, mode) {
   const lines = [];
   if (!n) return lines;
   if (mode === "ma") {
-    for (const p of K_MA_PERIODS) lines.push({ name: `MA${p}`, color: K_MA_COLORS[p], values: kSMA(points, p) });
+    const maC = K_MA_COLORS();
+    for (const p of K_MA_PERIODS) lines.push({ name: `MA${p}`, color: maC[p], values: kSMA(points, p) });
   } else if (mode === "boll") {
     const mid = kSMA(points, 20), sd = kSTDEV(points, 20, mid);
     const up = mid.map((v, i) => (v == null ? null : v + 2 * sd[i]));
@@ -1533,7 +1548,8 @@ function initRegimeFilter() {
     bar.querySelectorAll('.rf-btn').forEach(btn => {
         btn.addEventListener('click', () => applyRegimeFilter(btn.dataset.filter, true));
     });
-    const saved = localStorage.getItem(RF_FILTER_KEY) || 'all';
+    let saved = 'all';
+    try { saved = localStorage.getItem(RF_FILTER_KEY) || 'all'; } catch (_) {}
     const exists = bar.querySelector(`.rf-btn[data-filter="${CSS.escape(saved)}"]`);
     applyRegimeFilter(exists ? saved : 'all', false);
 }
@@ -1541,7 +1557,7 @@ function initRegimeFilter() {
 function applyRegimeFilter(filter, remember) {
     const bar = document.querySelector('.regime-filter');
     if (!bar) return;
-    if (remember) localStorage.setItem(RF_FILTER_KEY, filter);
+    if (remember) { try { localStorage.setItem(RF_FILTER_KEY, filter); } catch (_) {} }
     bar.querySelectorAll('.rf-btn').forEach(b => {
         const on = b.dataset.filter === filter;
         b.classList.toggle('on', on);
@@ -1772,10 +1788,20 @@ function isCnTradingRefreshWindow() {
 function bindAutoRefresh() {
   window.setInterval(() => {
     if (isCnTradingRefreshWindow()) {
-      window.sessionStorage.setItem(SCROLL_STATE_KEY, String(window.scrollY || 0));
+      try { window.sessionStorage.setItem(SCROLL_STATE_KEY, String(window.scrollY || 0)); } catch (_) {}
       window.location.reload();
     }
   }, 15 * 60 * 1000);
 }
 
 bindAutoRefresh();
+
+// ===== 黑夜模式（t_712add03）：主题切换 → 重建色板 + 重绘已渲染图表 =====
+window.addEventListener("jt-theme-change", () => {
+  refreshPalette();
+  document.querySelectorAll(".mini-kline").forEach((c) => {
+    const card = c.closest(".kline-card");
+    if (card && !card.classList.contains("collapsed")) renderKlineChart(c);
+  });
+  if (typeof loadPositionRegime === "function") { try { loadPositionRegime(); } catch (e) {} }
+});
