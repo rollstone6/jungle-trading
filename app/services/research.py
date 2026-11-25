@@ -479,23 +479,45 @@ def _parse_rr_article(html: str) -> list[dict]:
     if not m:
         return []
     date = f"{m.group(1)}-{int(m.group(2)):02d}-{int(m.group(3)):02d}"
-    # 从公告表格按期限提取操作利率：如 "7天1.40%"
+    # 从公告表格按期限提取操作利率：如 "7天1.40%"、"隔夜1.25%"（隔夜键=1）
+    # 2026-11-02 新规：隔夜为固定利率数量招标（1.25% 主要政策利率）；
+    # 7天期改固定数量利率招标+多重价位中标 → 公告中无 7 天利率数字，属正常态。
     rates: dict[int, float] = {}
     for rm in re.finditer(r"(\d+)天(\d\.\d{2})%", text):
         rates.setdefault(int(rm.group(1)), float(rm.group(2)))
+    for rm in re.finditer(r"隔夜(\d\.\d{2})%", text):
+        rates.setdefault(1, float(rm.group(1)))
     ops = []
     if re.search(r"(?:7天期|七天期)逆回购操作量为零|不开展逆回购操作", text):
         ops.append({"date": date, "amount": 0.0, "rate": None, "term_days": 7, "term": "7天", "type": "逆回购"})
-    for m2 in re.finditer(r"(\d+(?:\.\d+)?)亿元(?:(\d+)天期|隔夜)逆回购操作", text):
+    for m2 in re.finditer(r"(\d+(?:\.\d+)?)亿元(?:(\d+)天期|隔夜期?)逆回购操作", text):
         td = int(m2.group(2)) if m2.group(2) else 1
         if td == 7 and any(o["term_days"] == 7 and o["amount"] == 0.0 for o in ops):
             continue
         ops.append({
             "date": date, "amount": float(m2.group(1)),
-            "rate": rates.get(td) if td == 7 else None,
+            "rate": rates.get(td),
             "term_days": td, "term": "隔夜" if td == 1 else f"{td}天", "type": "逆回购",
         })
     return ops
+
+
+def _policy_rate_point(rr_ops: list[dict]):
+    """政策利率要点：2026-11-02 起隔夜(1天)为锚、前值仅同期限比较；无隔夜回退 7 天。rr_ops 须按日期倒序。"""
+    on_op = next((o for o in rr_ops if o.get("term_days") == 1 and o.get("rate")), None)
+    rate_op = on_op or next((o for o in rr_ops if o.get("term_days") == 7 and o.get("rate")), None)
+    if not rate_op:
+        return None
+    same_term = rate_op.get("term_days", 7)
+    # 前值只与同期限序列比（隔夜1.25 vs 7天1.40 不是换锚，禁止跨期限比较）
+    prev_rate = next((o["rate"] for o in rr_ops[rr_ops.index(rate_op) + 1:]
+                      if o.get("rate") and o.get("term_days") == same_term), None)
+    chg = "" if prev_rate in (None, rate_op["rate"]) else f"（前值 {prev_rate}%）"
+    anchor = ("隔夜逆回购操作利率（主要政策利率，2026-11-02 起）" if same_term == 1
+              else "7天期逆回购操作利率")
+    return {"tone": "g", "title": "政策利率", "text":
+            f"{anchor} {rate_op['rate']}%{chg}，"
+            + ("维持不变，短期货币政策取向保持稳定。" if not chg else "出现调整，关注信号意义。")}
 
 
 def _parse_bo_article(html: str) -> list[dict]:
@@ -591,7 +613,7 @@ async def fetch_pboc_liquidity() -> dict:
             rr_ops.extend(_parse_rr_article(_decode(resp)))
         except Exception:
             errors += 1
-    rr_ops.sort(key=lambda x: x["date"], reverse=True)
+    rr_ops.sort(key=lambda x: (x["date"], -x["term_days"]), reverse=True)  # 同日隔夜(1天)排前，latest_op 确定性
 
     bo_ops = []
     for (url, list_date), resp in zip(bo_pairs, bo_htmls):
@@ -721,13 +743,10 @@ async def fetch_pboc_liquidity() -> dict:
                                   f"（逆回购 {fm['rr']:,.0f} + 买断式 {fm['bo']:,.0f}）。"})
     points["outlook"].append({"tone": "b", "title": "关键观察点", "text":
                               "税期高峰、政府债缴款、跨季时点前后央行是否加大投放对冲。"})
-    rate_op = next((o for o in rr_ops if o.get("rate")), None)
-    if rate_op:
-        prev_rate = next((o["rate"] for o in rr_ops[rr_ops.index(rate_op) + 1:] if o.get("rate")), None)
-        chg = "" if prev_rate in (None, rate_op["rate"]) else f"（前值 {prev_rate}%）"
-        points["env"].append({"tone": "g", "title": "政策利率", "text":
-                              f"7天期逆回购操作利率 {rate_op['rate']}%{chg}，"
-                              + ("维持不变，短期货币政策取向保持稳定。" if not chg else "出现调整，关注信号意义。")})
+    # 政策利率锚：2026-11-02 起隔夜利率为主要政策利率，优先展示；无隔夜时回退 7 天（历史数据）
+    env_pt = _policy_rate_point(rr_ops)
+    if env_pt:
+        points["env"].append(env_pt)
     if past_daily and len(past_daily) >= 5:
         net5 = sum(x["net"] for x in past_daily[-5:])
         points["risk"].append({"tone": "r" if net5 < 0 else "g", "title": "近期资金面", "text":
