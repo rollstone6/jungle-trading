@@ -56,12 +56,24 @@ def test_pure_overnight_new_format():
     assert o["date"] == "2026-11-25"
 
 
-def test_overnight_period_suffix_variant():
-    """11-02/11-04 等公告正文写「隔夜期逆回购操作」，表格仍是「隔夜1.25%」——两种后缀都要命中。"""
+def test_overnight_plain_suffix():
+    """plain「隔夜逆回购操作」（无"期"后缀）：真实 11-05 公告〔2630亿〕，表格「隔夜1.25%」。"""
     o = _one("rr_20261102_overnight_suffix_variant.html")
     assert o["term_days"] == 1
     assert o["rate"] == 1.25
     assert o["amount"] == 2630.0
+
+
+def test_overnight_qi_suffix_real():
+    """真实「隔夜期逆回购操作」措辞（11-02/03/04 公告）：正则 `隔夜期?` 的 `期?` 分支护栏。
+    fixture = pbc.gov.cn 2026110208540841613 真实正文（5410亿，隔夜期逆回购操作，表格隔夜1.25%）。
+    若有人把 `隔夜期?` 简化回 `隔夜`，本用例必须 FAIL（否则真实公告静默漏解析）。"""
+    o = _one("rr_20261102_overnight_qi.html")
+    assert o["term_days"] == 1
+    assert o["term"] == "隔夜"
+    assert o["rate"] == 1.25
+    assert o["amount"] == 5410.0
+    assert o["date"] == "2026-11-02"
 
 
 # ---------- ② 隔夜 + 7天多重价位并存（真实 2026-11-13 公告〔2026〕第220号） ----------
