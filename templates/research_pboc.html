@@ -17,6 +17,11 @@
         }
         .hero h1 { font-size: 16px; margin: 0; display: inline; }
         .hero .sub { font-size: 12px; color: #aab3d6; display: inline; margin-left: 12px; }
+        /* 窄屏给右上角绝对定位的主题按钮预留宽度（按钮30px + right:14px + 缓冲4px），
+           防止 .sub 折行后文字从按钮下方穿过（t_76546154 每周体检 P2） */
+        @media (max-width: 640px) {
+            .hero { padding-right: 48px; }
+        }
         .wrap { max-width: 1240px; margin: 0 auto; padding: 16px 14px 40px; }
         .src-bar {
             background: var(--panel); border-left: 4px solid var(--green); border-radius: 8px;
@@ -68,7 +73,12 @@
             padding: 7px 16px; font-size: 12.5px; font-weight: 600; cursor: pointer;
         }
         .refresh-btn:hover { opacity: .85; }
-        .back-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+        .back-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; gap: 10px; }
+        /* 窄屏修重叠（t_76546154 P2）：quicknav 内容 nowrap，flex 子项默认 min-width:auto
+           撑破轨道导致「研究中心」pill 压到刷新按钮；min-width:0 让 overflow-x:auto 真正生效，
+           按钮 flex-shrink:0 保文字完整，超出部分由 nav 内横滑承载 */
+        .back-row .mobile-quicknav { min-width: 0; }
+        .back-row .refresh-btn { flex-shrink: 0; }
         .back-link { color: var(--muted-2); font-size: 13px; text-decoration: none; }
         .back-link:hover { color: #1a1f3c; }
         @media (max-width: 900px) {
