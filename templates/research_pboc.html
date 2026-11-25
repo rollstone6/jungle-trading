@@ -5,10 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>央行公开市场操作 · 流动性追踪面板 - 持仓工作台</title>
     <script>(function(){var t=null;try{t=localStorage.getItem("jt-theme");}catch(e){}if(t!=="light"&&t!=="dark"){var h=new Date().getHours();t=(h>=18||h<6)?"dark":"light";}document.documentElement.setAttribute("data-theme",t);})();</script>
-    <link rel="stylesheet" href="/static/styles.css?v=20261125a">
+    <link rel="stylesheet" href="/static/styles.css?v=20261125b">
     <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
     <script src="/static/echarts.min.js?v=20261119a"></script>
-    <script src="/static/theme.js?v=20261125a"></script>
+    <script src="/static/theme.js?v=20261125b"></script>
     <style>
         body { background: var(--panel-2); }
         .hero {
@@ -235,7 +235,8 @@
             const C = { net: null, type: null, future: null };
             ['chart-net', 'chart-type', 'chart-future'].forEach(id => {
                 const el = document.getElementById(id);
-                if (el) C[id.split('-')[1]] = echarts.init(el);
+                // 复用已有实例（resize 重算会再次进入 renderCharts，重复 init 会告警）
+                if (el) C[id.split('-')[1]] = echarts.getInstanceByDom(el) || echarts.init(el);
             });
             const fi = all.findIndex(x => x.future);          // 第一个未来日索引
             const past = fi >= 0 ? all.slice(0, fi) : all;
@@ -246,20 +247,28 @@
             const maturityFuture = all.map((x, i) => (i >= (fi < 0 ? all.length : fi - 1) && x.future) || i === fi - 1 ? x.maturity : null);
             const markAreaFuture = fi >= 0 ? [[
                 { xAxis: days[fi], itemStyle: { color: JTTheme.toRgba(T.info, T.dark ? 0.13 : 0.07) },
-                  label: { show: true, position: 'insideTop', color: T.blue, fontSize: 11, formatter: '未来推算到期' } },
+                  // t_bc018e7b: distance 8 与顶网格线拉开，标注不再贴格线
+                  label: { show: true, position: 'insideTop', distance: 8, color: T.blue, fontSize: 11, formatter: '未来推算到期' } },
                 { xAxis: days[days.length - 1] },
             ]] : [];
+            // t_bc018e7b 响应式布局：窄屏(<700px)图例5项折两行，top 预留 64 容两行；宽屏单行维持 34。
+            // 日期标签只在**下格**显示一次（共享轴语义），上格刻度/标签全隐，彻底消除上格45°日期
+            // 挤进格间与下格轴名「净投放」叠印的问题；下格 bottom 64 容 45° 日期标签。
+            const netEl = document.getElementById('chart-net');
+            const narrow = !!netEl && netEl.clientWidth < 700;
             C.net.setOption({
                 tooltip: { trigger: 'axis', axisPointer: { type: 'cross' } },
-                legend: { data: ['当日投放', '推算到期', '上证指数', '净投放', '累计净投放'], top: 4 },
+                legend: narrow
+                    ? { data: ['当日投放', '推算到期', '上证指数', '净投放', '累计净投放'], top: 4, itemGap: 8, itemWidth: 18, itemHeight: 10, textStyle: { fontSize: 10 } }
+                    : { data: ['当日投放', '推算到期', '上证指数', '净投放', '累计净投放'], top: 4, itemGap: 10, itemWidth: 25, itemHeight: 14, textStyle: { fontSize: 12 } },
                 axisPointer: { link: [{ xAxisIndex: 'all' }] },
                 grid: [
-                    { left: 55, right: 55, top: 34, height: '42%' },
-                    { left: 55, right: 55, top: '58%', bottom: 58 },
+                    { left: 55, right: 55, top: narrow ? 64 : 34, height: '40%' },
+                    { left: 55, right: 55, top: '62%', bottom: 64 },
                 ],
                 xAxis: [
-                    { type: 'category', data: days, gridIndex: 0, axisLabel: { rotate: 45, fontSize: 10 }, axisLine: { lineStyle: { color: T.lineStrong } }, axisLabel: { color: T.axis } },
-                    { type: 'category', data: days, gridIndex: 1, axisLabel: { show: false }, axisTick: { show: false } },
+                    { type: 'category', data: days, gridIndex: 0, axisLabel: { show: false }, axisTick: { show: false }, axisLine: { lineStyle: { color: T.lineStrong } } },
+                    { type: 'category', data: days, gridIndex: 1, axisLabel: { show: true, rotate: 45, fontSize: 10, color: T.axis }, axisTick: { show: true } },
                 ],
                 yAxis: [
                     // splitLine 显式吃 T.grid（--grid-line token）：此前只给 type:'dashed' 无 color，
@@ -315,8 +324,23 @@
                     { name: '买断式逆回购', type: 'bar', stack: 't', data: fd.map(x => x.bo), itemStyle: { color: T.accent2 } },
                 ],
             });
-            window.addEventListener('resize', () => Object.values(C).forEach(c => c && c.resize()));
         }
+        // t_bc018e7b: resize 防抖 200ms 后整图重算（窄/宽屏布局分支依赖 clientWidth，只 c.resize() 不重算），
+        // 监听移到模块级注册一次，防 renderCharts 反复执行导致监听器叠加。
+        let __jtRz = null;
+        window.addEventListener('resize', () => {
+            clearTimeout(__jtRz);
+            __jtRz = setTimeout(() => {
+                if (!D) return;
+                renderCharts(D);
+                themeCharts();
+                ['chart-net', 'chart-type', 'chart-future'].forEach(id => {
+                    const el = document.getElementById(id);
+                    const inst = el && echarts.getInstanceByDom(el);
+                    if (inst) inst.resize();
+                });
+            }, 200);
+        });
         function themeCharts() {
             const T = JTTheme.colors();
             ['chart-net','chart-type','chart-future'].forEach(id => {
