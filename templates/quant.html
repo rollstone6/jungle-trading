@@ -332,7 +332,7 @@
         .scroll-fade { position: relative; }
         .scroll-fade::after {
             content: ''; position: absolute; top: 0; right: 0; bottom: 0; width: 28px;
-            background: linear-gradient(90deg, rgba(255,255,255,0), rgba(255,255,255,0.92));
+            background: linear-gradient(90deg, rgba(var(--panel-rgb),0), rgba(var(--panel-rgb),0.92));
             pointer-events: none; opacity: 0; transition: opacity 0.2s; border-radius: 0 8px 8px 0;
         }
         .scroll-fade.can-scroll::after { opacity: 1; }
