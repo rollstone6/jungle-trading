@@ -436,7 +436,8 @@ async def fetch_money_flow() -> dict:
 # === 4. 央行公开市场操作流动性 ===
 PBC_BASE = "http://www.pbc.gov.cn"
 RR_LIST = f"{PBC_BASE}/zhengcehuobisi/125207/125213/125431/125475/index.html"   # 逆回购（每日）
-BO_LIST = f"{PBC_BASE}/zhengcehuobisi/125207/125213/125431/125469/index.html"   # 买断式逆回购/央票
+# 买断式招标公告 2026 起已从 125469（只剩制度性公告）迁至 5492845 栏目
+BO_LIST = f"{PBC_BASE}/zhengcehuobisi/125207/125213/125431/5492845/index.html"
 
 
 def _decode(resp: httpx.Response) -> str:
@@ -521,30 +522,54 @@ def _policy_rate_point(rr_ops: list[dict]):
 
 
 def _parse_bo_article(html: str) -> list[dict]:
-    """解析买断式逆回购公告（期限/到期日在公告中明确；格式有变体，宽松匹配）"""
+    """解析买断式逆回购招标公告（期限/到期日在公告中明确；格式有变体，宽松匹配）。
+
+    2026 起 5492845 栏目新格式（到期日/操作日均为**中文日期**）：
+    「为保持银行体系流动性充裕，2026年11月16日，中国人民银行将以…开展2000亿元
+    买断式逆回购操作，期限为6个月（180天），到期日为2027年5月15日（遇节假日顺延）」
+    - 「（遇节假日顺延）」= 公告到期日已含顺延约定，直接使用，不再套 mat_fn 顺延；
+    - 操作日取正文「开展」前最近的中文日期（执行日），不是「操作室」后的落款发布日；
+    - 兼容旧 ISO「到期日为YYYY-MM-DD」写法（旧 fixture 护栏）；
+    - 栏目混有普通逆回购招标公告（如 [2026]第23号，无到期日）→ 不含「买断式」直接
+      跳过：每日实际量已由 125475 交易公告覆盖，禁止重复计入。
+    """
     text = re.sub(r"<[^>]+>", "", html)
     text = re.sub(r"\s+", "", text)
+    if "买断式" not in text:
+        return []
+    _ISO = r"(20\d\d)-(\d\d)-(\d\d)"
+    _CN = r"(20\d\d)年(\d{1,2})月(\d{1,2})日"
+
+    def _iso_from(m: re.Match, base: int) -> str:
+        return f"{m.group(base)}-{int(m.group(base + 1)):02d}-{int(m.group(base + 2)):02d}"
+
     out = []
+    # 完整格式：期限为N个月（M天）+ 到期日（中文或旧 ISO）
     pat_full = re.compile(
-        r"开展(\d+(?:\.\d+)?)亿元买断式逆回购操作，期限为(\d+)个月（(\d+)天），到期日为(20\d\d-\d{2}-\d{2})")
+        r"开展(\d+(?:\.\d+)?)亿元买断式逆回购操作，期限为(\d+)个月（(\d+)天），到期日为(?:" + _ISO + "|" + _CN + ")")
+    # lite 格式：明示到期日但无期限说明
     pat_lite = re.compile(
-        r"开展(\d+(?:\.\d+)?)亿元买断式逆回购操作[^。；]{0,100}?到期日为(20\d\d-\d{2}-\d{2})")
+        r"开展(\d+(?:\.\d+)?)亿元买断式逆回购操作[^。；]{0,100}?到期日为(?:" + _ISO + "|" + _CN + ")")
     for m in pat_full.finditer(text):
+        mat = _iso_from(m, 4) if m.group(4) else _iso_from(m, 7)
         out.append({
             "type": "买断式逆回购", "amount": float(m.group(1)),
             "term": f"{m.group(2)}个月", "days": int(m.group(3)),
-            "date_maturity": m.group(4),
+            "date_maturity": mat,
         })
     for m in pat_lite.finditer(text):
-        if any(abs(float(o["amount"]) - float(m.group(1))) < 1e-6
-               and o["date_maturity"] == m.group(2) for o in out):
+        mat = _iso_from(m, 2) if m.group(2) else _iso_from(m, 5)
+        if any(abs(o["amount"] - float(m.group(1))) < 1e-6 and o["date_maturity"] == mat for o in out):
             continue  # 已被完整模式捕获
         out.append({
             "type": "买断式逆回购", "amount": float(m.group(1)),
-            "term": None, "days": None, "date_maturity": m.group(2),
+            "term": None, "days": None, "date_maturity": mat,
         })
-    m = re.search(r"(20\d\d)年(\d{1,2})月(\d{1,2})日", text)
-    op_date = f"{m.group(1)}-{int(m.group(2)):02d}-{int(m.group(3)):02d}" if m else None
+    # 操作日 = 「开展」前最近的中文日期（执行日）；找不到则退化为首个中文日期
+    idx = text.find("开展")
+    cands = [m for m in re.finditer(_CN, text) if idx > 0 and m.start() < idx]
+    m = cands[-1] if cands else re.search(_CN, text)
+    op_date = _iso_from(m, 1) if m else None
     for o in out:
         o["date"] = op_date
     return out
@@ -568,17 +593,22 @@ async def _article_links(client: httpx.AsyncClient, list_url: str, marker: str, 
 
 
 async def _fetch_bo_list(client: httpx.AsyncClient) -> list[tuple[str, str]]:
-    """买断式公告：标题无日期，从 URL 时间戳(20260923140942…)提取操作日"""
+    """买断式招标公告列表（栏目 5492845）：标题无日期，从 URL 时间戳提取发布日期。
+
+    官网时间戳从 20 位(8+12) 变为 19 位(8+11)，用宽松正则 \\d{8}\\d{9,12}。
+    栏目混有普通逆回购招标公告（无到期日），解析层按「买断式」关键字过滤；
+    这里保留整页（≤20 条）不做二次过滤，避免解析口径变化时静默丢数据。
+    """
     html = _decode(await client.get(BO_LIST, headers=UA))
     seen, out = set(), []
-    for m in re.finditer(r'href=["\']([^"\']*125469/(\d{8})\d{12}/index\.html)["\']', html):
+    for m in re.finditer(r'href=["\']([^"\']*5492845/(\d{8})\d{9,12}/index\.html)["\']', html):
         href, ds = m.group(1), m.group(2)
         url = href if href.startswith("http") else PBC_BASE + (href if href.startswith("/") else "/" + href)
         date = f"{ds[:4]}-{ds[4:6]}-{ds[6:8]}"
         if url not in seen:
             seen.add(url)
             out.append((url, date))
-    return out[:12]
+    return out[:20]
 
 
 async def _sse_index_kline(client: httpx.AsyncClient, days: int) -> dict[str, float]:
@@ -771,7 +801,8 @@ async def fetch_pboc_liquidity() -> dict:
         "daily": daily,
         "future_dist": future_dist,
         "upcoming_days": upcoming_days[:6],
-        "upcoming_bo": upcoming_bo[:8],
+        "upcoming_bo": upcoming_bo[:12],  # 8→12：栏目迁 5492845 后存活买断式达 9+ 条，
+        # 截 8 会丢掉最远的 2027-05（最新一次操作的到期日，用户点名观察项）
         "rr_ops": rr_ops[:40],
         "points": points,
         "parse_errors": errors,
