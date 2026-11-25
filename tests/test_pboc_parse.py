@@ -196,6 +196,105 @@ def test_legacy_rate_expression_would_drop_overnight():
     assert (rates.get(1) if 1 == 7 else None) is None
 
 
+# =====================================================================
+# 买断式逆回购招标公告（栏目 5492845，2026 起新格式：中文到期日/操作日）
+# fixture = pbc.gov.cn 真实公告正文（探针 2026-11-25 实抓）。
+# 旧解析两个正则都要求 ISO 到期日 → 新格式全部漏解析（bo=0 事故根因）。
+# =====================================================================
+
+def test_bo_cn_full_6m_real():
+    """〔2026〕第22号真实公告：中文到期日 2027年5月15日；操作日=「开展」前执行日
+    2026-11-16（不是落款发布日 11-13）。若中文到期日分支被删，本用例必须 FAIL。"""
+    ops = rs._parse_bo_article(_load("bo_20261113_6m_cn.html"))
+    assert len(ops) == 1, ops
+    o = ops[0]
+    assert o["amount"] == 2000.0
+    assert o["term"] == "6个月" and o["days"] == 180
+    assert o["date_maturity"] == "2027-05-15"
+    assert o["date"] == "2026-11-16", "操作日必须取执行日而非落款日"
+
+
+def test_bo_cn_full_3m_real():
+    """〔2026〕第21号真实公告：3000亿/3个月（91天）/到期 2027-02-04/操作 2026-11-05。"""
+    ops = rs._parse_bo_article(_load("bo_20261104_3m_cn.html"))
+    assert len(ops) == 1, ops
+    o = ops[0]
+    assert (o["amount"], o["term"], o["days"]) == (3000.0, "3个月", 91)
+    assert o["date_maturity"] == "2027-02-04"
+    assert o["date"] == "2026-11-05"
+
+
+def test_bo_plain_rr_announcement_skipped():
+    """5492845 栏目混有普通逆回购招标公告（〔2026〕第23号，5000亿7天期，无到期日）：
+    不含「买断式」必须整条跳过——每日实际量已由 125475 交易公告覆盖，禁止重复计入。"""
+    assert rs._parse_bo_article(_load("bo_20261124_plain_rr_skip.html")) == []
+
+
+def test_bo_no_maturity_announcement_dropped():
+    """旧措辞（期限为N个月（M天）后无到期日，〔2026〕第6号）：parse 不到到期日 → 空列表，
+    fetch_pboc_liquidity 的 date_maturity 过滤兜住，不得凭空造到期日。"""
+    assert rs._parse_bo_article(_load("bo_20260313_no_maturity.html")) == []
+
+
+BO_ISO_LEGACY = (
+    '<div id="zoom"><p>为保持银行体系流动性充裕，2025年9月15日，中国人民银行以'
+    '固定数量、利率招标、多重价位中标方式开展6000亿元买断式逆回购操作，'
+    '期限为3个月（91天），到期日为2025-12-16（遇节假日顺延）。</p>'
+    '<p>中国人民银行公开市场业务操作室</p><p>2025年9月12日</p></div>'
+)
+
+def test_bo_iso_legacy_format_not_regression():
+    """ISO 到期日写法保留兼容（旧 fixture 护栏）：到期日直接取公告值，不再套顺延。"""
+    ops = rs._parse_bo_article(BO_ISO_LEGACY)
+    assert len(ops) == 1, ops
+    assert ops[0]["date_maturity"] == "2025-12-16"
+    assert ops[0]["date"] == "2025-09-15"
+
+
+BO_CN_LITE = (
+    '<div id="zoom"><p>2026年2月13日，中国人民银行以多重价位中标方式开展'
+    '10000亿元买断式逆回购操作，到期日为2026年8月13日（遇节假日顺延）。</p>'
+    '<p>中国人民银行公开市场业务操作室 2026年2月12日</p></div>'
+)
+
+def test_bo_cn_lite_format():
+    """lite 格式（无「期限为N个月」明示、仅中文到期日）：term=None、到期日仍解析。"""
+    ops = rs._parse_bo_article(BO_CN_LITE)
+    assert len(ops) == 1, ops
+    assert ops[0]["date_maturity"] == "2026-08-13"
+    assert ops[0]["term"] is None and ops[0]["amount"] == 10000.0
+    assert ops[0]["date"] == "2026-02-13"
+
+
+BO_LIST_HTML = (
+    '<a href="/zhengcehuobisi/125207/125213/125431/5492845/index.html">列表页</a>'
+    '<a href="/zhengcehuobisi/125207/125213/125431/5492845/2026111316452296143/index.html">第22号</a>'
+    '<a href="/zhengcehuobisi/125207/125213/125431/5492845/2026110416345613688/index.html">第21号</a>'
+    '<a href="http://www.pbc.gov.cn/zhengcehuobisi/125207/125213/125431/5492845/2026093016485666174/index.html">第19号</a>'
+    '<a href="/zhengcehuobisi/125207/125213/125431/125469/2026092314094200000/index.html">旧栏目不抓</a>'
+)
+
+def test_fetch_bo_list_loose_timestamp():
+    """列表抓取指向 5492845：19 位时间戳(8+11)必须匹配（旧正则 \\d{12} 匹配不到 = 事故根因之一）。"""
+    import asyncio
+
+    class _FakeResp:
+        encoding = "utf-8"
+        text = BO_LIST_HTML
+
+    class _FakeClient:
+        async def get(self, url, headers=None):
+            assert "5492845" in url, f"BO 列表必须指向 5492845，实际 {url}"
+            return _FakeResp()
+
+    pairs = asyncio.run(rs._fetch_bo_list(_FakeClient()))  # type: ignore[arg-type]
+    assert len(pairs) == 3, pairs
+    urls = [u for u, _ in pairs]
+    assert all("125469" not in u for u in urls)
+    assert pairs[0][1] == "2026-11-13"
+    assert pairs[2][0].startswith("http://www.pbc.gov.cn/")
+
+
 if __name__ == "__main__":
     import subprocess
     sys.exit(subprocess.call([sys.executable, "-m", "pytest", __file__, "-q"]))
