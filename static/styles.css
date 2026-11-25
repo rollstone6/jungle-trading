@@ -19,14 +19,14 @@
   --gain: var(--red); --loss: var(--green);   /* 红涨绿跌语义别名，全站唯一来源 */
   --warn: #f59e0b; --info: #3b82f6;           /* 警示/信息，只给需关注项 */
   --neutral-bg: #f3f4f6; --neutral-fg: #6b7280;
-  /* 走势四色渐变 token（t_915d5714 P2）：亮色=main 原字面（零回归）；dark 块降亮端点保白字≥4.5:1 */
-  --rg-squeeze-grad: linear-gradient(135deg, #f59e0b, #ef4444);
-  --rg-trending-grad: linear-gradient(135deg, #10b981, #0ea5e9);
-  --rg-ranging-grad: linear-gradient(135deg, #3b82f6, #6366f1);
-  --rg-neutral-grad: linear-gradient(135deg, #64748b, #94a3b8);
-  --rg-neutral-alt-grad: linear-gradient(135deg, #6b7280, #94a3b8);  /* index SSR 徽章 neutral 现值 */
-  --rg-expand-grad: linear-gradient(135deg, #ef4444, #f97316);       /* 波动扩张红橙现值 */
-  --rg-squeeze-alt-grad: linear-gradient(135deg, #f59e0b, #eab308);  /* vc-state.squeeze 原渐变（亮色零回归） */
+  /* 走势四色渐变 token（t_915d5714 P2）：亮色端点经 t_7b0c55f9 WCAG 压暗（白字≥4.5:1，HSV 色相保持不变）；dark 块降亮端点保白字≥4.5:1 */
+  --rg-squeeze-grad: linear-gradient(135deg, #a16807, #d53d3d);
+  --rg-trending-grad: linear-gradient(135deg, #0b845c, #0a7cae);
+  --rg-ranging-grad: linear-gradient(135deg, #3472d8, #6164ed);
+  --rg-neutral-grad: linear-gradient(135deg, #64748b, #6b7685);
+  --rg-neutral-alt-grad: linear-gradient(135deg, #6b7280, #6b7685);  /* index SSR 徽章 neutral（首端点原值已达标保留） */
+  --rg-expand-grad: linear-gradient(135deg, #d53d3d, #bc5711);       /* 波动扩张红橙 */
+  --rg-squeeze-alt-grad: linear-gradient(135deg, #a16807, #937005);  /* vc-state.squeeze 橙→黄 */
   /* 语义彩底徽章的「白字安全底」token（t_915d5714 P2）：亮色=现值别名零回归；dark 降亮≥4.5:1 */
   --solid-accent: var(--accent);
   --solid-green: var(--green);
