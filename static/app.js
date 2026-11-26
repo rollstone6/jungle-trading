@@ -1415,6 +1415,39 @@ function bindKlineCharts() {
 
 bindKlineCharts();
 
+// 消息面区块折叠（t_946d673a：复刻日K折叠交互，默认收缩，localStorage 按 code 记忆展开态）
+function bindNewsCards() {
+  const cards = [...document.querySelectorAll(".news-card")];
+  if (!cards.length) return;
+  const KEY = "jungle-news-expand-v1";
+  let expanded = {};
+  try { expanded = JSON.parse(localStorage.getItem(KEY) || "{}"); } catch (e) { expanded = {}; }
+  const save = () => { try { localStorage.setItem(KEY, JSON.stringify(expanded)); } catch (e) {} };
+
+  cards.forEach((card) => {
+    // 按钮与列表同容器内查询（t_c2936bbb 教训），绑定前判空
+    const toggle = card.querySelector(".news-toggle");
+    const chev = toggle ? toggle.querySelector(".kchev") : null;
+    const code = card.id.replace(/^newscard-/, "");
+    if (!toggle) return;
+
+    const setOpen = (isOpen) => {
+      card.classList.toggle("collapsed", !isOpen);
+      if (chev) chev.textContent = isOpen ? "▾ 收起" : "▸ 展开";
+      toggle.setAttribute("aria-expanded", isOpen ? "true" : "false");
+    };
+
+    toggle.addEventListener("click", () => {
+      expanded[code] = !card.classList.contains("collapsed") ? false : true;
+      save();
+      setOpen(expanded[code]);
+    });
+    setOpen(!!expanded[code]);
+  });
+}
+
+bindNewsCards();
+
 // ETF资金流向（双维度：盘中主力净流入 + 当日申购净流入T+1）
 let _etfData = null;
 let _etfTab = 'realtime';
