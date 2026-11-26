@@ -1814,6 +1814,13 @@ li {
   font-size: 13px;
 }
 
+/* t_96e50d09 R1修复：折叠箭头复刻日K规格（原内联规则作用域限定 .kline-toggle，消息面不匹配） */
+.news-toggle .kchev {
+  font-size: 11px;
+  color: var(--accent);
+  font-weight: 600;
+}
+
 .news-card:not(.collapsed) .news-head {
   border-bottom: 1px solid rgba(var(--amber-rgb), 0.14);
 }
