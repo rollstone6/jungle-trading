@@ -1801,6 +1801,52 @@ li {
   font-size: 11px;
 }
 
+/* 消息面折叠卡（t_946d673a：复刻 .kline-card 折叠交互，amber 语义色保留；
+   几何规格与 index.html 内联 .kline-card 覆盖层一致：radius 12 / padding 0 / margin-top 12） */
+.news-card {
+  margin-top: 12px;
+  padding: 0;
+  border: 1px solid rgba(var(--amber-rgb), 0.14);
+  border-radius: 12px;
+  background: var(--tint-amber-bg);
+  overflow: hidden;
+}
+
+.news-card.collapsed .news-list { display: none; }
+
+.news-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 9px 12px;
+  font: inherit;
+}
+
+.news-head strong {
+  font-size: 13px;
+}
+
+/* t_96e50d09 R1修复：折叠箭头复刻日K规格（原内联规则作用域限定 .kline-toggle，消息面不匹配） */
+.news-toggle .kchev {
+  font-size: 11px;
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.news-card:not(.collapsed) .news-head {
+  border-bottom: 1px solid rgba(var(--amber-rgb), 0.14);
+}
+
+.news-card .news-list {
+  margin: 0;
+  padding: 6px 12px 10px 28px;
+}
+
 .mini-kline {
   position: relative;
   min-height: 180px;
