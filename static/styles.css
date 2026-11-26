@@ -130,6 +130,23 @@
   --panel-rgb: 22, 29, 43;
 }
 
+/* ===== 策略信号统一 pill 规格（t_ee76cf9f，全站基准） =====
+   所有「策略信号」类徽章（买/卖、K线策略状态、金/银手指、regime 徽章/计数）
+   统一几何：pill 999px / 11.5px/600 / padding 2px 10px / line-height 1.6 / nowrap。
+   语义色（A股红买绿卖、金手指 amber、银手指 blue）由各组件自带，本类只管几何。
+   ⚠ 各模板 inline <style> 层叠在外链 styles.css 之后，同特异性即覆盖——
+   quant .badge/.finger、backtest .regime-badge、index .rc-cnt 的几何为手抄同值，
+   改规格必须五处同步（.sig-pill + 四个模板内联块）。 */
+.sig-pill {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 600;
+  line-height: 1.6;
+  white-space: nowrap;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -1947,14 +1964,23 @@ li {
 .k-st-s rect { fill: #2563eb; }
 .k-st-t rect { fill: #f97316; }
 
+/* 统一 pill 几何（t_ee76cf9f，= .sig-pill 规格）。渲染点在 app.js:1205 的 .k-legend 内
+   （非 .kline-tip），父级只有继承属性、无同属性竞争规则，单类名即可生效。
+   ⚠ 改选择器前先在浏览器 getComputedStyle 验证 font-weight 是否被 .k-legend 系压过。 */
 .k-strat-state {
-  padding: 0 6px;
-  border-radius: 4px;
-  font-size: 10px;
-  font-weight: 800;
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 600;
+  line-height: 1.6;
+  white-space: nowrap;
 }
-.k-strat-state.st-long { background: rgba(var(--red-rgb), 0.1); color: var(--red); }
-.k-strat-state.st-short { background: rgba(var(--green-rgb), 0.1); color: var(--green); }
+/* 语义不变：多头=红系、空头=绿系。原 rgba(red/green,0.1) 彩底 + 纯 --red/--green 文字
+   实测对比度亮 4.15 / 暗 3.95，不过本卡 WCAG≥4.5 门槛；改走批次0 既有 tint 语义对
+   （--tint-red/green-bg/-fg，为"彩底深字"设计，亮 6.17/6.5+ 暗 7.1+），色相保持红/绿。 */
+.k-strat-state.st-long { background: var(--tint-red-bg); color: var(--tint-red-fg); }
+.k-strat-state.st-short { background: var(--tint-green-bg); color: var(--tint-green-fg); }
 
 /* ⚙ 设置入口（仅展开时可见） */
 .k-gear {
