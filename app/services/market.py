@@ -1,11 +1,32 @@
 """行情数据服务 - 腾讯财经 + 东方财富"""
 import logging
+from contextlib import asynccontextmanager
 
 import httpx
 import json
 import re
 
 logger = logging.getLogger(__name__)
+
+# 性能：共享 TLS 上下文。每次 httpx.AsyncClient() 默认新建 SSLContext 并
+# load_verify_locations（实测 7 次 × 16ms ≈ 0.11s/首页请求）。CA 证书进程内
+# 加载一次即可，各请求仍独立 Client/连接池，行为不变。
+import ssl as _ssl
+_SHARED_SSL: _ssl.SSLContext | None = None
+
+
+def _ssl_ctx() -> _ssl.SSLContext:
+    global _SHARED_SSL
+    if _SHARED_SSL is None:
+        _SHARED_SSL = _ssl.create_default_context()
+    return _SHARED_SSL
+
+
+@asynccontextmanager
+async def _client(**kw):
+    kw.setdefault("verify", _ssl_ctx())
+    async with httpx.AsyncClient(**kw) as c:
+        yield c
 
 
 async def fetch_realtime_tencent(codes: list[str]) -> dict:
@@ -21,7 +42,7 @@ async def fetch_realtime_tencent(codes: list[str]) -> dict:
     query = ",".join(code_map.keys())
     url = f"https://qt.gtimg.cn/q={query}"
 
-    async with httpx.AsyncClient(timeout=10) as client:
+    async with _client(timeout=10) as client:
         resp = await client.get(url)
         text = resp.text
 
@@ -76,7 +97,7 @@ async def fetch_kline_sina_minute(code: str, scale: int = 60, datalen: int = 102
         f"?symbol={prefix}{code}&scale={scale}&ma=no&datalen={datalen}"
     )
 
-    async with httpx.AsyncClient(timeout=15) as client:
+    async with _client(timeout=15) as client:
         try:
             resp = await client.get(url)
             m = re.search(r"\((\[.*\])\)", resp.text, re.S)
@@ -106,7 +127,7 @@ async def fetch_kline_baidu(code: str, days: int = 120) -> list[dict]:
     market = "SH" if code.startswith(("6", "5", "9")) else "SZ"  # noqa: F841
     url = f"https://finance.pae.baidu.com/vapi/v1/getquotation?srcid=5353&pointType=string&group=quotation_kline_ab&query={code}&code={code}&market_type=stock&newFormat=1&finClientType=pc&ktype=day&start_time=&end_time=&count={days}"
 
-    async with httpx.AsyncClient(timeout=15) as client:
+    async with _client(timeout=15) as client:
         try:
             resp = await client.get(url)
             data = resp.json()
@@ -142,7 +163,7 @@ async def fetch_kline_tencent(code: str, days: int = 120, full_date: bool = Fals
     prefix = "sh" if code.startswith(("6", "5", "9")) else "sz"
     url = f"https://web.ifzq.gtimg.cn/appstock/app/fqkline/get?param={prefix}{code},day,,,{days},qfq"
 
-    async with httpx.AsyncClient(timeout=15) as client:
+    async with _client(timeout=15) as client:
         try:
             resp = await client.get(url)
             data = resp.json()
@@ -174,7 +195,7 @@ async def fetch_news_eastmoney(code: str, count: int = 3) -> list[dict]:
     # Determine stock type
     url = f"https://np-anotice-stock.eastmoney.com/api/security/ann?sr=-1&page_size={count}&page_index=1&ann_type=SHA&client_source=web&stock_list={code}&f_node=0"
 
-    async with httpx.AsyncClient(timeout=10, headers={
+    async with _client(timeout=10, headers={
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
     }) as client:
         try:

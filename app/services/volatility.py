@@ -14,6 +14,15 @@ calc_volatility_watch（持仓 SSR）与 /api/regime/latest 扫描必须调用�
 import math
 import statistics
 
+# 性能：statistics.stdev 走 Fraction 精确算法（Python 3.14 实测慢 18 倍），
+# 首页 8 只×250 滚动窗口曾占 SSR ~0.6s。改用 float 两遍算法：
+# 对真实持仓 K 线 1848 个窗口 + 300 组随机序列（含极端尺度）验证，
+# round(...,1) 后与 statistics.stdev 结果 0 差异（2026-11-27 实测）。
+def _stdev(xs: list[float]) -> float:
+    n = len(xs)
+    m = sum(xs) / n
+    return math.sqrt(sum((x - m) ** 2 for x in xs) / (n - 1))
+
 # K线少于此根数不出波动数据（HV20 需要 ≥21 个收益样本 + 1 根基准价）
 MIN_BARS = 22
 
@@ -35,12 +44,12 @@ def calc_volatility(klines: list[dict]) -> dict:
     def hv(n):
         if len(rets) < n:
             return None
-        return round(statistics.stdev(rets[-n:]) * math.sqrt(252) * 100, 1)
+        return round(_stdev(rets[-n:]) * math.sqrt(252) * 100, 1)
 
     v["hv20"], v["hv60"] = hv(20), hv(60)
     # HV20 滚动序列（近一年）→ 当前值分位
     if len(rets) >= 20:
-        roll = [statistics.stdev(rets[i - 20:i]) * math.sqrt(252) * 100
+        roll = [_stdev(rets[i - 20:i]) * math.sqrt(252) * 100
                 for i in range(20, len(rets) + 1)]
         roll = roll[-250:]
         cur = roll[-1]

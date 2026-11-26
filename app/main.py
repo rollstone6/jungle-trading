@@ -150,7 +150,23 @@ if not SITE_PASSWORD:
 BASE_DIR = Path(__file__).parent.parent
 
 app = FastAPI(title="Jungle Genius Trading Desktop")
-app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
+# 性能：gzip 压缩。首页 SSR ~285KB、app.js 80KB、styles.css 76KB 均为高重复
+# 文本，压缩后传输量降 ~75%（弱网/手机流量收益明显）。min 1KB 以下不压。
+from starlette.middleware.gzip import GZipMiddleware
+app.add_middleware(GZipMiddleware, minimum_size=1024)
+
+
+class _CachedStatic(StaticFiles):
+    """静态资源带内容版本戳（?v=xxx），更新=新 URL，可安全 immutable 长缓存。
+    浏览器命中期内零回源（此前每次刷新都发 304 协商请求）。"""
+
+    def file_response(self, *args, **kwargs):
+        resp = super().file_response(*args, **kwargs)
+        resp.headers.setdefault("Cache-Control", "public, max-age=31536000, immutable")
+        return resp
+
+
+app.mount("/static", _CachedStatic(directory=str(BASE_DIR / "static")), name="static")
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 
 
