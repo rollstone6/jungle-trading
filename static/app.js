@@ -389,7 +389,7 @@ function bindManualPositionForm() {
     draftBar.dataset.draft = raw;
   }
 
-  form.querySelector("[data-draft-restore]").addEventListener("click", () => {
+  form.querySelector("[data-draft-restore]")?.addEventListener("click", () => {
     try {
       const items = JSON.parse(draftBar.dataset.draft || "[]");
       rows.innerHTML = "";
@@ -405,7 +405,7 @@ function bindManualPositionForm() {
     draftBar.hidden = true;
     updateChanges();
   });
-  form.querySelector("[data-draft-discard]").addEventListener("click", () => {
+  form.querySelector("[data-draft-discard]")?.addEventListener("click", () => {
     try { localStorage.removeItem(DRAFT_KEY); } catch (_) {}
     draftBar.hidden = true;
   });
@@ -436,7 +436,7 @@ function bindManualPositionForm() {
   }
 
   document.querySelectorAll("[data-open-position-modal]").forEach((b) => b.addEventListener("click", openModal));
-  form.querySelectorAll("[data-close-position-modal]").forEach((b) => b.addEventListener("click", closeModal));
+  modal?.querySelectorAll("[data-close-position-modal]").forEach((b) => b.addEventListener("click", closeModal));
   if (modal) {
     modal.addEventListener("click", (event) => {
       if (event.target === modal) closeModal();
